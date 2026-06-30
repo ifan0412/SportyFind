@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
@@ -62,7 +62,6 @@ const DEFAULT_FORM = {
   avatar_url: "", is_coach: false, coach_rate: 0, status_tag: "inactive",
 };
 
-// Pure function — defined once, never recreated
 const compressImage = (file: File): Promise<File | Blob> =>
   new Promise((resolve) => {
     if (file.size <= 1.5 * 1024 * 1024) return resolve(file);
@@ -90,8 +89,7 @@ const compressImage = (file: File): Promise<File | Blob> =>
   });
 
 // ==========================================
-// StatusBadge — pure component, stable ref,
-// never causes parent re-render
+// StatusBadge
 // ==========================================
 const StatusBadge = ({ tag }: { tag: string | null }) => {
   if (tag === "open_to_team")
@@ -117,11 +115,12 @@ const StatusBadge = ({ tag }: { tag: string | null }) => {
 // Main Component
 // ==========================================
 function ProfilePageContent() {
-  const supabase = createSupabaseBrowserClient();
+  // FIX 1: useMemo so supabase client is never recreated on re-render
+  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+
   const avatarInputRef    = useRef<HTMLInputElement>(null);
   const mediaInputRef     = useRef<HTMLInputElement>(null);
   const pendingAvatarFile = useRef<File | Blob | null>(null);
-  // Track blob URL so we can revoke it — prevents memory leaks
   const blobUrlRef        = useRef<string | null>(null);
 
   const [user,       setUser]       = useState<any>(null);
@@ -143,13 +142,6 @@ function ProfilePageContent() {
   const [isUploadingMedia,  setIsUploadingMedia]  = useState(false);
   const [galleryMedia,      setGalleryMedia]      = useState<MediaItem[]>(INITIAL_GALLERY);
 
-  // ==========================================
-  // ROOT CAUSE FIX #1
-  // loadProfileData wrapped in useCallback so
-  // it has a stable reference and never triggers
-  // extra renders. All 3 queries run in PARALLEL
-  // via Promise.all — 3x faster than sequential.
-  // ==========================================
   const loadProfileData = useCallback(async (userId: string) => {
     try {
       const [{ data: prof }, { data: usData }, { data: sData }] = await Promise.all([
@@ -180,33 +172,22 @@ function ProfilePageContent() {
     }
   }, [supabase]);
 
-  // ROOT CAUSE FIX #2 — loadProfileData is now
-  // stable so this effect only fires once on mount
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user: authUser } }) => {
       if (authUser) { setUser(authUser); loadProfileData(authUser.id); }
       else setIsLoading(false);
     });
-  }, [loadProfileData]);
+  }, [loadProfileData, supabase]);
 
-  // ROOT CAUSE FIX #3 — revoke blob URLs on unmount
   useEffect(() => {
     return () => { if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current); };
   }, []);
 
-  // ==========================================
-  // ROOT CAUSE FIX #4
-  // All handlers in useCallback — stable refs,
-  // no new function created on every render.
-  // setEditForm uses functional updater (prev =>)
-  // to avoid stale closure bugs.
-  // ==========================================
   const handleAvatarUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawFile = e.target.files?.[0];
     if (!rawFile) return;
     const compressed = await compressImage(rawFile);
     pendingAvatarFile.current = compressed;
-    // Revoke previous blob before creating a new one
     if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
     const localUrl = URL.createObjectURL(compressed);
     blobUrlRef.current = localUrl;
@@ -274,8 +255,6 @@ function ProfilePageContent() {
     setIsSubmittingSport(false);
   }, [selectedSportId, user, supabase, loadProfileData]);
 
-  // ROOT CAUSE FIX #5 — extracted from inline JSX,
-  // no more async arrow functions created in render
   const handleRemoveSport = useCallback(async (us: UserSport) => {
     if (!window.confirm(`確定要自武器庫移除 ${us.sports?.name} 嗎？`)) return;
     const { error } = await supabase.from("user_sports").delete().eq("id", us.id);
@@ -307,9 +286,6 @@ function ProfilePageContent() {
     alert("名片網址已複製！");
   }, [user]);
 
-  // ==========================================
-  // Render
-  // ==========================================
   if (isLoading) return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center text-zinc-500 font-mono">
       安全連線中...
@@ -476,19 +452,19 @@ function ProfilePageContent() {
           {/* ── Right Main Area ── */}
           <div className="lg:col-span-8 xl:col-span-9 flex flex-col">
 
-            {/* Tab Bar — TABS array is static, never recreated */}
-            <div className="bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 p-1.5 rounded-2xl flex overflow-x-auto hide-scrollbar sticky top-16 z-30 mb-8">
+            {/* FIX 2 & 3: Tab Bar — whitespace-nowrap prevents Chinese text wrapping */}
+            <div className="bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 p-1.5 rounded-2xl flex sticky top-16 z-30 mb-8">
               {TABS.map(t => (
                 <button
                   key={t.id}
                   onClick={() => setActiveTab(t.id)}
-                  className={`flex-1 min-w-[100px] flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-black transition-all duration-200 ${
+                  className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-2.5 rounded-xl text-xs font-black transition-all duration-200 whitespace-nowrap ${
                     activeTab === t.id
                       ? "bg-slate-50 text-black shadow-lg scale-[1.02]"
                       : "text-zinc-500 hover:text-white hover:bg-slate-800/50"
                   }`}
                 >
-                  <span className="text-base">{t.icon}</span>
+                  <span className="text-sm">{t.icon}</span>
                   <span>{t.label}</span>
                 </button>
               ))}
@@ -564,7 +540,6 @@ function ProfilePageContent() {
                             </div>
                           </div>
                           <div className="pt-4 mt-4 border-t border-slate-800/80 flex justify-end relative z-10">
-                            {/* ROOT CAUSE FIX #5 — stable handler, no inline async */}
                             <button
                               onClick={() => handleRemoveSport(us)}
                               className="text-red-400 hover:text-red-300 text-xs font-bold flex items-center gap-1 bg-red-500/10 hover:bg-red-500/20 px-3 py-1.5 rounded-xl border border-red-500/20 transition"
