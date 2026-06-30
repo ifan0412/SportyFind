@@ -1,5 +1,7 @@
 "use client";
 
+import React, { ReactElement } from "react";
+
 export interface UserSport {
   sports?: { name: string } | null;
   metadata?: { position?: string | null } | null;
@@ -14,7 +16,7 @@ export interface AthleteCardData {
   user_sports?: UserSport[] | null;
 }
 
-const STATUS_BADGE: Record<string, JSX.Element> = {
+const STATUS_BADGE: Record<string, ReactElement> = {
   open_to_team: (
     <span className="bg-emerald-500/10 text-emerald-400 text-xs px-3 py-1 rounded-full font-black">
       🟢 尋找球隊
