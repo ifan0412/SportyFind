@@ -10,11 +10,6 @@ import { cn } from "@/lib/utils";
 import { createBrowserClient } from "@supabase/ssr";
 import type { User } from "@supabase/supabase-js";
 
-const supabase = createBrowserClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
 const navLinks = [
   { href: "/events",          label: "Events",  icon: CalendarDays  },
   { href: "/network/players", label: "Players", icon: Users         },
@@ -28,13 +23,17 @@ export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
 
+  // ✅ FIXED: moved inside the component
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+
   useEffect(() => {
-    // Get initial session
     supabase.auth.getUser().then(({ data }) => {
       setUser(data.user ?? null);
     });
 
-    // Listen for auth changes (login/logout)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
     });
