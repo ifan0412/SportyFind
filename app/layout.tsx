@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
-import AuthStatus from "@/components/AuthStatus"; 
+import AuthStatus from "@/components/AuthStatus";
 import "./globals.css";
-import Providers from "./providers"; // <--- 新增這行
+import Providers from "./providers";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
@@ -35,9 +35,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </nav>
           </div>
         </header>
-        {/* 在此處加上 Providers 包覆 */}
         <main className="flex-1 bg-pro-slate-950 py-6">
-            <Providers>{children}</Providers>
+          <Providers>{children}</Providers>
         </main>
       </body>
     </html>

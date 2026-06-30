@@ -1,16 +1,19 @@
-// 檔案: app/providers.tsx
 "use client";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ThemeProvider } from "next-themes";
+import { Toaster } from "@/components/ui/sonner";
 import { useState } from "react";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
-  // 建立助理
   const [queryClient] = useState(() => new QueryClient());
 
   return (
     <QueryClientProvider client={queryClient}>
-      {children}
+      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+        {children}
+        <Toaster richColors closeButton position="top-right" />
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }

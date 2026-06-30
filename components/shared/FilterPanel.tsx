@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { X, SlidersHorizontal, RotateCcw } from "lucide-react";
 
 export interface FilterOption {
   label: string;
@@ -63,25 +64,28 @@ function FilterMultiSelect({
         setIsOpen(false);
       }
     };
-
     document.addEventListener("mousedown", handleOutsideClick);
     return () => document.removeEventListener("mousedown", handleOutsideClick);
   }, []);
 
   const toggleOption = (value: string) => {
-    if (selected.includes(value)) {
-      onChange(selected.filter((item) => item !== value));
-      return;
-    }
-
-    onChange([...selected, value]);
+    onChange(
+      selected.includes(value)
+        ? selected.filter((item) => item !== value)
+        : [...selected, value]
+    );
   };
+
+  // Fix: show label not value
+  const selectedLabels = options
+    .filter((o) => selected.includes(o.value))
+    .map((o) => o.label);
 
   const displayText =
     selected.length === 0
       ? placeholder
       : selected.length === 1
-        ? selected[0]
+        ? selectedLabels[0]
         : `已篩選 ${selected.length} 個項目`;
 
   return (
@@ -100,14 +104,11 @@ function FilterMultiSelect({
         </span>
       </button>
 
-      {isOpen ? (
+      {isOpen && (
         <div className="absolute top-[72px] left-0 right-0 z-50 flex max-h-60 flex-col overflow-y-auto overflow-x-hidden rounded-xl border border-pro-slate-700 bg-pro-slate-800 py-1 shadow-2xl">
           <button
             type="button"
-            onClick={() => {
-              onChange([]);
-              setIsOpen(false);
-            }}
+            onClick={() => { onChange([]); setIsOpen(false); }}
             className={`flex cursor-pointer items-center justify-between px-4 py-3 text-xs font-bold transition hover:bg-pro-slate-700 ${
               selected.length === 0
                 ? "bg-pro-slate-900/50 text-blue-400"
@@ -115,23 +116,20 @@ function FilterMultiSelect({
             }`}
           >
             <span>顯示所有項目 (取消篩選)</span>
-            {selected.length === 0 ? (
-              <span className="text-blue-500">✓</span>
-            ) : null}
+            {selected.length === 0 && <span className="text-blue-500">✓</span>}
           </button>
+
           <div className="mx-2 my-1 h-px bg-pro-slate-700/80" />
+
           {options.map((option) => {
             const isSelected = selected.includes(option.value);
-
             return (
               <button
                 key={option.value}
                 type="button"
                 onClick={() => toggleOption(option.value)}
                 className={`flex cursor-pointer items-center justify-between px-4 py-3 text-xs font-bold transition hover:bg-pro-slate-700 ${
-                  isSelected
-                    ? "bg-pro-slate-900/30 text-blue-400"
-                    : "text-slate-300"
+                  isSelected ? "bg-pro-slate-900/30 text-blue-400" : "text-slate-300"
                 }`}
               >
                 <span className="flex items-center gap-2">
@@ -142,9 +140,7 @@ function FilterMultiSelect({
                         : "border-pro-slate-600 bg-pro-slate-900"
                     }`}
                   >
-                    {isSelected ? (
-                      <span className="text-[9px] text-white">✓</span>
-                    ) : null}
+                    {isSelected && <span className="text-[9px] text-white">✓</span>}
                   </span>
                   {option.label}
                 </span>
@@ -152,7 +148,7 @@ function FilterMultiSelect({
             );
           })}
         </div>
-      ) : null}
+      )}
     </div>
   );
 }
@@ -176,7 +172,7 @@ function FilterSingleSelect({
       </label>
       <select
         value={value}
-        onChange={(event) => onChange(event.target.value)}
+        onChange={(e) => onChange(e.target.value)}
         className={`h-[46px] w-full cursor-pointer appearance-none rounded-xl border border-pro-slate-700/80 bg-pro-slate-950 px-4 py-3 text-xs font-black transition focus:outline-none sm:text-sm ${accentClass}`}
       >
         {options.map((option) => (
@@ -197,36 +193,25 @@ function FilterControls({
   onSearchChange,
   searchPlaceholder,
   resetColSpanClass = "lg:col-span-2",
-}: Omit<
-  FilterPanelProps,
-  "mobileTitle" | "mobileApplyLabel" | "resultCount"
->) {
+}: Omit<FilterPanelProps, "mobileTitle" | "mobileApplyLabel" | "resultCount">) {
   return (
     <div className="space-y-4">
-      {onSearchChange ? (
+      {onSearchChange && (
         <div className="relative">
           <input
             type="text"
             value={searchQuery ?? ""}
-            onChange={(event) => onSearchChange(event.target.value)}
-            placeholder={
-              searchPlaceholder ??
-              "搜尋姓名、技術關鍵字或地區 (例如: 長跑、九龍)..."
-            }
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder={searchPlaceholder ?? "搜尋姓名、技術關鍵字或地區..."}
             className="w-full rounded-2xl border border-pro-slate-700/80 bg-pro-slate-950 py-3.5 pr-4 pl-11 text-xs font-bold text-white placeholder:text-slate-500 transition focus:border-pro-blue-500 focus:outline-none sm:text-sm"
           />
-          <span className="absolute top-4 left-4 text-sm text-slate-500">
-            🔍
-          </span>
+          <span className="absolute top-4 left-4 text-sm text-slate-500">🔍</span>
         </div>
-      ) : null}
+      )}
 
       <div className="grid grid-cols-1 gap-3 pt-1 sm:grid-cols-2 lg:grid-cols-12">
         {fields.map((field) => (
-          <div
-            key={field.id}
-            className={field.colSpanClass ?? "lg:col-span-5"}
-          >
+          <div key={field.id} className={field.colSpanClass ?? "lg:col-span-5"}>
             {field.type === "multi-select" ? (
               <FilterMultiSelect
                 label={field.label}
@@ -252,13 +237,14 @@ function FilterControls({
             type="button"
             onClick={onReset}
             disabled={!hasActiveFilters}
-            className={`flex h-[46px] w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl border px-4 py-3 text-xs font-bold transition ${
+            className={`flex h-[46px] w-full items-center justify-center gap-1.5 rounded-xl border px-4 py-3 text-xs font-bold transition ${
               hasActiveFilters
-                ? "border-pro-slate-800 bg-pro-slate-950 text-slate-400 hover:bg-pro-slate-800 hover:text-white"
+                ? "cursor-pointer border-pro-slate-800 bg-pro-slate-950 text-slate-400 hover:bg-pro-slate-800 hover:text-white"
                 : "cursor-not-allowed border-pro-slate-800 bg-pro-slate-950 text-slate-600"
             }`}
           >
-            <span>↺</span> 重置
+            <RotateCcw className="size-3.5" />
+            重置
           </button>
         </div>
       </div>
@@ -287,17 +273,20 @@ export function FilterPanel({
 
   return (
     <>
+      {/* Mobile trigger */}
       <button
         type="button"
         onClick={() => setIsFilterOpen(true)}
         className="mb-6 flex w-full items-center justify-center gap-2 rounded-xl border border-pro-slate-700 bg-pro-slate-900 py-3.5 text-sm font-bold text-slate-200 shadow-lg transition-all hover:bg-pro-slate-800 active:scale-95 md:hidden"
       >
-        <span>⚙️</span> {mobileTitle}
-        {hasActiveFilters ? (
-          <span className="ml-1 h-2 w-2 rounded-full bg-pro-blue-500" />
-        ) : null}
+        <SlidersHorizontal className="size-4" />
+        {mobileTitle}
+        {hasActiveFilters && (
+          <span className="ml-1 h-2 w-2 rounded-full bg-blue-500" />
+        )}
       </button>
 
+      {/* Desktop panel */}
       <div className="relative z-30 mb-8 hidden rounded-3xl border border-pro-slate-800 bg-pro-slate-900 p-4 shadow-2xl sm:p-6 md:block">
         <FilterControls
           fields={fields}
@@ -310,28 +299,26 @@ export function FilterPanel({
         />
       </div>
 
-      {isFilterOpen ? (
+      {/* Mobile bottom sheet */}
+      {isFilterOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center md:hidden">
           <button
             type="button"
             aria-label="Close filter panel"
-            className="absolute inset-0 bg-pro-slate-950/80 backdrop-blur-sm transition-opacity"
+            className="absolute inset-0 bg-pro-slate-950/80 backdrop-blur-sm"
             onClick={() => setIsFilterOpen(false)}
           />
           <div className="relative max-h-[85vh] w-full overflow-y-auto rounded-t-3xl border-t border-pro-slate-800 bg-pro-slate-950 p-6 pb-10 shadow-2xl animate-in slide-in-from-bottom-8 duration-300 ease-out">
+            
+            {/* Mobile sheet header */}
             <div className="mb-6 flex items-center justify-between">
-              <h2 className="flex items-center gap-2 text-xl font-black text-white">
-                {mobileTitle}
-                <span className="text-sm font-medium text-slate-500">
-                  Filters
-                </span>
-              </h2>
+              <h2 className="text-xl font-black text-white">{mobileTitle}</h2>
               <button
                 type="button"
                 onClick={() => setIsFilterOpen(false)}
-                className="flex h-8 w-8 items-center justify-center rounded-full border border-pro-slate-800 bg-pro-slate-900 p-2 text-sm font-bold text-slate-400 hover:text-white"
+                className="flex h-8 w-8 items-center justify-center rounded-full border border-pro-slate-800 bg-pro-slate-900 text-slate-400 hover:text-white transition-colors"
               >
-                ✕
+                <X className="size-4" />
               </button>
             </div>
 
@@ -348,13 +335,13 @@ export function FilterPanel({
             <button
               type="button"
               onClick={() => setIsFilterOpen(false)}
-              className="mt-8 w-full rounded-xl bg-pro-blue-600 py-4 font-bold text-white shadow-lg shadow-pro-blue-900/40 transition-all hover:bg-pro-blue-500 active:scale-95"
+              className="mt-8 w-full rounded-xl bg-blue-600 py-4 font-bold text-white shadow-lg shadow-blue-900/40 transition-all hover:bg-blue-500 active:scale-95"
             >
               {mobileApplyLabel(resultCount)}
             </button>
           </div>
         </div>
-      ) : null}
+      )}
     </>
   );
 }

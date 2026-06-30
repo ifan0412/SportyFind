@@ -12,9 +12,7 @@ import {
 
 const CoachesDirectory = dynamic(
   () => Promise.resolve(CoachesDirectoryComponent),
-  {
-    ssr: false,
-  },
+  { ssr: false },
 );
 
 interface MockCoach {
@@ -126,7 +124,6 @@ function CoachesDirectoryComponent() {
           (district) =>
             coach.district.includes(district) || coach.district === "全港 All",
         );
-
       const matchRate =
         selectedRates.length === 0 ||
         selectedRates.some((rate) => {
@@ -136,7 +133,6 @@ function CoachesDirectoryComponent() {
           if (rate === "high") return coach.hourlyRate > 600;
           return true;
         });
-
       return matchSport && matchDistrict && matchRate;
     });
   }, [mockCoaches, selectedSports, selectedRates, selectedDistricts]);
@@ -186,7 +182,7 @@ function CoachesDirectoryComponent() {
   ];
 
   return (
-    <div className="min-h-screen bg-pro-slate-950 pb-24 font-sans text-slate-100">
+    <div className="min-h-screen bg-slate-950 pb-24 font-sans text-slate-100">
       <div className="mx-auto max-w-6xl px-4 pt-6">
         <Link
           href="/"
@@ -194,11 +190,13 @@ function CoachesDirectoryComponent() {
         >
           ← 返回首頁 Back to Home
         </Link>
+
         <div className="mt-4 flex flex-col justify-between md:flex-row md:items-end">
           <div>
             <h1 className="flex flex-col gap-1 text-3xl font-black tracking-tight text-white">
               <span>官方認證教練榜</span>
-              <span className="text-xl font-bold text-amber-500">
+              {/* Updated: amber-400 for better dark bg contrast */}
+              <span className="text-xl font-bold text-amber-400">
                 Verified Coaches
               </span>
             </h1>
@@ -224,15 +222,17 @@ function CoachesDirectoryComponent() {
         />
 
         {filteredList.length === 0 ? (
-          <div className="relative z-0 rounded-2xl border border-dashed border-pro-slate-800 bg-pro-slate-900/40 py-20 text-center">
+          // Updated: slate-800/50 border + bg for empty state
+          <div className="relative z-0 rounded-2xl border border-dashed border-slate-700 bg-slate-900/40 py-20 text-center">
             <p className="mb-4 text-4xl">📭</p>
             <h3 className="text-lg font-bold text-slate-300">
               找不到符合預算的教練 No coaches found
             </h3>
+            {/* Updated: blue-400 consistent with link variant */}
             <button
               type="button"
               onClick={resetFilters}
-              className="mt-4 text-xs font-bold text-blue-500 underline hover:text-blue-400"
+              className="mt-4 text-xs font-bold text-blue-400 underline hover:text-blue-300"
             >
               清除所有篩選 Clear all filters
             </button>
@@ -240,12 +240,14 @@ function CoachesDirectoryComponent() {
         ) : (
           <div className="relative z-0 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
             {filteredList.map((coach) => (
+              // Updated: slate-800 card bg, slate-700 border + hover
               <div
                 key={coach.id}
-                className="group relative flex flex-col justify-between rounded-2xl border border-pro-slate-800 bg-pro-slate-900 p-6 shadow-lg transition-colors hover:border-pro-slate-600"
+                className="group relative flex flex-col justify-between rounded-2xl border border-slate-700/50 bg-slate-800/60 p-6 shadow-lg transition-colors hover:border-slate-600"
               >
                 <span className="absolute top-6 right-6 flex flex-col items-end leading-none text-lg font-black text-white">
-                  <span className="font-mono text-amber-500">
+                  {/* Updated: amber-400 for price on dark bg */}
+                  <span className="font-mono text-amber-400">
                     ${coach.hourlyRate}
                   </span>
                   <span className="mt-1 font-sans text-[10px] font-medium uppercase text-slate-500">
@@ -255,15 +257,17 @@ function CoachesDirectoryComponent() {
 
                 <div>
                   <div className="mb-4 flex items-center gap-4">
-                    <span className="rounded-xl border border-pro-slate-800 bg-pro-slate-950 p-3 text-4xl shadow-inner">
+                    {/* Updated: slate-900 avatar bg, slate-700 border */}
+                    <span className="rounded-xl border border-slate-700 bg-slate-900 p-3 text-4xl shadow-inner">
                       {coach.avatar}
                     </span>
                     <div>
                       <h3 className="flex items-center gap-1.5 text-lg font-bold text-white">
                         {coach.name}
                         {coach.isVerified ? (
+                          // Updated: blue-600 PRO badge consistent with brand colour
                           <span
-                            className="rounded bg-pro-blue-600 px-1.5 py-0.5 text-[9px] font-black text-white uppercase"
+                            className="rounded bg-blue-600 px-1.5 py-0.5 text-[9px] font-black text-white uppercase"
                             title="官方藍勾勾認證"
                           >
                             PRO
@@ -274,6 +278,7 @@ function CoachesDirectoryComponent() {
                         <span className="text-xs font-medium text-slate-400">
                           {coach.sport}
                         </span>
+                        {/* Updated: amber-400 stars consistent across app */}
                         <div className="flex items-center font-mono text-[11px] text-amber-400">
                           <span>★ {coach.rating}</span>
                           <span className="ml-1 text-slate-500">
@@ -286,9 +291,10 @@ function CoachesDirectoryComponent() {
 
                   <div className="mb-4 flex flex-wrap gap-2">
                     {coach.certifications.map((cert, index) => (
+                      // Updated: slate-900 bg, slate-700 border for cert tags
                       <span
                         key={index}
-                        className="rounded border border-pro-slate-800 bg-pro-slate-950 px-2 py-1 text-[10px] font-bold text-slate-300"
+                        className="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-[10px] font-bold text-slate-300"
                       >
                         🎓 {cert}
                       </span>
@@ -300,23 +306,26 @@ function CoachesDirectoryComponent() {
                   </p>
                 </div>
 
-                <div className="mt-5 flex items-center justify-between border-t border-pro-slate-800/80 pt-5">
+                {/* Updated: slate-700/50 divider */}
+                <div className="mt-5 flex items-center justify-between border-t border-slate-700/50 pt-5">
                   <span className="flex items-center gap-1 text-xs font-medium text-slate-500">
                     <span>📍</span> {coach.district}
                   </span>
 
                   {coach.isAcceptingStudents ? (
+                    // Updated: amber-500 CTA, consistent amber shadow
                     <Link
                       href={`/p/${coach.id}`}
-                      className="flex items-center gap-1.5 rounded-lg bg-amber-600 px-5 py-2.5 text-xs font-bold text-white shadow-md shadow-amber-900/30 transition-all hover:bg-amber-500 active:scale-95"
+                      className="flex items-center gap-1.5 rounded-lg bg-amber-500 px-5 py-2.5 text-xs font-bold text-white shadow-md shadow-amber-900/30 transition-all hover:bg-amber-400 active:scale-95"
                     >
                       <span>預約 Book</span>
                     </Link>
                   ) : (
+                    // Updated: slate-900 bg, slate-700 border, slate-600 text for disabled
                     <button
                       type="button"
                       disabled
-                      className="cursor-not-allowed rounded-lg border border-pro-slate-800 bg-pro-slate-950 px-5 py-2.5 text-xs font-bold text-slate-600"
+                      className="cursor-not-allowed rounded-lg border border-slate-700 bg-slate-900 px-5 py-2.5 text-xs font-bold text-slate-600"
                     >
                       名額已滿 Full
                     </button>

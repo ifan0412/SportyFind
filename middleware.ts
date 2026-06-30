@@ -1,31 +1,62 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
+import { createServerClient } from '@supabase/ssr';
 
-export function middleware(req: NextRequest) {
+export async function middleware(req: NextRequest) {
+  // 1. Basic Auth 密碼鎖
   const basicAuth = req.headers.get('authorization');
+  let isAuthenticated = false;
 
   if (basicAuth) {
     const authValue = basicAuth.split(' ')[1];
-    // 解析 Base64
     const [user, pwd] = atob(authValue).split(':');
-
-    // 這裡設定你的專屬帳號與密碼
     if (user === 'sporty' && pwd === '2026') {
-      return NextResponse.next();
+      isAuthenticated = true;
     }
   }
 
-  // 如果沒輸入密碼或密碼錯誤，彈出瀏覽器內建的密碼輸入框
-  return new NextResponse('需要輸入通關密碼才能進入 SportyFind', {
-    status: 401,
-    headers: {
-      'WWW-Authenticate': 'Basic realm="Secure Area"',
-    },
-  });
+  if (!isAuthenticated) {
+    return new NextResponse('需要輸入通關密碼才能進入 SportyFind', {
+      status: 401,
+      headers: {
+        'WWW-Authenticate': 'Basic realm="Secure Area"',
+      },
+    });
+  }
+
+  // 2. Supabase SSR 身分同步
+  // ✅ FIX: response must be initialised with the request BEFORE supabase touches it
+  let response = NextResponse.next({ request: req });
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return req.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          // ✅ FIX: first write cookies back onto the request object
+          cookiesToSet.forEach(({ name, value }) =>
+            req.cookies.set(name, value)
+          );
+          // ✅ FIX: then create a fresh response that carries the mutated request
+          response = NextResponse.next({ request: req });
+          // ✅ FIX: finally stamp the same cookies onto the outgoing response
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options)
+          );
+        },
+      },
+    }
+  );
+
+  // Forces Supabase to validate + refresh the session cookie if needed
+  await supabase.auth.getUser();
+
+  return response;
 }
 
-// 設定哪些路徑需要保護
 export const config = {
-  // 保護所有頁面，但排除 Next.js 靜態資源與圖片，避免網頁破圖
   matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 };

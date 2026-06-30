@@ -6,19 +6,20 @@ import { useState } from "react";
 import {
   CalendarDays,
   Menu,
-  Trophy,
   UserCircle,
   Users,
+  GraduationCap,
+  Zap,
   X,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
 const navLinks = [
-  { href: "/events", label: "Events", icon: CalendarDays },
-  { href: "/people", label: "People", icon: Users },
-  { href: "/coaches", label: "Coaches", icon: Trophy },
-  { href: "/profile", label: "Profile", icon: UserCircle },
+  { href: "/events",          label: "Events",  icon: CalendarDays  },
+  { href: "/network/players", label: "Players", icon: Users         },
+  { href: "/coaches",         label: "Coaches", icon: GraduationCap },
+  { href: "/profile",         label: "Profile", icon: UserCircle    },
 ] as const;
 
 export function Navbar() {
@@ -26,21 +27,24 @@ export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-pro-slate-200 bg-pro-slate-50 shadow-sm">
+    <header className="sticky top-0 z-50 border-b border-slate-800 bg-slate-950/90 backdrop-blur-md shadow-sm">
       <nav className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6 lg:px-8">
+
+        {/* Logo */}
         <Link
           href="/"
-          className="flex items-center gap-2 text-slate-900 transition-colors hover:text-blue-700"
+          className="flex items-center gap-2 transition-opacity hover:opacity-80"
           onClick={() => setMobileOpen(false)}
         >
-          <span className="flex size-8 items-center justify-center rounded-md bg-pro-blue-700 text-white">
-            <Trophy className="size-4" aria-hidden="true" />
+          <span className="flex size-8 items-center justify-center rounded-md bg-blue-600 text-white">
+            <Zap className="size-4" aria-hidden="true" />
           </span>
-          <span className="text-sm font-semibold tracking-tight sm:text-base">
-            Pro Sports Network
+          <span className="text-sm font-black tracking-tight text-white sm:text-base">
+            SPORTY<span className="text-blue-400">FIND</span>
           </span>
         </Link>
 
+        {/* Desktop nav */}
         <ul className="hidden items-center gap-1 md:flex">
           {navLinks.map(({ href, label, icon: Icon }) => {
             const isActive =
@@ -53,8 +57,8 @@ export function Navbar() {
                   className={cn(
                     "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                     isActive
-                      ? "bg-pro-blue-50 text-blue-700"
-                      : "text-slate-600 hover:bg-pro-slate-50 hover:text-slate-900",
+                      ? "bg-blue-600/15 text-blue-400"
+                      : "text-slate-400 hover:bg-slate-800 hover:text-white",
                   )}
                 >
                   <Icon className="size-4" aria-hidden="true" />
@@ -65,9 +69,10 @@ export function Navbar() {
           })}
         </ul>
 
+        {/* Mobile menu toggle */}
         <button
           type="button"
-          className="inline-flex size-9 items-center justify-center rounded-md text-slate-600 transition-colors hover:bg-pro-slate-100 hover:text-slate-900 md:hidden"
+          className="inline-flex size-9 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-slate-800 hover:text-white md:hidden"
           aria-expanded={mobileOpen}
           aria-label={mobileOpen ? "Close menu" : "Open menu"}
           onClick={() => setMobileOpen((open) => !open)}
@@ -80,8 +85,9 @@ export function Navbar() {
         </button>
       </nav>
 
-      {mobileOpen ? (
-        <div className="border-t border-pro-slate-200 bg-pro-slate-50 md:hidden">
+      {/* Mobile menu */}
+      {mobileOpen && (
+        <div className="border-t border-slate-800 bg-slate-950 md:hidden">
           <ul className="mx-auto max-w-6xl space-y-1 px-4 py-3 sm:px-6">
             {navLinks.map(({ href, label, icon: Icon }) => {
               const isActive =
@@ -94,8 +100,8 @@ export function Navbar() {
                     className={cn(
                       "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors",
                       isActive
-                        ? "bg-pro-blue-50 text-blue-700"
-                        : "text-slate-600 hover:bg-pro-slate-50 hover:text-slate-900",
+                        ? "bg-blue-600/15 text-blue-400"
+                        : "text-slate-400 hover:bg-slate-800 hover:text-white",
                     )}
                     onClick={() => setMobileOpen(false)}
                   >
@@ -107,7 +113,7 @@ export function Navbar() {
             })}
           </ul>
         </div>
-      ) : null}
+      )}
     </header>
   );
 }
