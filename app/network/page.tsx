@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { AthleteCard } from "@/components/ui/AthleteCard";
 import { FilterDropdown } from "@/components/ui/FilterDropdown";
+import { useAuth } from "@/components/SupabaseProvider"; // 💡 引入我們的全域驗證引擎
 
 // ==========================================
 // Types
@@ -50,11 +51,21 @@ const PAGE_SIZE = 12;
 function NetworkPageContent() {
   const supabase = createSupabaseBrowserClient();
   const router = useRouter();
+  
+  // 💡 取得全域登入狀態
+  const { user, isLoading: authLoading } = useAuth(); 
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSports, setSelectedSports] = useState<string[]>([]);
   const [activeIntentTab, setActiveIntentTab] = useState("ALL");
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
+  // 💡 身分防護網：如果確認未登入，踢回登入頁
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push("/auth/login"); // 請依據你的實際路徑調整
+    }
+  }, [user, authLoading, router]);
 
   // Reset pagination whenever filters change
   useEffect(() => {
@@ -69,7 +80,10 @@ function NetworkPageContent() {
     isLoading: isLoadingAthletes,
     isError: isAthletesError,
   } = useQuery({
-    queryKey: ["athletes"],
+    // 💡 將 user.id 加入 queryKey，確保換帳號時快取會更新
+    queryKey: ["athletes", user?.id], 
+    // 💡 關鍵修復：只有在確認使用者登入後，才允許發送請求，避免 RLS 錯誤！
+    enabled: !authLoading && !!user, 
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
@@ -103,6 +117,8 @@ function NetworkPageContent() {
     isError: isSportsError,
   } = useQuery({
     queryKey: ["sports"],
+    // 💡 同樣等待驗證完成後再抓取
+    enabled: !authLoading && !!user,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("sports")
@@ -114,7 +130,8 @@ function NetworkPageContent() {
     },
   });
 
-  const isLoading = isLoadingAthletes || isLoadingSports;
+  // 💡 確保在驗證完成前，畫面顯示 Loading，避免閃爍
+  const isLoading = authLoading || isLoadingAthletes || isLoadingSports;
   const isError = isAthletesError || isSportsError;
 
   // ==========================================

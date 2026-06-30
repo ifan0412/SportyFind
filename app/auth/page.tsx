@@ -52,19 +52,18 @@ export default function AuthPage() {
   // Google OAuth login
   const handleGoogleLogin = async () => {
     setIsLoading(true);
-
     const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
+      provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        // 💡 關鍵修改：不直接跳回頁面，而是跳到後端 API 處理 Cookie
+        redirectTo: `${window.location.origin}/auth/callback?next=/profile`, 
       },
     });
-
+  
     if (error) {
-      toast.error(error.message);
+      alert(error.message);
       setIsLoading(false);
     }
-    // If no error, browser will redirect to Google — no need to setIsLoading(false)
   };
 
   return (
