@@ -38,7 +38,7 @@ export default function AuthStatus() {
 
   return (
     <Link
-      href="/auth" // Ensure this matches your login page route
+      href="/auth" 
       className="flex items-center gap-2 rounded-md px-4 py-1.5 text-sm font-bold bg-blue-600 text-white hover:bg-blue-500 transition shadow-md shadow-blue-900/20"
     >
       登入

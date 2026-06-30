@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { AthleteCard } from "@/components/ui/AthleteCard";
 import { FilterDropdown } from "@/components/ui/FilterDropdown";
-import { useAuth } from "@/components/SupabaseProvider"; // 💡 引入我們的全域驗證引擎
+import { useAuth } from "@/components/SupabaseProvider"; 
 
 // ==========================================
 // Types
@@ -52,7 +52,6 @@ function NetworkPageContent() {
   const supabase = createSupabaseBrowserClient();
   const router = useRouter();
   
-  // 💡 取得全域登入狀態
   const { user, isLoading: authLoading } = useAuth(); 
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -60,10 +59,10 @@ function NetworkPageContent() {
   const [activeIntentTab, setActiveIntentTab] = useState("ALL");
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
-  // 💡 身分防護網：如果確認未登入，踢回登入頁
+  // 驗證未通過則跳轉至登入頁 (已修正路徑為 /auth)
   useEffect(() => {
     if (!authLoading && !user) {
-      router.push("/auth/login"); // 請依據你的實際路徑調整
+      router.push("/auth");
     }
   }, [user, authLoading, router]);
 
@@ -80,13 +79,11 @@ function NetworkPageContent() {
     isLoading: isLoadingAthletes,
     isError: isAthletesError,
   } = useQuery({
-    // 💡 將 user.id 加入 queryKey，確保換帳號時快取會更新
     queryKey: ["athletes", user?.id], 
-    // 💡 關鍵修復：只有在確認使用者登入後，才允許發送請求，避免 RLS 錯誤！
-    enabled: !authLoading && !!user, 
+    enabled: !authLoading && !!user, // 確保登入後才發送請求
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("profiles")
+        .from("profiles") // 已經修正為正確的資料表
         .select(`
           id,
           full_name,
@@ -117,7 +114,6 @@ function NetworkPageContent() {
     isError: isSportsError,
   } = useQuery({
     queryKey: ["sports"],
-    // 💡 同樣等待驗證完成後再抓取
     enabled: !authLoading && !!user,
     queryFn: async () => {
       const { data, error } = await supabase
@@ -130,7 +126,6 @@ function NetworkPageContent() {
     },
   });
 
-  // 💡 確保在驗證完成前，畫面顯示 Loading，避免閃爍
   const isLoading = authLoading || isLoadingAthletes || isLoadingSports;
   const isError = isAthletesError || isSportsError;
 
@@ -215,7 +210,6 @@ function NetworkPageContent() {
   // ==========================================
   return (
     <div className="bg-slate-950 min-h-screen text-slate-100 font-sans pb-24 antialiased selection:bg-blue-600 selection:text-white">
-
       {/* Header */}
       <div className="border-b border-slate-800 bg-slate-900/40 pt-10 pb-8 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-end justify-between gap-4">
@@ -242,11 +236,8 @@ function NetworkPageContent() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-8">
-
         {/* Filter Panel */}
         <div className="bg-slate-900 border border-slate-800 rounded-3xl p-4 sm:p-6 shadow-2xl space-y-4">
-
-          {/* Search */}
           <div className="relative">
             <input
               type="text"
@@ -255,46 +246,30 @@ function NetworkPageContent() {
               placeholder="Search by name, sport, or location..."
               className="w-full bg-slate-950 border border-slate-700/80 rounded-2xl pl-11 pr-4 py-3.5 text-xs sm:text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-500 transition font-bold"
             />
-            <span className="absolute left-4 top-3.5 text-slate-500 text-sm">
-              🔍
-            </span>
+            <span className="absolute left-4 top-3.5 text-slate-500 text-sm">🔍</span>
           </div>
 
-          {/* Dropdowns */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 pt-1">
-
-            {/* Sport Filter */}
             <div className="lg:col-span-5">
               <FilterDropdown
                 label="Sport (multi-select)"
-                displayText={
-                  selectedSports.length === 0
-                    ? "🏆 All Sports"
-                    : `🏆 ${selectedSports.length} sport${selectedSports.length > 1 ? "s" : ""} selected`
-                }
+                displayText={selectedSports.length === 0 ? "🏆 All Sports" : `🏆 ${selectedSports.length} sport${selectedSports.length > 1 ? "s" : ""} selected`}
                 options={allSports}
                 selectedValues={selectedSports}
                 isMultiSelect={true}
                 onToggle={handleSportToggle}
               />
             </div>
-
-            {/* Intent Filter */}
             <div className="lg:col-span-5">
               <FilterDropdown
                 label="Availability & License"
-                displayText={
-                  INTENT_OPTIONS.find((o) => o.value === activeIntentTab)
-                    ?.name ?? "👥 All Athletes"
-                }
+                displayText={INTENT_OPTIONS.find((o) => o.value === activeIntentTab)?.name ?? "👥 All Athletes"}
                 options={INTENT_OPTIONS}
                 selectedValues={[activeIntentTab]}
                 isMultiSelect={false}
                 onToggle={(val) => setActiveIntentTab(val)}
               />
             </div>
-
-            {/* Reset */}
             <div className="lg:col-span-2 flex items-end">
               <button
                 onClick={handleReset}
@@ -308,26 +283,17 @@ function NetworkPageContent() {
 
         {/* Athlete Grid */}
         {athletes.length === 0 ? (
-          // Database is genuinely empty
           <div className="py-24 text-center bg-slate-900/30 border border-dashed border-slate-800 rounded-3xl space-y-3">
             <p className="text-4xl">🏟️</p>
             <p className="text-white font-bold text-lg">No athletes yet</p>
-            <p className="text-slate-400 text-sm">
-              Be the first to create a profile and join the network!
-            </p>
+            <p className="text-slate-400 text-sm">Be the first to create a profile and join the network!</p>
           </div>
         ) : filteredAthletes.length === 0 ? (
-          // Filters returned no results
           <div className="py-24 text-center bg-slate-900/30 border border-dashed border-slate-800 rounded-3xl space-y-3">
             <p className="text-4xl">🔍</p>
             <p className="text-white font-bold text-lg">No athletes match your filters</p>
-            <p className="text-slate-400 text-sm">
-              Try adjusting your search or filters
-            </p>
-            <button
-              onClick={handleReset}
-              className="mt-2 px-5 py-2 bg-slate-800 hover:bg-slate-700 text-white text-sm font-bold rounded-lg transition"
-            >
+            <p className="text-slate-400 text-sm">Try adjusting your search or filters</p>
+            <button onClick={handleReset} className="mt-2 px-5 py-2 bg-slate-800 hover:bg-slate-700 text-white text-sm font-bold rounded-lg transition">
               Clear Filters
             </button>
           </div>
@@ -342,8 +308,6 @@ function NetworkPageContent() {
                 />
               ))}
             </div>
-
-            {/* Load More */}
             {hasMore && (
               <div className="flex justify-center pt-6 pb-12">
                 <button
@@ -352,9 +316,7 @@ function NetworkPageContent() {
                 >
                   <span className="text-lg">↓</span>
                   <span>Load more athletes</span>
-                  <span className="text-slate-500 ml-1">
-                    ({remaining} remaining)
-                  </span>
+                  <span className="text-slate-500 ml-1">({remaining} remaining)</span>
                 </button>
               </div>
             )}
