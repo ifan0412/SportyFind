@@ -1,47 +1,83 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function GatePage() {
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const res = await fetch('/api/gate', {
-      method: 'POST',
-      body: JSON.stringify({ password }),
-      headers: { 'Content-Type': 'application/json' },
-    });
 
-    if (res.ok) {
-      router.push('/');
-    } else {
-      setError('Incorrect password. Please try again.');
+    if (loading) return;
+
+    setLoading(true);
+    setError("");
+
+    try {
+      const res = await fetch("/api/gate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
+
+      if (res.ok) {
+        router.push("/");
+        router.refresh();
+      } else {
+        setError("Wrong password. Please try again.");
+        setPassword("");
+      }
+    } catch {
+      setError("Something went wrong. Please try again.");
+      setPassword("");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-950 p-4">
-      <div className="w-full max-w-sm bg-gray-900 border border-gray-800 p-8 rounded-2xl shadow-xl">
-        <h1 className="text-2xl font-black text-white mb-2">Private Access</h1>
-        <p className="text-slate-400 text-sm mb-6">Enter the site password to continue.</p>
+    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
+      <div className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-xl">
+        <div className="mb-8 text-center">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-blue-600 mb-4">
+            <span className="text-xl">⚡</span>
+          </div>
+          <h1 className="text-xl font-black text-white">SPORTYFIND</h1>
+          <p className="text-slate-400 text-sm mt-1">Enter the access password to continue</p>
+        </div>
+
         <form onSubmit={handleSubmit} className="space-y-4">
-          <input
-            type="password"
-            placeholder="Enter password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full p-3 bg-gray-800 border border-gray-700 rounded-lg text-white outline-none text-sm"
-          />
-          {error && <p className="text-red-400 text-sm">{error}</p>}
+          <div>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                setError("");
+              }}
+              placeholder="Enter password"
+              disabled={loading}
+              autoFocus
+              className="w-full p-3 bg-slate-800 border border-slate-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm placeholder:text-slate-500 disabled:opacity-50"
+            />
+          </div>
+
+          {error && (
+            <p className="text-red-400 text-xs font-medium text-center">
+              {error}
+            </p>
+          )}
+
           <button
             type="submit"
-            className="w-full py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-500 transition"
+            disabled={loading || !password}
+            className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Enter
+            {loading ? "Checking..." : "Enter"}
           </button>
         </form>
       </div>
