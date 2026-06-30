@@ -59,12 +59,7 @@ function NetworkPageContent() {
   const [activeIntentTab, setActiveIntentTab] = useState("ALL");
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
-  // 驗證未通過則跳轉至登入頁 (已修正路徑為 /auth)
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.push("/auth");
-    }
-  }, [user, authLoading, router]);
+  // 💡 [已移除]: 刪除原本會把未登入者踢去 /auth 的 useEffect，讓大廳保持公開
 
   // Reset pagination whenever filters change
   useEffect(() => {
@@ -80,10 +75,11 @@ function NetworkPageContent() {
     isError: isAthletesError,
   } = useQuery({
     queryKey: ["athletes", user?.id], 
-    enabled: !authLoading && !!user, // 確保登入後才發送請求
+    // 💡 [修改]: 移除了 `&& !!user`，現在無論訪客有無登入，都會發送請求獲取公開名單
+    enabled: !authLoading, 
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("profiles") // 已經修正為正確的資料表
+        .from("profiles") 
         .select(`
           id,
           full_name,
@@ -114,7 +110,8 @@ function NetworkPageContent() {
     isError: isSportsError,
   } = useQuery({
     queryKey: ["sports"],
-    enabled: !authLoading && !!user,
+    // 💡 [修改]: 移除了 `&& !!user`，允許未登入者載入運動列表選項
+    enabled: !authLoading,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("sports")
