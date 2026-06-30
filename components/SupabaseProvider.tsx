@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useMemo } from "react";
+import { createContext, useContext, useEffect, useState } from "react"; // 💡 移除 useMemo
 import { createSupabaseBrowserClient } from "@/lib/supabase/client"; 
 import { useRouter } from "next/navigation";
 import type { User, Session } from "@supabase/supabase-js";
@@ -20,8 +20,8 @@ export default function SupabaseProvider({ children }: { children: React.ReactNo
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
-  // 確保生命週期內只建立一次 Client
-  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+  // 💡 關鍵修正：改用 useState 來鎖死 Supabase 實例，確保它絕對不會在背景被 React 丟棄
+  const [supabase] = useState(() => createSupabaseBrowserClient());
 
   useEffect(() => {
     const initializeAuth = async () => {

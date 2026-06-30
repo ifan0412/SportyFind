@@ -55,11 +55,12 @@ export default function AuthPage() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        // 💡 關鍵修改：不直接跳回頁面，而是跳到後端 API 處理 Cookie
-        redirectTo: `${window.location.origin}/auth/callback?next=/profile`, 
+        // 💡 終極修正：刪除 /auth/callback，直接跳回 /profile
+        // 讓前端 Supabase 客戶端自己處理授權碼，避開 Vercel 伺服器驗證失敗的問題
+        redirectTo: `${window.location.origin}/profile`, 
       },
     });
-  
+
     if (error) {
       alert(error.message);
       setIsLoading(false);
