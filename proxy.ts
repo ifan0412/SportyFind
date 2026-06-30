@@ -1,55 +1,27 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
 
-export async function proxy(req: NextRequest) {
-  // 1. Basic Auth 密碼鎖
-  const basicAuth = req.headers.get('authorization');
-  let isAuthenticated = false;
+const SITE_PASSWORD = 'sporty123';
 
-  if (basicAuth) {
-    const authValue = basicAuth.split(' ')[1];
-    const [user, pwd] = atob(authValue).split(':');
-    if (user === 'sporty' && pwd === '2026') {
-      isAuthenticated = true;
-    }
+export function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // Allow these paths through without any check
+  if (
+    pathname.startsWith('/gate') ||
+    pathname.startsWith('/api/gate') ||
+    pathname.startsWith('/_next') ||
+    pathname.includes('favicon')
+  ) {
+    return NextResponse.next();
   }
 
-  if (!isAuthenticated) {
-    return new NextResponse('需要輸入通關密碼才能進入 SportyFind', {
-      status: 401,
-      headers: {
-        'WWW-Authenticate': 'Basic realm="Secure Area"',
-      },
-    });
+  const siteAccess = request.cookies.get('site_access')?.value;
+
+  if (siteAccess !== SITE_PASSWORD) {
+    return NextResponse.redirect(new URL('/gate', request.url));
   }
 
-  // 2. Supabase SSR 身分同步
-  let response = NextResponse.next({ request: req });
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return req.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            req.cookies.set(name, value)
-          );
-          response = NextResponse.next({ request: req });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options)
-          );
-        },
-      },
-    }
-  );
-
-  await supabase.auth.getUser();
-
-  return response;
+  return NextResponse.next();
 }
 
 export const config = {
