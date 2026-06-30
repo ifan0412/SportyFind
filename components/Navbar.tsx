@@ -26,14 +26,14 @@ export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-slate-200 bg-white shadow-sm">
+    <header className="sticky top-0 z-50 border-b border-pro-slate-200 bg-pro-slate-50 shadow-sm">
       <nav className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <Link
           href="/"
           className="flex items-center gap-2 text-slate-900 transition-colors hover:text-blue-700"
           onClick={() => setMobileOpen(false)}
         >
-          <span className="flex size-8 items-center justify-center rounded-md bg-blue-700 text-white">
+          <span className="flex size-8 items-center justify-center rounded-md bg-pro-blue-700 text-white">
             <Trophy className="size-4" aria-hidden="true" />
           </span>
           <span className="text-sm font-semibold tracking-tight sm:text-base">
@@ -53,8 +53,8 @@ export function Navbar() {
                   className={cn(
                     "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                     isActive
-                      ? "bg-blue-50 text-blue-700"
-                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
+                      ? "bg-pro-blue-50 text-blue-700"
+                      : "text-slate-600 hover:bg-pro-slate-50 hover:text-slate-900",
                   )}
                 >
                   <Icon className="size-4" aria-hidden="true" />
@@ -67,7 +67,7 @@ export function Navbar() {
 
         <button
           type="button"
-          className="inline-flex size-9 items-center justify-center rounded-md text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 md:hidden"
+          className="inline-flex size-9 items-center justify-center rounded-md text-slate-600 transition-colors hover:bg-pro-slate-100 hover:text-slate-900 md:hidden"
           aria-expanded={mobileOpen}
           aria-label={mobileOpen ? "Close menu" : "Open menu"}
           onClick={() => setMobileOpen((open) => !open)}
@@ -81,7 +81,7 @@ export function Navbar() {
       </nav>
 
       {mobileOpen ? (
-        <div className="border-t border-slate-200 bg-white md:hidden">
+        <div className="border-t border-pro-slate-200 bg-pro-slate-50 md:hidden">
           <ul className="mx-auto max-w-6xl space-y-1 px-4 py-3 sm:px-6">
             {navLinks.map(({ href, label, icon: Icon }) => {
               const isActive =
@@ -94,8 +94,8 @@ export function Navbar() {
                     className={cn(
                       "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors",
                       isActive
-                        ? "bg-blue-50 text-blue-700"
-                        : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
+                        ? "bg-pro-blue-50 text-blue-700"
+                        : "text-slate-600 hover:bg-pro-slate-50 hover:text-slate-900",
                     )}
                     onClick={() => setMobileOpen(false)}
                   >

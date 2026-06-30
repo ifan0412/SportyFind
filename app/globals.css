@@ -1,10 +1,33 @@
 @import "tailwindcss";
+@config "../tailwind.config.ts";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  --color-pro-slate-50: #f8fafc;
+  --color-pro-slate-100: #f1f5f9;
+  --color-pro-slate-200: #e2e8f0;
+  --color-pro-slate-300: #cbd5e1;
+  --color-pro-slate-400: #94a3b8;
+  --color-pro-slate-500: #64748b;
+  --color-pro-slate-600: #475569;
+  --color-pro-slate-700: #334155;
+  --color-pro-slate-800: #1e293b;
+  --color-pro-slate-900: #0f172a;
+  --color-pro-slate-950: #020617;
+  --color-pro-blue-50: #eff6ff;
+  --color-pro-blue-100: #dbeafe;
+  --color-pro-blue-200: #bfdbfe;
+  --color-pro-blue-300: #93c5fd;
+  --color-pro-blue-400: #60a5fa;
+  --color-pro-blue-500: #3b82f6;
+  --color-pro-blue-600: #2563eb;
+  --color-pro-blue-700: #1d4ed8;
+  --color-pro-blue-800: #1e40af;
+  --color-pro-blue-900: #1e3a8a;
+  --color-pro-blue-950: #172554;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
@@ -122,7 +145,7 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-pro-slate-950 text-foreground;
   }
   html {
     @apply font-sans;

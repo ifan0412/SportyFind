@@ -6,7 +6,7 @@ type PageShellProps = {
 
 export function PageShell({ title, description, children }: PageShellProps) {
   return (
-    <div className="flex flex-1 flex-col bg-slate-50">
+    <div className="flex flex-1 flex-col bg-pro-slate-50">
       <div className="mx-auto w-full max-w-5xl flex-1 px-4 py-12 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center">
           <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
@@ -22,7 +22,7 @@ export function PageShell({ title, description, children }: PageShellProps) {
         {children ? (
           <div className="mt-10">{children}</div>
         ) : (
-          <div className="mx-auto mt-10 max-w-2xl rounded-lg border border-slate-200 bg-white p-8 text-center shadow-sm">
+          <div className="mx-auto mt-10 max-w-2xl rounded-lg border border-pro-slate-200 bg-pro-slate-50 p-8 text-center shadow-sm">
             <p className="text-sm text-slate-500">
               Content coming soon. This section is ready for your features.
             </p>
