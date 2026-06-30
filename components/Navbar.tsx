@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   CalendarDays, Menu, UserCircle, Users, GraduationCap, Zap, X, LogOut,
 } from "lucide-react";
@@ -23,27 +23,38 @@ export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
 
-  // ✅ FIXED: moved inside the component
-  const supabase = createBrowserClient(
+  // 💡 修正 1：使用 useMemo 確保 Supabase Client 在 Navbar 的生命週期內只被建立一次
+  const supabase = useMemo(() => createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  ), []);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
+    // 獲取初始狀態
+    const fetchUser = async () => {
+      const { data } = await supabase.auth.getUser();
       setUser(data.user ?? null);
-    });
+    };
+    fetchUser();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    // 監聽狀態改變
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null);
+      
+      // 💡 修正 2：當登入或登出發生時，強制 Next.js 重新整理當前路由，確保 Server Component 抓到最新的 Cookie
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
+        router.refresh();
+      }
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [supabase, router]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
+    setUser(null); // 確保前端狀態立刻清空
     router.push("/");
+    router.refresh(); // 登出後也強制刷新
   };
 
   return (
@@ -104,7 +115,7 @@ export function Navbar() {
           ) : (
             <li>
               <Link
-                href="/auth/login"
+                href="/auth/login" // 確保你的登入頁面路由真的是 /auth/login
                 className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
               >
                 登入

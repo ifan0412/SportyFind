@@ -1,43 +1,35 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import Link from "next/link";
+import { useAuth } from "@/components/SupabaseProvider";
+import { LogOut, UserCircle, Loader2 } from "lucide-react";
 
 export default function AuthStatus() {
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const { user, isLoading, signOut } = useAuth();
 
-  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setUser(data.session?.user ?? null);
-      setLoading(false);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
-      setUser(session?.user ?? null);
-    });
-
-    return () => subscription.unsubscribe();
-  }, [supabase]);
-
-  if (loading) return <div className="w-8 h-8" />;
+  if (isLoading) {
+    return (
+      <div className="px-3 py-2">
+        <Loader2 className="size-4 animate-spin text-slate-500" />
+      </div>
+    );
+  }
 
   if (user) {
     return (
-      <div className="flex items-center gap-2">
-        <Link href="/profile" className="flex flex-col items-center justify-center text-slate-400 hover:text-white transition py-1 px-2">
-          <div className="w-6 h-6 rounded-full bg-slate-800 border border-slate-600 flex items-center justify-center text-[10px] font-bold text-blue-400 ring-1 ring-blue-500/30">
-            ME
-          </div>
-          <span className="text-[10px] font-medium tracking-wide mt-0.5 hidden md:block text-slate-300">個人檔案</span>
+      <div className="flex items-center gap-2 ml-2">
+        <Link
+          href="/profile"
+          className="flex items-center gap-1.5 text-sm font-medium text-blue-400 hover:text-white transition-colors px-2 py-1"
+        >
+          <UserCircle className="size-4" />
+          ME
         </Link>
         <button
-          onClick={() => supabase.auth.signOut()}
-          className="text-[10px] font-bold text-slate-500 hover:text-slate-300 transition px-2"
+          onClick={signOut}
+          className="flex items-center gap-1 rounded-md px-3 py-2 text-sm font-medium text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
         >
+          <LogOut className="size-4" />
           登出
         </button>
       </div>
@@ -45,9 +37,11 @@ export default function AuthStatus() {
   }
 
   return (
-    <Link href="/auth" className="flex flex-col items-center justify-center text-slate-400 hover:text-white transition py-1 px-2">
-      <span className="text-base">👤</span>
-      <span className="text-[10px] font-medium tracking-wide mt-0.5 hidden md:block">登入</span>
+    <Link
+      href="/auth" // Ensure this matches your login page route
+      className="flex items-center gap-2 rounded-md px-4 py-1.5 text-sm font-bold bg-blue-600 text-white hover:bg-blue-500 transition shadow-md shadow-blue-900/20"
+    >
+      登入
     </Link>
   );
 }
