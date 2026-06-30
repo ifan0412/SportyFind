@@ -1,49 +1,52 @@
-import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
-import { createServerClient } from '@supabase/ssr'
+import { NextResponse, type NextRequest } from 'next/server';
+import { createServerClient } from '@supabase/ssr';
 
-// 💡 關鍵修正：將函數名稱改為 `default` 導出或命名為 `proxy`，以符合 Next.js 16+ 的標準
-export default async function proxy(request: NextRequest) {
-  let response = NextResponse.next({
-    request: {
-      headers: request.headers,
-    },
-  })
+export async function middleware(req: NextRequest) {
+  // 1. 處理 Basic Auth 密碼鎖 (維持不變)
+  const basicAuth = req.headers.get('authorization');
+  let isAuthenticated = false;
+  if (basicAuth) {
+    const authValue = basicAuth.split(' ')[1];
+    const [user, pwd] = atob(authValue).split(':');
+    if (user === 'sporty' && pwd === '2026') isAuthenticated = true;
+  }
+  if (!isAuthenticated) {
+    return new NextResponse('Authentication required', {
+      status: 401,
+      headers: { 'WWW-Authenticate': 'Basic realm="Secure Area"' },
+    });
+  }
 
+  // 2. 處理 Supabase 身分驗證
+  let response = NextResponse.next({ request: req });
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() {
-          return request.cookies.getAll()
-        },
+        getAll() { return req.cookies.getAll(); },
         setAll(cookiesToSet) {
-          // 確保更新 Token 後，確實把 Cookie 寫回給瀏覽器
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          })
-          cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options)
-          )
+          cookiesToSet.forEach(({ name, value, options }) => req.cookies.set(name, value));
+          response = NextResponse.next({ request: req });
+          cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
         },
       },
     }
-  )
+  );
 
-  // 這行會自動重新整理過期的 Session 並寫入 Cookie
-  await supabase.auth.getUser()
+  const { data: { user } } = await supabase.auth.getUser();
 
-  return response
+  // 3. 邏輯調整：只有 /profile 需要強迫登入
+  const isProfilePage = req.nextUrl.pathname.startsWith('/profile');
+  
+  if (isProfilePage && !user) {
+    // 未登入且想去 profile，強制轉跳到 auth
+    return NextResponse.redirect(new URL('/auth', req.url));
+  }
+
+  return response;
 }
 
-// proxy.ts 的最下方
 export const config = {
-  matcher: [
-    // 💡 關鍵修正：在排除名單中加入 auth/callback，讓 Google 驗證碼能安全通過！
-    '/((?!_next/static|_next/image|favicon.ico|auth/callback|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
-  ],
-}
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+};
