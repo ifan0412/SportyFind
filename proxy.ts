@@ -12,10 +12,10 @@ export async function proxy(req: NextRequest) {
     pathname.startsWith('/_next') ||
     pathname.startsWith('/favicon') ||
     pathname === '/gate' ||
-    pathname.startsWith('/api/gate');
+    pathname.startsWith('/api/gate') ||
+    pathname.startsWith('/auth');  // ← THIS IS THE FIX
 
   if (!isPublicPath) {
-    // Check gate cookie
     const gateToken = req.cookies.get(GATE_COOKIE)?.value;
     if (gateToken !== GATE_PASSWORD) {
       return NextResponse.redirect(new URL('/gate', req.url));
