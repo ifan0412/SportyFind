@@ -1,19 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
 import {
-  CalendarDays,
-  Menu,
-  UserCircle,
-  Users,
-  GraduationCap,
-  Zap,
-  X,
+  CalendarDays, Menu, UserCircle, Users, GraduationCap, Zap, X, LogOut,
 } from "lucide-react";
-
 import { cn } from "@/lib/utils";
+import { createBrowserClient } from "@supabase/ssr";
+import type { User } from "@supabase/supabase-js";
+
+const supabase = createBrowserClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 const navLinks = [
   { href: "/events",          label: "Events",  icon: CalendarDays  },
@@ -24,7 +24,28 @@ const navLinks = [
 
 export function Navbar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    // Get initial session
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data.user ?? null);
+    });
+
+    // Listen for auth changes (login/logout)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push("/");
+  };
 
   return (
     <header className="sticky top-0 z-50 border-b border-slate-800 bg-slate-950/90 backdrop-blur-md shadow-sm">
@@ -47,18 +68,14 @@ export function Navbar() {
         {/* Desktop nav */}
         <ul className="hidden items-center gap-1 md:flex">
           {navLinks.map(({ href, label, icon: Icon }) => {
-            const isActive =
-              pathname === href || pathname.startsWith(`${href}/`);
-
+            const isActive = pathname === href || pathname.startsWith(`${href}/`);
             return (
               <li key={href}>
                 <Link
                   href={href}
                   className={cn(
                     "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                    isActive
-                      ? "bg-blue-600/15 text-blue-400"
-                      : "text-slate-400 hover:bg-slate-800 hover:text-white",
+                    isActive ? "bg-blue-600/15 text-blue-400" : "text-slate-400 hover:bg-slate-800 hover:text-white",
                   )}
                 >
                   <Icon className="size-4" aria-hidden="true" />
@@ -67,6 +84,34 @@ export function Navbar() {
               </li>
             );
           })}
+
+          {/* Auth button */}
+          {user ? (
+            <li className="flex items-center gap-2 ml-2">
+              <Link
+                href="/profile"
+                className="text-sm font-medium text-blue-400 hover:text-white transition-colors"
+              >
+                ME
+              </Link>
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-1 rounded-md px-3 py-2 text-sm font-medium text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+              >
+                <LogOut className="size-4" />
+                登出
+              </button>
+            </li>
+          ) : (
+            <li>
+              <Link
+                href="/auth/login"
+                className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+              >
+                登入
+              </Link>
+            </li>
+          )}
         </ul>
 
         {/* Mobile menu toggle */}
@@ -77,11 +122,7 @@ export function Navbar() {
           aria-label={mobileOpen ? "Close menu" : "Open menu"}
           onClick={() => setMobileOpen((open) => !open)}
         >
-          {mobileOpen ? (
-            <X className="size-5" aria-hidden="true" />
-          ) : (
-            <Menu className="size-5" aria-hidden="true" />
-          )}
+          {mobileOpen ? <X className="size-5" /> : <Menu className="size-5" />}
         </button>
       </nav>
 
@@ -90,27 +131,57 @@ export function Navbar() {
         <div className="border-t border-slate-800 bg-slate-950 md:hidden">
           <ul className="mx-auto max-w-6xl space-y-1 px-4 py-3 sm:px-6">
             {navLinks.map(({ href, label, icon: Icon }) => {
-              const isActive =
-                pathname === href || pathname.startsWith(`${href}/`);
-
+              const isActive = pathname === href || pathname.startsWith(`${href}/`);
               return (
                 <li key={href}>
                   <Link
                     href={href}
                     className={cn(
                       "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors",
-                      isActive
-                        ? "bg-blue-600/15 text-blue-400"
-                        : "text-slate-400 hover:bg-slate-800 hover:text-white",
+                      isActive ? "bg-blue-600/15 text-blue-400" : "text-slate-400 hover:bg-slate-800 hover:text-white",
                     )}
                     onClick={() => setMobileOpen(false)}
                   >
-                    <Icon className="size-4" aria-hidden="true" />
+                    <Icon className="size-4" />
                     {label}
                   </Link>
                 </li>
               );
             })}
+
+            {/* Mobile auth */}
+            {user ? (
+              <>
+                <li>
+                  <Link
+                    href="/profile"
+                    className="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-blue-400"
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    ME
+                  </Link>
+                </li>
+                <li>
+                  <button
+                    onClick={() => { setMobileOpen(false); handleLogout(); }}
+                    className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+                  >
+                    <LogOut className="size-4" />
+                    登出
+                  </button>
+                </li>
+              </>
+            ) : (
+              <li>
+                <Link
+                  href="/auth/login"
+                  className="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-slate-400 hover:bg-slate-800 hover:text-white"
+                  onClick={() => setMobileOpen(false)}
+                >
+                  登入
+                </Link>
+              </li>
+            )}
           </ul>
         </div>
       )}
