@@ -1,8 +1,8 @@
 "use client";
 
 export interface UserSport {
-  sports?: { name: string };
-  metadata?: { position?: string };
+  sports?: { name: string } | null;
+  metadata?: { position?: string | null } | null;
 }
 
 export interface AthleteCardData {
@@ -11,7 +11,7 @@ export interface AthleteCardData {
   avatar_url?: string | null;
   status_tag?: "open_to_team" | "looking_for_sub" | "training" | string | null;
   is_coach?: boolean | null;
-  user_sports?: UserSport[];
+  user_sports?: UserSport[] | null;
 }
 
 const STATUS_BADGE: Record<string, JSX.Element> = {
