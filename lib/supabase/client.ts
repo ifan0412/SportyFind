@@ -1,4 +1,5 @@
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { createBrowserClient } from "@supabase/ssr";
+import { SupabaseClient } from "@supabase/supabase-js";
 
 // 宣告一個全域快取變數，鎖死記憶體位置
 let browserClientInstance: SupabaseClient | undefined;
@@ -15,6 +16,6 @@ export function createSupabaseBrowserClient() {
     throw new Error("Missing Supabase Environment Variables");
   }
 
-  browserClientInstance = createClient(url, anonKey);
+  browserClientInstance = createBrowserClient(url, anonKey);
   return browserClientInstance;
 }
