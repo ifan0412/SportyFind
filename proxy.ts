@@ -1,29 +1,14 @@
-import { NextResponse, type NextRequest } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
+import { createServerClient } from '@supabase/ssr'
 
-const GATE_PASSWORD = "sporty2026";
-const GATE_COOKIE = "site_access";
-
-export async function proxy(req: NextRequest) {
-  const { pathname } = req.nextUrl;
-
-  // Allow these paths through without any checks
-  const isPublicPath =
-    pathname.startsWith('/_next') ||
-    pathname.startsWith('/favicon') ||
-    pathname === '/gate' ||
-    pathname.startsWith('/api/gate') ||
-    pathname.startsWith('/auth');  // ← THIS IS THE FIX
-
-  if (!isPublicPath) {
-    const gateToken = req.cookies.get(GATE_COOKIE)?.value;
-    if (gateToken !== GATE_PASSWORD) {
-      return NextResponse.redirect(new URL('/gate', req.url));
-    }
-  }
-
-  // Supabase session refresh
-  let response = NextResponse.next({ request: req });
+export async function middleware(request: NextRequest) {
+  // 建立一個可以被修改的 Response
+  let response = NextResponse.next({
+    request: {
+      headers: request.headers,
+    },
+  })
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -31,26 +16,33 @@ export async function proxy(req: NextRequest) {
     {
       cookies: {
         getAll() {
-          return req.cookies.getAll();
+          return request.cookies.getAll()
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            req.cookies.set(name, value)
-          );
-          response = NextResponse.next({ request: req });
+          // 💡 關鍵：確保 Middleware 更新 Token 後，有確實把 Cookie 寫回給瀏覽器！
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
+          response = NextResponse.next({
+            request: {
+              headers: request.headers,
+            },
+          })
           cookiesToSet.forEach(({ name, value, options }) =>
             response.cookies.set(name, value, options)
-          );
+          )
         },
       },
     }
-  );
+  )
 
-  await supabase.auth.getUser();
+  // 這行會自動重新整理過期的 Session
+  await supabase.auth.getUser()
 
-  return response;
+  return response
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
-};
+  matcher: [
+    // 忽略靜態檔案與 API，確保只對頁面路由進行驗證
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+  ],
+}
