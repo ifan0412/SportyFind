@@ -6,11 +6,11 @@ export interface UserSport {
 }
 
 export interface AthleteCardData {
-  full_name?: string;
-  headline?: string;
-  avatar_url?: string;
-  status_tag?: "open_to_team" | "looking_for_sub" | "training" | string;
-  is_coach?: boolean;
+  full_name?: string | null;
+  headline?: string | null;
+  avatar_url?: string | null;
+  status_tag?: "open_to_team" | "looking_for_sub" | "training" | string | null;
+  is_coach?: boolean | null;
   user_sports?: UserSport[];
 }
 
@@ -33,7 +33,7 @@ const defaultBadge = (
   </span>
 );
 
-function getInitials(name?: string): string {
+function getInitials(name?: string | null): string {
   if (!name) return "?";
   const parts = name.trim().split(/\s+/);
   if (parts.length === 1) return parts[0][0].toUpperCase();
