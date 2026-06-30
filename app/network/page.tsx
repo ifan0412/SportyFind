@@ -69,7 +69,7 @@ function NetworkPageContent() {
           user_sports (sport_id, metadata, sports (name))
         `)
         .order("updated_at", { ascending: false });
-      return (data || []) as AthleteCardProps[];
+      return (data || []) as unknown as AthleteCardProps[];
     },
     staleTime: 60000 
   });
@@ -78,7 +78,7 @@ function NetworkPageContent() {
     queryKey: ['sports'],
     queryFn: async () => {
       const { data } = await supabase.from("sports").select("*");
-      return (data || []) as Sport[];
+      return (data || []) as unknown as Sport[];
     }
   });
 
