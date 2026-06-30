@@ -21,17 +21,22 @@ export async function GET(request: Request) {
                 cookieStore.set(name, value, options)
               )
             } catch (error) {
-              // 在 Route Handler 處理錯誤
+              console.error("Cookie Error:", error)
             }
           },
         },
       }
     )
     
-    // 讓伺服器端把 Google 給的 Code 兌換成死死的 Cookie
-    await supabase.auth.exchangeCodeForSession(code)
+    // 💡 伺服器將 Google 密碼兌換成死死的 Cookie
+    const { error } = await supabase.auth.exchangeCodeForSession(code)
+    
+    if (error) {
+      // 如果兌換失敗，踢回登入頁並在網址列顯示錯誤
+      return NextResponse.redirect(`${origin}/auth?error=${encodeURIComponent(error.message)}`)
+    }
   }
 
-  // 兌換完成，推回目標頁面
+  // 兌換成功，推回目標頁面
   return NextResponse.redirect(`${origin}${next}`)
 }

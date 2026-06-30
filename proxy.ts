@@ -40,9 +40,10 @@ export default async function proxy(request: NextRequest) {
   return response
 }
 
+// proxy.ts 的最下方
 export const config = {
   matcher: [
-    // 忽略靜態檔案與 API，確保只對頁面路由進行驗證
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    // 💡 關鍵修正：在排除名單中加入 auth/callback，讓 Google 驗證碼能安全通過！
+    '/((?!_next/static|_next/image|favicon.ico|auth/callback|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }

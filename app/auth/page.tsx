@@ -55,11 +55,11 @@ export default function AuthPage() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        // 💡 確保它跳到我們的後端 API 去寫入 Cookie
+        // 💡 關鍵修正：指回 callback 接收站，讓後端幫我們寫入 Cookie！
         redirectTo: `${window.location.origin}/auth/callback?next=/profile`, 
       },
     });
-
+  
     if (error) {
       alert(error.message);
       setIsLoading(false);
