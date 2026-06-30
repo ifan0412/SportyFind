@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 
-export async function middleware(request: NextRequest) {
-  // 建立一個可以被修改的 Response
+// 💡 關鍵修正：將函數名稱改為 `default` 導出或命名為 `proxy`，以符合 Next.js 16+ 的標準
+export default async function proxy(request: NextRequest) {
   let response = NextResponse.next({
     request: {
       headers: request.headers,
@@ -19,7 +19,7 @@ export async function middleware(request: NextRequest) {
           return request.cookies.getAll()
         },
         setAll(cookiesToSet) {
-          // 💡 關鍵：確保 Middleware 更新 Token 後，有確實把 Cookie 寫回給瀏覽器！
+          // 確保更新 Token 後，確實把 Cookie 寫回給瀏覽器
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
           response = NextResponse.next({
             request: {
@@ -34,7 +34,7 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // 這行會自動重新整理過期的 Session
+  // 這行會自動重新整理過期的 Session 並寫入 Cookie
   await supabase.auth.getUser()
 
   return response
