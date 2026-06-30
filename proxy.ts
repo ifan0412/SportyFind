@@ -1,27 +1,54 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { createServerClient } from '@supabase/ssr';
 
-const SITE_PASSWORD = 'sporty123';
+const GATE_PASSWORD = "sporty2026";
+const GATE_COOKIE = "site_access";
 
-export function proxy(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+export async function proxy(req: NextRequest) {
+  const { pathname } = req.nextUrl;
 
-  // Allow these paths through without any check
-  if (
-    pathname.startsWith('/gate') ||
-    pathname.startsWith('/api/gate') ||
+  // Allow these paths through without any checks
+  const isPublicPath =
     pathname.startsWith('/_next') ||
-    pathname.includes('favicon')
-  ) {
-    return NextResponse.next();
+    pathname.startsWith('/favicon') ||
+    pathname === '/gate' ||
+    pathname.startsWith('/api/gate');
+
+  if (!isPublicPath) {
+    // Check gate cookie
+    const gateToken = req.cookies.get(GATE_COOKIE)?.value;
+    if (gateToken !== GATE_PASSWORD) {
+      return NextResponse.redirect(new URL('/gate', req.url));
+    }
   }
 
-  const siteAccess = request.cookies.get('site_access')?.value;
+  // Supabase session refresh
+  let response = NextResponse.next({ request: req });
 
-  if (siteAccess !== SITE_PASSWORD) {
-    return NextResponse.redirect(new URL('/gate', request.url));
-  }
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return req.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) =>
+            req.cookies.set(name, value)
+          );
+          response = NextResponse.next({ request: req });
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options)
+          );
+        },
+      },
+    }
+  );
 
-  return NextResponse.next();
+  await supabase.auth.getUser();
+
+  return response;
 }
 
 export const config = {

@@ -1,19 +1,23 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 
-const SITE_PASSWORD = 'sporty123';
+const GATE_PASSWORD = "sporty2026";
+const GATE_COOKIE = "site_access";
 
-export async function POST(request: Request) {
-  const { password } = await request.json();
+export async function POST(req: NextRequest) {
+  const { password } = await req.json();
 
-  if (password === SITE_PASSWORD) {
-    const response = NextResponse.json({ success: true });
-    response.cookies.set('site_access', SITE_PASSWORD, {
-      httpOnly: true,
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7,
-    });
-    return response;
+  if (password !== GATE_PASSWORD) {
+    return NextResponse.json({ error: "Wrong password" }, { status: 401 });
   }
 
-  return NextResponse.json({ error: 'Wrong password' }, { status: 401 });
+  const response = NextResponse.json({ success: true });
+  response.cookies.set(GATE_COOKIE, GATE_PASSWORD, {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'lax',
+    maxAge: 60 * 60 * 24 * 7, // 7 days
+    path: '/',
+  });
+
+  return response;
 }
