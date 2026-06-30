@@ -1,8 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 
-export async function middleware(req: NextRequest) {
-  // 1. 處理 Basic Auth 密碼鎖 (維持不變)
+export async function proxy(req: NextRequest) {
+    // 1. 處理 Basic Auth 密碼鎖 (維持不變)
   const basicAuth = req.headers.get('authorization');
   let isAuthenticated = false;
   if (basicAuth) {
