@@ -5,13 +5,16 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
 export default function AuthPage() {
+  // 1. 狀態宣告 (已修復原本錯位的 isLoading 狀態)
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSignUp, setIsSignUp] = useState(false);
-  const [isLoading, setIsLoading] = useState(false); // 新增：全局載入狀態
+  const [isLoading, setIsLoading] = useState(false); 
+  
   const supabase = createSupabaseBrowserClient();
   const router = useRouter();
 
+  // 2. Email 註冊與登入處理
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -36,14 +39,18 @@ export default function AuthPage() {
     }
   };
 
+  // 3. Google 登入處理
   const handleGoogleLogin = async () => {
     setIsLoading(true);
+    
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin, // 登入成功後跳轉回首頁
+        // 💡 明確告訴 Google：成功後將用戶導向大廳，解鎖名單
+        redirectTo: `${window.location.origin}/network`, 
       },
     });
+
     if (error) {
       alert(error.message);
       setIsLoading(false);
