@@ -1,28 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 
+// 💡 修正：在 Next.js 16+ 中，這裡必須明確命名為 proxy
 export async function proxy(req: NextRequest) {
-  // --- 在這裡加入 ---
-  console.log("Checking environment variables:");
-  console.log("URL:", process.env.NEXT_PUBLIC_SUPABASE_URL ? "Exists" : "MISSING");
-  console.log("KEY:", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? "Exists" : "MISSING");
-  // ------------------
-  // 1. 處理 Basic Auth 密碼鎖
-  const basicAuth = req.headers.get('authorization');
-  let isAuthenticated = false;
-  if (basicAuth) {
-    const authValue = basicAuth.split(' ')[1];
-    const [user, pwd] = atob(authValue).split(':');
-    if (user === 'sporty' && pwd === '2026') isAuthenticated = true;
-  }
-  if (!isAuthenticated) {
-    return new NextResponse('Authentication required', {
-      status: 401,
-      headers: { 'WWW-Authenticate': 'Basic realm="Secure Area"' },
-    });
-  }
-
-  // 2. 處理 Supabase 身分驗證 (先宣告 response，讓它根據 supabase 的改變進行更新)
+  
   let response = NextResponse.next({
     request: {
       headers: req.headers,
@@ -47,7 +28,7 @@ export async function proxy(req: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser();
 
-  // 3. 邏輯：只在存取 /profile 時檢查登入，其他頁面(包含 /network)放行
+  // 只在存取 /profile 時檢查登入，其他頁面(包含 /network)放行
   if (req.nextUrl.pathname.startsWith('/profile') && !user) {
     return NextResponse.redirect(new URL('/auth', req.url));
   }
@@ -55,7 +36,6 @@ export async function proxy(req: NextRequest) {
   return response;
 }
 
-// Example of how to bypass the auth callback in your middleware
 export const config = {
   matcher: [
     /*
