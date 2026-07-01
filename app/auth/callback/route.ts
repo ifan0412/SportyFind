@@ -1,4 +1,3 @@
-// 檔案位置: app/auth/callback/route.ts
 import { NextResponse } from 'next/server'
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
@@ -6,11 +5,14 @@ import { cookies } from 'next/headers'
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
+  
+  // 驗證成功後預設導向 profile，你也可以根據專案需求更改
   const next = searchParams.get('next') ?? '/profile' 
 
   if (code) {
-    // 💡 關鍵：cookies() 現在是一個 Promise，必須 await
+    // 💡 關鍵修正：在這裡加上 await，等待 Cookie 解析完成
     const cookieStore = await cookies() 
+    
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -20,16 +22,24 @@ export async function GET(request: Request) {
             return cookieStore.get(name)?.value
           },
           set(name: string, value: string, options: CookieOptions) {
-            cookieStore.set({ name, value, ...options })
+            try {
+              cookieStore.set({ name, value, ...options })
+            } catch (error) {
+              // 在 Server Component 內部呼叫時可能會發生的預期內錯誤，安全忽略
+            }
           },
           remove(name: string, options: CookieOptions) {
-            cookieStore.set({ name, value: '', ...options })
+            try {
+              cookieStore.set({ name, value: '', ...options })
+            } catch (error) {
+              // 在 Server Component 內部呼叫時可能會發生的預期內錯誤，安全忽略
+            }
           },
         },
       }
     )
     
-    // 將 Google 給的 Code 交換成你的網站專屬 Session Cookie
+    // 交換 Session
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     
     if (!error) {
