@@ -1,343 +1,139 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import dynamic from "next/dynamic";
+import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { BackButton } from "@/components/BackButton";
+import { SportFilterModal } from "@/components/SportFilterModal";
+import { LocationFilterModal } from "@/components/LocationFilterModal";
 
-
-import {
-  FilterPanel,
-  type FilterField,
-  type FilterOption,
-} from "@/components/shared/FilterPanel";
-
-const CoachesDirectory = dynamic(
-  () => Promise.resolve(CoachesDirectoryComponent),
-  { ssr: false },
-);
-
-interface MockCoach {
+interface CoachProfileRow {
   id: string;
-  name: string;
-  avatar: string;
   sport: string;
-  certifications: string[];
-  hourlyRate: number;
-  rating: number;
-  reviewsCount: number;
-  district: string;
-  bio: string;
-  isVerified: boolean;
-  isAcceptingStudents: boolean;
+  rate: number;
+  status: string;
+  region: string;
+  user_id: string;
+  profiles: { full_name: string; headline: string; avatar_url: string; };
 }
 
-function CoachesDirectoryComponent() {
-  const [selectedSports, setSelectedSports] = useState<string[]>([]);
-  const [selectedRates, setSelectedRates] = useState<string[]>([]);
-  const [selectedDistricts, setSelectedDistricts] = useState<string[]>([]);
-
-  const mockCoaches: MockCoach[] = [
-    {
-      id: "c1",
-      name: "Coach Mike",
-      avatar: "👑",
-      sport: "Tennis",
-      certifications: ["PTR 國際認證", "前港隊成員"],
-      hourlyRate: 650,
-      rating: 4.9,
-      reviewsCount: 34,
-      district: "港島區 Island",
-      bio: "專精底線抽擊與發球動作微調，適合想突破瓶頸的進階學員。",
-      isVerified: true,
-      isAcceptingStudents: true,
-    },
-    {
-      id: "c2",
-      name: "Constance Lee",
-      avatar: "🏆",
-      sport: "Volleyball",
-      certifications: ["FIVB Level 2"],
-      hourlyRate: 400,
-      rating: 4.8,
-      reviewsCount: 18,
-      district: "九龍區 Kowloon",
-      bio: "耐心教學，主攻二傳與防守步法，可接小班團體課。",
-      isVerified: true,
-      isAcceptingStudents: true,
-    },
-    {
-      id: "c3",
-      name: "Jason Wu",
-      avatar: "💪",
-      sport: "Basketball",
-      certifications: ["FIBA 認證教練", "體能訓練師"],
-      hourlyRate: 800,
-      rating: 5.0,
-      reviewsCount: 56,
-      district: "全港 All",
-      bio: "結合美式訓練法與重訓，專門針對爆發力與單打技巧提升。",
-      isVerified: true,
-      isAcceptingStudents: false,
-    },
-    {
-      id: "c4",
-      name: "Emma Wong",
-      avatar: "🏸",
-      sport: "Badminton",
-      certifications: ["BWF 一級教練"],
-      hourlyRate: 500,
-      rating: 4.7,
-      reviewsCount: 12,
-      district: "新界區 N.T.",
-      bio: "步伐訓練專家，糾正錯誤發力姿勢，預防運動傷害。",
-      isVerified: false,
-      isAcceptingStudents: true,
-    },
-  ];
-
-  const sportOptions: FilterOption[] = [
-    { label: "🎾 網球 Tennis", value: "Tennis" },
-    { label: "🏐 排球 Volleyball", value: "Volleyball" },
-    { label: "🏀 籃球 Basketball", value: "Basketball" },
-    { label: "🏸 羽毛球 Badminton", value: "Badminton" },
-  ];
-
-  const rateOptions: FilterOption[] = [
-    { label: "$400 以下 /hr", value: "low" },
-    { label: "$400 - $600 /hr", value: "mid" },
-    { label: "$600 以上 /hr", value: "high" },
-  ];
-
-  const districtOptions: FilterOption[] = [
-    { label: "港島區 Hong Kong Island", value: "Island" },
-    { label: "九龍區 Kowloon", value: "Kowloon" },
-    { label: "新界區 New Territories", value: "N.T." },
-    { label: "全港 All", value: "All" },
-  ];
-
-  const filteredList = useMemo(() => {
-    return mockCoaches.filter((coach) => {
-      const matchSport =
-        selectedSports.length === 0 || selectedSports.includes(coach.sport);
-      const matchDistrict =
-        selectedDistricts.length === 0 ||
-        selectedDistricts.some(
-          (district) =>
-            coach.district.includes(district) || coach.district === "全港 All",
-        );
-      const matchRate =
-        selectedRates.length === 0 ||
-        selectedRates.some((rate) => {
-          if (rate === "low") return coach.hourlyRate < 400;
-          if (rate === "mid")
-            return coach.hourlyRate >= 400 && coach.hourlyRate <= 600;
-          if (rate === "high") return coach.hourlyRate > 600;
-          return true;
-        });
-      return matchSport && matchDistrict && matchRate;
-    });
-  }, [mockCoaches, selectedSports, selectedRates, selectedDistricts]);
-
-  const hasActiveFilters =
-    selectedSports.length > 0 ||
-    selectedRates.length > 0 ||
-    selectedDistricts.length > 0;
-
-  const resetFilters = () => {
-    setSelectedSports([]);
-    setSelectedRates([]);
-    setSelectedDistricts([]);
-  };
-
-  const filterFields: FilterField[] = [
-    {
-      type: "multi-select",
-      id: "sport",
-      label: "1. 專項運動 Sport",
-      options: sportOptions,
-      selected: selectedSports,
-      onChange: setSelectedSports,
-      placeholder: "🏆 所有運動項目 (All Sports)",
-      colSpanClass: "lg:col-span-3",
-    },
-    {
-      type: "multi-select",
-      id: "rate",
-      label: "2. 時薪預算 Rate",
-      options: rateOptions,
-      selected: selectedRates,
-      onChange: setSelectedRates,
-      placeholder: "💰 所有預算 (All Rates)",
-      colSpanClass: "lg:col-span-3",
-    },
-    {
-      type: "multi-select",
-      id: "district",
-      label: "3. 教學區域 Area",
-      options: districtOptions,
-      selected: selectedDistricts,
-      onChange: setSelectedDistricts,
-      placeholder: "📍 所有區域 (All Areas)",
-      colSpanClass: "lg:col-span-3",
-    },
-  ];
-
-  return (
-    <div className="min-h-screen bg-slate-950 pb-24 font-sans text-slate-100">
-      <div className="mx-auto max-w-6xl px-4 pt-6">
-      
-        <BackButton label="返回上一頁" />
-
-        <div className="mt-4 flex flex-col justify-between md:flex-row md:items-end">
-          <div>
-            <h1 className="flex flex-col gap-1 text-3xl font-black tracking-tight text-white">
-              <span>官方認證教練榜</span>
-              {/* Updated: amber-400 for better dark bg contrast */}
-              <span className="text-xl font-bold text-amber-400">
-                Verified Coaches
-              </span>
-            </h1>
-            <p className="mt-2 text-sm leading-relaxed text-slate-400">
-              瀏覽透明評價與公開時薪，預約頂尖專業導師。
-              <br />
-              <span className="text-xs text-slate-500">
-                Book top-tier professionals with transparent rates and reviews.
-              </span>
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div className="mx-auto mt-8 max-w-6xl px-4">
-        <FilterPanel
-          fields={filterFields}
-          onReset={resetFilters}
-          hasActiveFilters={hasActiveFilters}
-          resultCount={filteredList.length}
-          mobileTitle="篩選教練 Filter Coaches"
-          resetColSpanClass="lg:col-span-3"
-        />
-
-        {filteredList.length === 0 ? (
-          // Updated: slate-800/50 border + bg for empty state
-          <div className="relative z-0 rounded-2xl border border-dashed border-slate-700 bg-slate-900/40 py-20 text-center">
-            <p className="mb-4 text-4xl">📭</p>
-            <h3 className="text-lg font-bold text-slate-300">
-              找不到符合預算的教練 No coaches found
-            </h3>
-            {/* Updated: blue-400 consistent with link variant */}
-            <button
-              type="button"
-              onClick={resetFilters}
-              className="mt-4 text-xs font-bold text-blue-400 underline hover:text-blue-300"
-            >
-              清除所有篩選 Clear all filters
-            </button>
-          </div>
-        ) : (
-          <div className="relative z-0 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {filteredList.map((coach) => (
-              // Updated: slate-800 card bg, slate-700 border + hover
-              <div
-                key={coach.id}
-                className="group relative flex flex-col justify-between rounded-2xl border border-slate-700/50 bg-slate-800/60 p-6 shadow-lg transition-colors hover:border-slate-600"
-              >
-                <span className="absolute top-6 right-6 flex flex-col items-end leading-none text-lg font-black text-white">
-                  {/* Updated: amber-400 for price on dark bg */}
-                  <span className="font-mono text-amber-400">
-                    ${coach.hourlyRate}
-                  </span>
-                  <span className="mt-1 font-sans text-[10px] font-medium uppercase text-slate-500">
-                    HKD / hr
-                  </span>
-                </span>
-
-                <div>
-                  <div className="mb-4 flex items-center gap-4">
-                    {/* Updated: slate-900 avatar bg, slate-700 border */}
-                    <span className="rounded-xl border border-slate-700 bg-slate-900 p-3 text-4xl shadow-inner">
-                      {coach.avatar}
-                    </span>
-                    <div>
-                      <h3 className="flex items-center gap-1.5 text-lg font-bold text-white">
-                        {coach.name}
-                        {coach.isVerified ? (
-                          // Updated: blue-600 PRO badge consistent with brand colour
-                          <span
-                            className="rounded bg-blue-600 px-1.5 py-0.5 text-[9px] font-black text-white uppercase"
-                            title="官方藍勾勾認證"
-                          >
-                            PRO
-                          </span>
-                        ) : null}
-                      </h3>
-                      <div className="mt-1 flex items-center gap-2">
-                        <span className="text-xs font-medium text-slate-400">
-                          {coach.sport}
-                        </span>
-                        {/* Updated: amber-400 stars consistent across app */}
-                        <div className="flex items-center font-mono text-[11px] text-amber-400">
-                          <span>★ {coach.rating}</span>
-                          <span className="ml-1 text-slate-500">
-                            ({coach.reviewsCount})
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mb-4 flex flex-wrap gap-2">
-                    {coach.certifications.map((cert, index) => (
-                      // Updated: slate-900 bg, slate-700 border for cert tags
-                      <span
-                        key={index}
-                        className="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-[10px] font-bold text-slate-300"
-                      >
-                        🎓 {cert}
-                      </span>
-                    ))}
-                  </div>
-
-                  <p className="line-clamp-3 text-xs leading-relaxed text-slate-400">
-                    {coach.bio}
-                  </p>
-                </div>
-
-                {/* Updated: slate-700/50 divider */}
-                <div className="mt-5 flex items-center justify-between border-t border-slate-700/50 pt-5">
-                  <span className="flex items-center gap-1 text-xs font-medium text-slate-500">
-                    <span>📍</span> {coach.district}
-                  </span>
-
-                  {coach.isAcceptingStudents ? (
-                    // Updated: amber-500 CTA, consistent amber shadow
-                    <Link
-                      href={`/p/${coach.id}`}
-                      className="flex items-center gap-1.5 rounded-lg bg-amber-500 px-5 py-2.5 text-xs font-bold text-white shadow-md shadow-amber-900/30 transition-all hover:bg-amber-400 active:scale-95"
-                    >
-                      <span>預約 Book</span>
-                    </Link>
-                  ) : (
-                    // Updated: slate-900 bg, slate-700 border, slate-600 text for disabled
-                    <button
-                      type="button"
-                      disabled
-                      className="cursor-not-allowed rounded-lg border border-slate-700 bg-slate-900 px-5 py-2.5 text-xs font-bold text-slate-600"
-                    >
-                      名額已滿 Full
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
+function CoachStatusBadge({ tag }: { tag: string | null }) {
+  if (tag === "recruiting") return <div className="inline-flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] md:text-xs px-2.5 py-1 rounded-full font-black tracking-widest whitespace-nowrap"><div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" /> 招生中</div>;
+  if (tag === "full") return <div className="inline-flex items-center gap-1.5 bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] md:text-xs px-2.5 py-1 rounded-full font-black tracking-widest whitespace-nowrap"><div className="w-1.5 h-1.5 rounded-full bg-red-400" /> 滿員</div>;
+  return null;
 }
 
 export default function CoachesPage() {
-  return <CoachesDirectory />;
+  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+  const [coaches, setCoaches] = useState<CoachProfileRow[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterStatus, setFilterStatus] = useState<string>("");
+
+  // 💡 Modal 狀態與多選陣列
+  const [selectedSports, setSelectedSports] = useState<string[]>([]);
+  const [isSportModalOpen, setIsSportModalOpen] = useState(false);
+  
+  const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
+  const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
+
+  useEffect(() => {
+    const fetchCoaches = async () => {
+      const { data, error } = await supabase
+        .from("coach_profiles")
+        .select("id, user_id, sport, rate, status, region, profiles(full_name, headline, avatar_url)")
+        .neq("status", "hidden");
+      if (!error && data) setCoaches(data as unknown as CoachProfileRow[]);
+      setIsLoading(false);
+    };
+    fetchCoaches();
+  }, [supabase]);
+
+  const uniqueSports = Array.from(new Set(coaches.map(c => c.sport).filter(Boolean))) as string[];
+  const uniqueLocations = Array.from(new Set(coaches.map(c => c.region).filter(Boolean))) as string[];
+
+  // 💡 支援多選的過濾邏輯
+  const filteredCoaches = coaches.filter(c => {
+    const matchSearch = (c.profiles?.full_name || "").toLowerCase().includes(searchTerm.toLowerCase());
+    const matchSport = selectedSports.length === 0 ? true : selectedSports.includes(c.sport);
+    const matchLocation = selectedLocations.length === 0 ? true : selectedLocations.includes(c.region);
+    const matchStatus = filterStatus ? c.status === filterStatus : true;
+    return matchSearch && matchSport && matchLocation && matchStatus;
+  });
+
+  return (
+    <div className="bg-slate-950 min-h-screen text-zinc-200 font-sans selection:bg-amber-500/30 pb-24 relative">
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10">
+        
+        <BackButton label="返回上一頁" />
+
+        <div className="mb-6 md:mb-8 text-center md:text-left mt-2">
+          <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight mb-2">教練名師榜 🎓</h1>
+          <p className="text-zinc-400 text-sm md:text-base font-medium">尋找各項目的頂尖導師，突破你的競技天花板。</p>
+        </div>
+
+        {/* ── 篩選器 ── */}
+        <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-800 p-4 md:p-5 rounded-3xl mb-8 shadow-lg flex flex-col md:flex-row gap-4 items-center">
+          
+          <div className="relative w-full md:flex-1">
+            <span className="absolute left-3 top-3 text-zinc-500">🔍</span>
+            <input type="text" placeholder="搜尋教練名稱..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-xl py-3 pl-10 pr-4 text-sm text-white focus:outline-none focus:border-amber-500 transition" />
+          </div>
+          
+          {/* 運動項目 Modal 按鈕 */}
+          <button onClick={() => setIsSportModalOpen(true)} className={`w-full md:w-auto flex items-center justify-between gap-3 px-5 py-3 rounded-xl border text-sm font-bold transition flex-shrink-0 ${selectedSports.length > 0 ? "bg-amber-600/10 border-amber-500 text-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.2)]" : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"}`}>
+            <span>專項 {selectedSports.length > 0 ? `(${selectedSports.length})` : "(全部)"}</span><span className="text-[10px]">▼</span>
+          </button>
+
+          {/* 地區 Modal 按鈕 */}
+          <button onClick={() => setIsLocationModalOpen(true)} className={`w-full md:w-auto flex items-center justify-between gap-3 px-5 py-3 rounded-xl border text-sm font-bold transition flex-shrink-0 ${selectedLocations.length > 0 ? "bg-amber-600/10 border-amber-500 text-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.2)]" : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"}`}>
+            <span>地區 {selectedLocations.length > 0 ? `(${selectedLocations.length})` : "(全區)"}</span><span className="text-[10px]">▼</span>
+          </button>
+
+          {/* 狀態過濾列 */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden w-full md:w-auto">
+            <button onClick={() => setFilterStatus("")} className={`whitespace-nowrap px-4 py-2.5 rounded-xl text-xs font-bold border transition ${!filterStatus ? "bg-slate-100 border-slate-200 text-black shadow-[0_0_10px_rgba(255,255,255,0.2)]" : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"}`}>全部狀態</button>
+            <button onClick={() => setFilterStatus("recruiting")} className={`whitespace-nowrap px-4 py-2.5 rounded-xl text-xs font-bold border transition ${filterStatus === "recruiting" ? "bg-slate-100 border-slate-200 text-black shadow-[0_0_10px_rgba(255,255,255,0.2)]" : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"}`}>🟢 招生中</button>
+            <button onClick={() => setFilterStatus("full")} className={`whitespace-nowrap px-4 py-2.5 rounded-xl text-xs font-bold border transition ${filterStatus === "full" ? "bg-slate-100 border-slate-200 text-black shadow-[0_0_10px_rgba(255,255,255,0.2)]" : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"}`}>🔴 滿員</button>
+          </div>
+        </div>
+
+        {/* ── 列表展示 ── */}
+        <div>
+          <div className="mb-4 px-1 flex justify-between items-center"><span className="text-sm font-bold text-zinc-500">顯示 <span className="text-white">{filteredCoaches.length}</span> 項教練服務</span></div>
+          {isLoading ? (
+            <div className="py-20 text-center text-zinc-500 font-mono text-sm">搜尋各方名師中...</div>
+          ) : filteredCoaches.length === 0 ? (
+            <div className="bg-slate-900/40 border border-dashed border-slate-700/50 rounded-3xl py-20 text-center px-4"><p className="text-zinc-400 font-bold text-sm">沒有符合條件的教練。</p></div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6 lg:gap-8 animate-fadeIn">
+              {filteredCoaches.map((c) => (
+                <div key={c.id} className="bg-slate-900/50 border border-slate-800 hover:border-slate-600 rounded-2xl p-6 flex flex-col items-center text-center transition duration-300 group hover:-translate-y-1 shadow-md hover:shadow-xl relative overflow-hidden">
+                  <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-amber-500/20 via-orange-500/20 to-red-500/20 opacity-0 group-hover:opacity-100 transition duration-300" />
+                  <div className="relative w-20 h-20 md:w-24 md:h-24 mb-5 mt-2">
+                    <div className="w-full h-full rounded-full bg-slate-800 border-2 border-slate-700/50 overflow-hidden flex items-center justify-center text-3xl font-black text-zinc-600 bg-cover bg-center shadow-inner" style={{ backgroundImage: c.profiles?.avatar_url ? `url(${c.profiles.avatar_url})` : "none" }}>{!c.profiles?.avatar_url && (c.profiles?.full_name?.[0] || "C")}</div>
+                    <div className="absolute -bottom-3 flex justify-center w-full"><CoachStatusBadge tag={c.status} /></div>
+                  </div>
+                  <h3 className="text-lg font-black text-white tracking-tight mb-1 truncate w-full">{c.profiles?.full_name || "教練名稱未設"}</h3>
+                  <p className="text-xs md:text-sm text-zinc-400 font-medium mb-5 line-clamp-2 h-8 md:h-10 leading-snug">{c.profiles?.headline || "專注於每一次教學。"}</p>
+                  <div className="flex flex-wrap items-center justify-center gap-2 mb-6 w-full">
+                    <div className="bg-slate-950/50 border border-slate-800/80 text-zinc-400 text-xs font-bold px-3 py-1.5 rounded-lg truncate max-w-[140px]">📍 {c.region || "地點未公開"}</div>
+                    <div className="bg-amber-500/10 text-amber-400 border border-amber-500/20 text-xs font-black px-3 py-1.5 rounded-lg">{c.sport}</div>
+                    <div className="bg-amber-500/10 text-amber-400 border border-amber-500/20 text-xs font-black px-3 py-1.5 rounded-lg truncate">HK$ {c.rate} / hr</div>
+                  </div>
+                  <div className="mt-auto w-full pt-4 border-t border-slate-800/80">
+                    <Link href={`/p/${c.user_id}`} className="block w-full bg-slate-800 hover:bg-amber-600 text-white text-sm font-black py-3 rounded-xl transition duration-300">查看教練專頁</Link>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <SportFilterModal isOpen={isSportModalOpen} onClose={() => setIsSportModalOpen(false)} allSports={uniqueSports} selectedSports={selectedSports} onApply={setSelectedSports} />
+      <LocationFilterModal isOpen={isLocationModalOpen} onClose={() => setIsLocationModalOpen(false)} allLocations={uniqueLocations} selectedLocations={selectedLocations} onApply={setSelectedLocations} />
+    </div>
+  );
 }
