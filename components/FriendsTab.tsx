@@ -6,9 +6,6 @@ import { createBrowserClient } from "@supabase/ssr";
 import { Users, Clock, Send, UserX, Check, X } from "lucide-react";
 
 // ── Supabase response shapes ───────────────────────────────────────────────
-// These mirror exactly what the .select() queries return.
-// Keeping them separate from the UI types makes both layers explicit.
-
 interface ProfileJoin {
   id: string;
   full_name: string | null;
@@ -17,7 +14,6 @@ interface ProfileJoin {
   location: string | null;
 }
 
-// Accepted friendship row — both sides are always present
 interface FriendshipRow {
   id: string;
   created_at: string;
@@ -25,14 +21,12 @@ interface FriendshipRow {
   receiver: ProfileJoin;
 }
 
-// Pending row — only sender is joined
 interface PendingRow {
   id: string;
   created_at: string;
   sender: ProfileJoin;
 }
 
-// Sent row — only receiver is joined
 interface SentRow {
   id: string;
   created_at: string;
@@ -116,7 +110,6 @@ function EmptyState({
 
 // ── FriendsTab ─────────────────────────────────────────────────────────────
 interface FriendsTabProps {
-  // Passed down from ProfilePage — avoids a redundant auth.getUser() call
   currentUserId: string;
 }
 
@@ -146,7 +139,6 @@ export function FriendsTab({ currentUserId }: FriendsTabProps) {
     });
 
   // ── Fetch all three lists ────────────────────────────────────────────────
-  // useCallback so the realtime handler can call it without stale closures
   const fetchAll = useCallback(async () => {
     setIsLoading(true);
 
@@ -181,76 +173,48 @@ export function FriendsTab({ currentUserId }: FriendsTabProps) {
     ]);
 
     // ── Type-safe mapping — bypassing Supabase array inference ──
-  if (friendsRes.data) {
-    setFriends(
-      (friendsRes.data as unknown as FriendshipRow[]).map((f) => ({
-        id:         f.id,
-        created_at: f.created_at,
-        friend:     f.sender?.id === currentUserId ? f.receiver : f.sender,
-      }))
-    );
-  }
+    if (friendsRes.data) {
+      setFriends(
+        (friendsRes.data as unknown as FriendshipRow[]).map((f) => ({
+          id:         f.id,
+          created_at: f.created_at,
+          friend:     f.sender?.id === currentUserId ? f.receiver : f.sender,
+        }))
+      );
+    }
 
-  if (pendingRes.data) {
-    setPendingRequests(
-      (pendingRes.data as unknown as PendingRow[]).map((f) => ({
-        id:         f.id,
-        created_at: f.created_at,
-        sender:     f.sender,
-      }))
-    );
-  }
+    if (pendingRes.data) {
+      setPendingRequests(
+        (pendingRes.data as unknown as PendingRow[]).map((f) => ({
+          id:         f.id,
+          created_at: f.created_at,
+          sender:     f.sender,
+        }))
+      );
+    }
 
-  if (sentRes.data) {
-    setSentRequests(
-      (sentRes.data as unknown as SentRow[]).map((f) => ({
-        id:         f.id,
-        created_at: f.created_at,
-        receiver:   f.receiver,
-      }))
-    );
-  }`
+    if (sentRes.data) {
+      setSentRequests(
+        (sentRes.data as unknown as SentRow[]).map((f) => ({
+          id:         f.id,
+          created_at: f.created_at,
+          receiver:   f.receiver,
+        }))
+      );
+    }
 
     setIsLoading(false);
   }, [supabase, currentUserId]);
 
-  // Initial fetch
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
   // ── Realtime sync ────────────────────────────────────────────────────────
-  // Listens for any INSERT or UPDATE on friendships rows that involve
-  // the current user. Re-fetches all three lists on any change so the
-  // UI stays consistent with the Navbar bell actions.
   useEffect(() => {
     const channel = supabase
       .channel("friends-tab-realtime")
-      .on(
-        "postgres_changes",
-        {
-          event:  "INSERT",
-          schema: "public",
-          table:  "friendships",
-        },
-        () => fetchAll()
-      )
-      .on(
-        "postgres_changes",
-        {
-          event:  "UPDATE",
-          schema: "public",
-          table:  "friendships",
-        },
-        () => fetchAll()
-      )
-      .on(
-        "postgres_changes",
-        {
-          event:  "DELETE",
-          schema: "public",
-          table:  "friendships",
-        },
-        () => fetchAll()
-      )
+      .on("postgres_changes", { event:  "INSERT", schema: "public", table:  "friendships" }, () => fetchAll())
+      .on("postgres_changes", { event:  "UPDATE", schema: "public", table:  "friendships" }, () => fetchAll())
+      .on("postgres_changes", { event:  "DELETE", schema: "public", table:  "friendships" }, () => fetchAll())
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
@@ -259,21 +223,12 @@ export function FriendsTab({ currentUserId }: FriendsTabProps) {
   // ── Accept ───────────────────────────────────────────────────────────────
   const handleAccept = async (req: PendingRequest) => {
     if (isProcessing(req.id)) return;
-
-    // Defensive check — sender id must exist before we insert a notification
-    // This guards against corrupted rows where the join returned null
-    if (!req.sender?.id) {
-      console.warn("handleAccept: req.sender.id is missing, aborting.", req);
-      return;
-    }
+    if (!req.sender?.id) return;
 
     startProcessing(req.id);
     try {
       const [updateRes, insertRes] = await Promise.all([
-        supabase
-          .from("friendships")
-          .update({ status: "accepted" })
-          .eq("id", req.id),
+        supabase.from("friendships").update({ status: "accepted" }).eq("id", req.id),
         supabase.from("notifications").insert({
           user_id:       req.sender.id,
           sender_id:     currentUserId,
@@ -284,7 +239,6 @@ export function FriendsTab({ currentUserId }: FriendsTabProps) {
       if (updateRes.error) throw updateRes.error;
       if (insertRes.error) throw insertRes.error;
 
-      // Optimistic update — move card immediately without waiting for realtime
       setPendingRequests((prev) => prev.filter((r) => r.id !== req.id));
       setFriends((prev) => [
         ...prev,
@@ -304,11 +258,7 @@ export function FriendsTab({ currentUserId }: FriendsTabProps) {
     try {
       const [deleteF, deleteN] = await Promise.all([
         supabase.from("friendships").delete().eq("id", req.id),
-        supabase
-          .from("notifications")
-          .delete()
-          .eq("friendship_id", req.id)
-          .eq("type", "friend_request"),
+        supabase.from("notifications").delete().eq("friendship_id", req.id).eq("type", "friend_request"),
       ]);
       if (deleteF.error) throw deleteF.error;
       if (deleteN.error) throw deleteN.error;
@@ -326,12 +276,8 @@ export function FriendsTab({ currentUserId }: FriendsTabProps) {
     if (isProcessing(req.id)) return;
     startProcessing(req.id);
     try {
-      const { error } = await supabase
-        .from("friendships")
-        .delete()
-        .eq("id", req.id);
+      const { error } = await supabase.from("friendships").delete().eq("id", req.id);
       if (error) throw error;
-
       setSentRequests((prev) => prev.filter((r) => r.id !== req.id));
     } catch (err) {
       console.error("handleCancel:", err);
@@ -345,12 +291,8 @@ export function FriendsTab({ currentUserId }: FriendsTabProps) {
     if (isProcessing(friendship.id)) return;
     startProcessing(friendship.id);
     try {
-      const { error } = await supabase
-        .from("friendships")
-        .delete()
-        .eq("id", friendship.id);
+      const { error } = await supabase.from("friendships").delete().eq("id", friendship.id);
       if (error) throw error;
-
       setFriends((prev) => prev.filter((f) => f.id !== friendship.id));
     } catch (err) {
       console.error("handleUnfriend:", err);
@@ -400,7 +342,7 @@ export function FriendsTab({ currentUserId }: FriendsTabProps) {
         <div className="py-20 text-center text-zinc-500 text-sm">載入中...</div>
       ) : (
         <>
-          {/* Friends list */}
+          {/* ── Friends list ── */}
           {activeSubTab === "friends" && (
             <div className="space-y-3">
               {friends.length === 0 ? (
@@ -447,7 +389,7 @@ export function FriendsTab({ currentUserId }: FriendsTabProps) {
             </div>
           )}
 
-          {/* Pending requests */}
+          {/* ── Pending requests ── */}
           {activeSubTab === "pending" && (
             <div className="space-y-3">
               {pendingRequests.length === 0 ? (
@@ -498,7 +440,7 @@ export function FriendsTab({ currentUserId }: FriendsTabProps) {
             </div>
           )}
 
-          {/* Sent requests */}
+          {/* ── Sent requests ── */}
           {activeSubTab === "sent" && (
             <div className="space-y-3">
               {sentRequests.length === 0 ? (
