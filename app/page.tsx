@@ -36,7 +36,7 @@ export default function HomePage() {
             href="/network/"
             className="px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-blue-900/30 flex flex-col items-center justify-center gap-0.5 active:scale-95"
           >
-            <span className="text-sm">尋找球友</span>
+            <span className="text-sm">尋找運動夥伴</span>
             <span className="text-[10px] text-blue-100">Find Players →</span>
           </Link>
           
@@ -44,7 +44,7 @@ export default function HomePage() {
             href="/coaches"
             className="px-8 py-4 bg-slate-900 hover:bg-slate-800 text-white font-bold border border-slate-700 rounded-xl transition-all shadow-sm flex flex-col items-center justify-center gap-0.5 active:scale-95"
           >
-            <span className="text-sm">認識教練</span>
+            <span className="text-sm">認識專業教練</span>
             <span className="text-[10px] text-slate-400">Browse Coaches</span>
           </Link>
         </div>

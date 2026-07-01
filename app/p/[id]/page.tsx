@@ -7,7 +7,7 @@ import Link from "next/link";
 
 interface Profile {
   id: string; full_name: string | null; handle: string | null; headline: string | null; bio: string | null; location: string | null; avatar_url: string | null; status_tag: string | null; display_sports: string[] | null;
-  is_coach: boolean | null; 
+  is_coach: boolean | null;
   is_physio: boolean | null; physio_rate: number | null; clinic_name: string | null; physio_status: string | null; physio_region: string | null;
 }
 
@@ -17,6 +17,7 @@ interface MediaItem { id: string; sportName: string; url: string; }
 
 type TopRole = "athlete" | "coach" | "physio";
 type AthleteTab = "expertise" | "highlights" | "feed";
+type FriendshipStatus = "none" | "pending_sent" | "pending_received" | "accepted";
 
 const StatusBadge = ({ tag, type = "athlete" }: { tag: string | null, type?: "athlete"|"coach"|"physio" }) => {
   if (tag === "hidden" || tag === "draft") return null;
@@ -48,19 +49,64 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
   const [activeRole, setActiveRole] = useState<TopRole>("athlete");
   const [activeAthleteTab, setActiveAthleteTab] = useState<AthleteTab>("expertise");
 
+  // --- Friend state ---
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [friendshipStatus, setFriendshipStatus] = useState<FriendshipStatus>("none");
+  const [friendshipId, setFriendshipId] = useState<string | null>(null);
+  const [friendLoading, setFriendLoading] = useState(false);
+  const [showUnfriendConfirm, setShowUnfriendConfirm] = useState(false);
+
+  // --- Re-fetch friendship status from DB (prevents race conditions) ---
+  const refetchFriendshipStatus = async (uid: string) => {
+    const { data: friendData } = await supabase
+      .from("friendships")
+      .select("id, status, sender_id, receiver_id")
+      .or(`and(sender_id.eq.${uid},receiver_id.eq.${id}),and(sender_id.eq.${id},receiver_id.eq.${uid})`)
+      .maybeSingle();
+
+    if (friendData) {
+      setFriendshipId(friendData.id);
+      if (friendData.status === "accepted") {
+        setFriendshipStatus("accepted");
+      } else if (friendData.status === "pending") {
+        setFriendshipStatus(friendData.sender_id === uid ? "pending_sent" : "pending_received");
+      }
+    } else {
+      setFriendshipId(null);
+      setFriendshipStatus("none");
+    }
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [{ data: prof, error: profErr }, { data: usData }, { data: coachesData }] = await Promise.all([
+        // Fix: use getUser() instead of getSession() to ensure token is always verified and fresh
+        const [
+          { data: prof, error: profErr },
+          { data: usData },
+          { data: coachesData },
+          { data: { user } }
+        ] = await Promise.all([
           supabase.from("profiles").select("*").eq("id", id).single(),
           supabase.from("user_sports").select("id, metadata, sports(name)").eq("user_id", id),
-          supabase.from("coach_profiles").select("*").eq("user_id", id).neq("status", "hidden") // 只抓公開的教練名片
+          supabase.from("coach_profiles").select("*").eq("user_id", id).neq("status", "hidden"),
+          supabase.auth.getUser(), // ✅ replaces getSession()
         ]);
+
         if (profErr || !prof) { setIsNotFound(true); return; }
         setProfile(prof);
         if (usData) setUserSports(usData as unknown as UserSport[]);
         if (coachesData) setCoachProfiles(coachesData);
-        
+
+        if (user) {
+          const uid = user.id;
+          setCurrentUserId(uid);
+
+          if (uid !== id) {
+            await refetchFriendshipStatus(uid);
+          }
+        }
+
         const { data: storageFiles } = await supabase.storage.from("highlights").list(`${id}/`, { limit: 20 });
         if (storageFiles && storageFiles.length > 0) {
           const fetchedGallery = storageFiles.filter(f => f.name !== ".emptyFolderPlaceholder").map(file => {
@@ -73,6 +119,178 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
     };
     fetchData();
   }, [id, supabase]);
+
+  // --- Friend action handlers ---
+  const handleSendRequest = async () => {
+    if (!currentUserId) return;
+    setFriendLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("friendships")
+        .insert({ sender_id: currentUserId, receiver_id: id, status: "pending" })
+        .select("id")
+        .single();
+
+      if (error) throw error;
+
+      await supabase.from("notifications").insert({
+        user_id: id,
+        sender_id: currentUserId,
+        type: "friend_request",
+        friendship_id: data.id,
+      });
+
+      await refetchFriendshipStatus(currentUserId);
+    } catch (err) {
+      console.error("Failed to send friend request:", err);
+    } finally {
+      setFriendLoading(false);
+    }
+  };
+
+  const handleCancelOrUnfriend = async () => {
+    if (!friendshipId || !currentUserId) return;
+    setFriendLoading(true);
+    try {
+      await supabase.from("friendships").delete().eq("id", friendshipId);
+      setShowUnfriendConfirm(false);
+      await refetchFriendshipStatus(currentUserId);
+    } catch (err) {
+      console.error("Failed to remove friendship:", err);
+    } finally {
+      setFriendLoading(false);
+    }
+  };
+
+  const handleAcceptRequest = async () => {
+    if (!friendshipId || !currentUserId) return;
+    setFriendLoading(true);
+    try {
+      await supabase
+        .from("friendships")
+        .update({ status: "accepted" })
+        .eq("id", friendshipId);
+
+      await supabase.from("notifications").insert({
+        user_id: id,
+        sender_id: currentUserId,
+        type: "friend_accepted",
+        friendship_id: friendshipId,
+      });
+
+      await refetchFriendshipStatus(currentUserId);
+    } catch (err) {
+      console.error("Failed to accept friend request:", err);
+    } finally {
+      setFriendLoading(false);
+    }
+  };
+
+  const handleRejectRequest = async () => {
+    if (!friendshipId || !currentUserId) return;
+    setFriendLoading(true);
+    try {
+      // Fix: also clean up the related notification so it doesn't linger as unread
+      await Promise.all([
+        supabase.from("friendships").delete().eq("id", friendshipId),
+        supabase
+          .from("notifications")
+          .delete()
+          .eq("friendship_id", friendshipId)
+          .eq("type", "friend_request"),
+      ]);
+
+      await refetchFriendshipStatus(currentUserId);
+    } catch (err) {
+      console.error("Failed to reject friend request:", err);
+    } finally {
+      setFriendLoading(false);
+    }
+  };
+
+  // --- Friend Button UI ---
+  const FriendButton = () => {
+    if (!currentUserId || currentUserId === id) return null;
+
+    if (friendshipStatus === "accepted") {
+      return (
+        <div className="relative mt-4">
+          <button
+            onClick={() => setShowUnfriendConfirm(true)}
+            className="w-full py-2.5 px-6 rounded-full text-sm font-black bg-blue-600/20 border border-blue-500/30 text-blue-400 hover:bg-red-500/20 hover:border-red-500/30 hover:text-red-400 transition-all duration-300"
+          >
+            ✓ 已加好友
+          </button>
+          {showUnfriendConfirm && (
+            <div className="absolute top-12 left-0 right-0 z-50 bg-slate-900 border border-slate-700 rounded-2xl p-4 shadow-2xl text-center">
+              <p className="text-sm text-zinc-300 font-bold mb-3">確定要解除好友關係？</p>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleCancelOrUnfriend}
+                  disabled={friendLoading}
+                  className="flex-1 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-black transition"
+                >
+                  {friendLoading ? "處理中..." : "解除好友"}
+                </button>
+                <button
+                  onClick={() => setShowUnfriendConfirm(false)}
+                  className="flex-1 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-zinc-300 text-xs font-black transition"
+                >
+                  取消
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    if (friendshipStatus === "pending_sent") {
+      return (
+        <button
+          onClick={handleCancelOrUnfriend}
+          disabled={friendLoading}
+          className="w-full mt-4 py-2.5 px-6 rounded-full text-sm font-black bg-slate-800 border border-slate-700 text-zinc-400 hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-400 transition-all duration-300"
+        >
+          {friendLoading ? "處理中..." : "⏳ 已發送請求（點擊取消）"}
+        </button>
+      );
+    }
+
+    if (friendshipStatus === "pending_received") {
+      return (
+        <div className="mt-4 space-y-2">
+          <p className="text-xs text-zinc-500 font-bold text-center">對方向你發送了好友請求</p>
+          <div className="flex gap-2">
+            <button
+              onClick={handleAcceptRequest}
+              disabled={friendLoading}
+              className="flex-1 py-2.5 rounded-full text-sm font-black bg-blue-600 hover:bg-blue-500 text-white transition-all duration-300 shadow-[0_0_15px_rgba(37,99,235,0.3)]"
+            >
+              {friendLoading ? "處理中..." : "✓ 接受"}
+            </button>
+            <button
+              onClick={handleRejectRequest}
+              disabled={friendLoading}
+              className="flex-1 py-2.5 rounded-full text-sm font-black bg-slate-800 border border-slate-700 text-zinc-400 hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-400 transition-all duration-300"
+            >
+              {friendLoading ? "處理中..." : "✕ 拒絕"}
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <button
+        onClick={handleSendRequest}
+        disabled={friendLoading}
+        className="w-full mt-4 py-2.5 px-6 rounded-full text-sm font-black bg-blue-600 hover:bg-blue-500 text-white transition-all duration-300 shadow-[0_0_15px_rgba(37,99,235,0.3)]"
+      >
+        {friendLoading ? "處理中..." : "+ 加好友"}
+      </button>
+    );
+  };
 
   if (isLoading) return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-zinc-500 font-mono">載入名片中...</div>;
   if (isNotFound || !profile) return <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-center"><h1 className="text-4xl font-black text-white mb-2">404</h1><p className="text-zinc-500 mb-6">查無此名片或已關閉</p><Link href="/network" className="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold">返回列表</Link></div>;
@@ -90,22 +308,31 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
           <div className="lg:col-span-4 xl:col-span-3 space-y-6">
             <div className="bg-slate-900/40 backdrop-blur-xl border border-slate-800/60 rounded-3xl p-6 sticky top-20 shadow-2xl text-center">
               <div className="relative w-32 h-32 mx-auto mb-6">
-                <div className="w-full h-full rounded-full bg-slate-800 border-2 border-slate-700/50 shadow-xl overflow-hidden bg-cover bg-center" style={{ backgroundImage: avatarSrc ? `url(${avatarSrc})` : "none" }}>{!avatarSrc && <div className="w-full h-full flex items-center justify-center text-4xl font-black text-zinc-600">PRO</div>}</div>
+                <div className="w-full h-full rounded-full bg-slate-800 border-2 border-slate-700/50 shadow-xl overflow-hidden bg-cover bg-center" style={{ backgroundImage: avatarSrc ? `url(${avatarSrc})` : "none" }}>
+                  {!avatarSrc && <div className="w-full h-full flex items-center justify-center text-4xl font-black text-zinc-600">PRO</div>}
+                </div>
                 <div className="absolute -bottom-3 flex justify-center w-full z-10">
                   {activeRole === "athlete" && <StatusBadge tag={profile.status_tag} type="athlete" />}
                   {activeRole === "physio" && <StatusBadge tag={profile.physio_status} type="physio" />}
                 </div>
               </div>
               <h1 className="text-3xl font-black text-white tracking-tight mb-1">{profile.full_name}</h1>
-              <p className="text-blue-400 font-mono text-sm mb-4">@{profile.handle || id.slice(0,8)}</p>
+              <p className="text-blue-400 font-mono text-sm mb-4">@{profile.handle || id.slice(0, 8)}</p>
               <p className="text-sm font-bold text-zinc-400 mb-4">{profile.headline || "專注於每一次場上表現。"}</p>
               <div className="flex flex-wrap justify-center gap-2 mb-4">
                 <span className="bg-slate-800/80 text-zinc-300 text-[10px] font-black px-3 py-1 rounded-full border border-slate-700">👤 運動員</span>
                 {hasPublicCoach && <span className="bg-amber-500/10 text-amber-400 text-[10px] font-black px-3 py-1 rounded-full border border-amber-500/20">🎓 教練</span>}
                 {hasPublicPhysio && <span className="bg-emerald-500/10 text-emerald-400 text-[10px] font-black px-3 py-1 rounded-full border border-emerald-500/20">⚕️ 運動/物理治療</span>}
               </div>
-              <p className="text-sm text-zinc-300 leading-relaxed text-left bg-slate-900/30 p-4 rounded-2xl border border-slate-800/50 mb-6">{profile.bio || "這位運動員很低調，還沒有留下詳細的自介。"}</p>
-              <div className="mt-4 flex items-center justify-center gap-2 text-xs text-zinc-500 font-medium"><span>📍 {profile.location || "地點未公開"}</span></div>
+              <p className="text-sm text-zinc-300 leading-relaxed text-left bg-slate-900/30 p-4 rounded-2xl border border-slate-800/50 mb-6">
+                {profile.bio || "這位運動員很低調，還沒有留下詳細的自介。"}
+              </p>
+              <div className="mt-4 flex items-center justify-center gap-2 text-xs text-zinc-500 font-medium">
+                <span>📍 {profile.location || "地點未公開"}</span>
+              </div>
+
+              {/* Friend Button */}
+              <FriendButton />
             </div>
           </div>
 
@@ -131,13 +358,18 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
 
                   {activeAthleteTab === "expertise" && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-4">
-                      {userSports.length === 0 ? <div className="md:col-span-2 text-center py-10 border border-dashed border-slate-800 rounded-2xl text-zinc-500 text-sm font-bold">尚未宣告專業項目。</div> : (
+                      {userSports.length === 0 ? (
+                        <div className="md:col-span-2 text-center py-10 border border-dashed border-slate-800 rounded-2xl text-zinc-500 text-sm font-bold">尚未宣告專業項目。</div>
+                      ) : (
                         userSports.map((us) => (
                           <div key={us.id} className="bg-slate-900/50 border border-slate-800 rounded-3xl p-6 relative overflow-hidden">
                             <span className="text-xl font-black text-white mb-4 block relative z-10">{us.sports?.name}</span>
                             <div className="space-y-2 relative z-10">
                               {Object.entries(us.metadata || {}).map(([key, val]) => (
-                                <div key={key} className="flex justify-between text-sm pb-1 border-b border-slate-800/50 last:border-0"><span className="text-zinc-500 font-bold capitalize">{key}</span><span className="text-blue-400 font-black">{val as string}</span></div>
+                                <div key={key} className="flex justify-between text-sm pb-1 border-b border-slate-800/50 last:border-0">
+                                  <span className="text-zinc-500 font-bold capitalize">{key}</span>
+                                  <span className="text-blue-400 font-black">{val as string}</span>
+                                </div>
                               ))}
                             </div>
                           </div>
@@ -148,8 +380,14 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
 
                   {activeAthleteTab === "highlights" && (
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-2 pt-4">
-                      {galleryMedia.length === 0 ? <div className="col-span-3 text-center py-10 border border-dashed border-slate-800 rounded-2xl text-zinc-500 text-sm font-bold">相簿空空如也。</div> : (
-                        galleryMedia.map(m => (<div key={m.id} className="aspect-square bg-slate-900 rounded-xl overflow-hidden cursor-pointer group relative"><img src={m.url} className="w-full h-full object-cover group-hover:scale-110 transition duration-500" alt="Highlight" /></div>))
+                      {galleryMedia.length === 0 ? (
+                        <div className="col-span-3 text-center py-10 border border-dashed border-slate-800 rounded-2xl text-zinc-500 text-sm font-bold">相簿空空如也。</div>
+                      ) : (
+                        galleryMedia.map(m => (
+                          <div key={m.id} className="aspect-square bg-slate-900 rounded-xl overflow-hidden cursor-pointer group relative">
+                            <img src={m.url} className="w-full h-full object-cover group-hover:scale-110 transition duration-500" alt="Highlight" />
+                          </div>
+                        ))
                       )}
                     </div>
                   )}
@@ -157,7 +395,13 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
                   {activeAthleteTab === "feed" && (
                     <div className="space-y-6 pt-4 animate-fadeIn max-w-3xl">
                       <div className="bg-slate-900/40 border border-slate-800 rounded-3xl p-6">
-                        <div className="flex items-center gap-3 mb-4"><div className="w-10 h-10 rounded-full bg-slate-800 bg-cover bg-center" style={{ backgroundImage: avatarSrc ? `url(${avatarSrc})` : "none" }} /><div><h4 className="text-sm font-black text-white">{profile.full_name}</h4><span className="text-[10px] text-zinc-500 uppercase">剛剛發布</span></div></div>
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="w-10 h-10 rounded-full bg-slate-800 bg-cover bg-center" style={{ backgroundImage: avatarSrc ? `url(${avatarSrc})` : "none" }} />
+                          <div>
+                            <h4 className="text-sm font-black text-white">{profile.full_name}</h4>
+                            <span className="text-[10px] text-zinc-500 uppercase">剛剛發布</span>
+                          </div>
+                        </div>
                         <p className="text-sm text-zinc-300 font-medium leading-relaxed">持續訓練，準備迎接下一個賽季！目前的技術儲備已經到位，期待能在友誼賽中驗證成果。🔥</p>
                       </div>
                     </div>
@@ -165,7 +409,6 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
                 </div>
               )}
 
-              {/* 教練專區（渲染多張名片） */}
               {activeRole === "coach" && (
                 <div className="space-y-8 animate-fadeIn">
                   {coachProfiles.map(coach => (
