@@ -55,6 +55,16 @@ export async function proxy(req: NextRequest) {
   return response;
 }
 
+// Example of how to bypass the auth callback in your middleware
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
-};
+  matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - auth/callback (Crucial for Google Login!)
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     */
+    '/((?!auth/callback|_next/static|_next/image|favicon.ico).*)',
+  ],
+}

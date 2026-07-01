@@ -13,7 +13,6 @@ interface Profile {
   is_physio: boolean | null; physio_rate: number | string; clinic_name: string | null; physio_status: string | null; physio_country: string | null; physio_region: string | null;
 }
 
-// 💡 修正 rate 允許為 string，解決 0 無法被刪除的問題
 interface CoachProfile { id: string; sport: string; rate: number | string; status: string; country: string; region: string; }
 interface Sport { id: string; name: string; }
 interface UserSport { id: string; sport_id: string; metadata: { position?: string; [key: string]: any }; sports: { name: string } | null; }
@@ -85,7 +84,7 @@ function ProfilePageContent() {
   
   const [isMediaModalOpen, setIsMediaModalOpen] = useState(false);
   const [uploadMediaSport, setUploadMediaSport] = useState("");
-  const [isUploadingMedia, setIsUploadingMedia] = useState(false); // 💡 把這行加回來！
+  const [isUploadingMedia, setIsUploadingMedia] = useState(false);
   const [galleryMedia, setGalleryMedia] = useState<MediaItem[]>([]);
   const [selectedPost, setSelectedPost] = useState<MediaItem | null>(null);
 
@@ -103,7 +102,6 @@ function ProfilePageContent() {
 
   const loadProfileData = useCallback(async (userId: string) => {
     try {
-      // 💡 現在一併從資料庫抓取 locations 表
       const [{ data: prof }, { data: usData }, { data: sData }, { data: coachesData }, { data: locData }] = await Promise.all([
         supabase.from("profiles").select("*").eq("id", userId).single(),
         supabase.from("user_sports").select("id, sport_id, metadata, sports(name)").eq("user_id", userId),
@@ -132,7 +130,6 @@ function ProfilePageContent() {
       if (usData) setUserSports(usData as unknown as UserSport[]);
       if (sData) setAllSports(sData);
       
-      // 將載入的 Coach 費用如果是 0，轉成空字串方便編輯
       if (coachesData) {
         setCoachProfiles(coachesData.map(c => ({ ...c, rate: c.rate === 0 ? "" : c.rate })));
       }
@@ -195,8 +192,6 @@ function ProfilePageContent() {
       pendingAvatarFile.current = null; if (blobUrlRef.current) { URL.revokeObjectURL(blobUrlRef.current); blobUrlRef.current = null; }
     }
     const fullName = `${editForm.first_name} ${editForm.last_name}`.trim();
-    
-    // 儲存時將空字串的安全轉型為 0，避免資料庫報錯
     const physioRateVal = Number(editForm.physio_rate) || 0;
 
     const { error } = await supabase.from("profiles").upsert({
@@ -213,7 +208,6 @@ function ProfilePageContent() {
   };
 
   const addCoachProfile = () => {
-    // 💡 新增卡片時 rate 預設給空字串，才不會卡著一個 0
     const newCoach: CoachProfile = { id: `new_${Date.now()}`, sport: "", rate: "", status: "hidden", country: "", region: "" };
     setCoachProfiles([...coachProfiles, newCoach]);
   };
@@ -225,8 +219,6 @@ function ProfilePageContent() {
   const saveCoachProfile = async (coach: CoachProfile) => {
     if (!user || !coach.sport) return alert("請選擇專項");
     const isNew = coach.id.startsWith("new_");
-    
-    // 儲存時將空字串的安全轉型為 0
     const rateVal = Number(coach.rate) || 0;
     const payload = { user_id: user.id, sport: coach.sport, rate: rateVal, status: coach.status, country: coach.country, region: coach.region };
     
@@ -263,7 +255,7 @@ function ProfilePageContent() {
   const handleOpenSportModal = useCallback((us?: UserSport) => { if (us) { setSelectedSportId(us.sport_id); setSportDynamicData(us.metadata || {}); setEditingUserSportId(us.id); } else { setSelectedSportId(""); setSportDynamicData({}); setEditingUserSportId(null); } setIsSportModalOpen(true); }, []);
   const handleSaveSport = async (e: React.FormEvent) => { e.preventDefault(); if (!selectedSportId || !user) return; if (editingUserSportId) { await supabase.from("user_sports").update({ sport_id: selectedSportId, metadata: sportDynamicData }).eq("id", editingUserSportId); } else { await supabase.from("user_sports").insert({ user_id: user.id, sport_id: selectedSportId, metadata: sportDynamicData }); } await loadProfileData(user.id); setIsSportModalOpen(false); router.refresh(); };
   const handleRemoveSport = async (us: UserSport) => { if (!window.confirm(`確定要移除 ${us.sports?.name} 嗎？`)) return; await supabase.from("user_sports").delete().eq("id", us.id); setUserSports(prev => prev.filter(item => item.id !== us.id)); router.refresh(); };
-  const handleMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>) => { const rawFile = e.target.files?.[0]; if (!rawFile || !uploadMediaSport || !user) return; const fileToUpload = await compressImage(rawFile); const uniqueFileName = `highlight-${Date.now()}.${rawFile.name.split(".").pop()}`; const { error } = await supabase.storage.from("highlights").upload(`${user.id}/${uniqueFileName}`, fileToUpload); if (!error) { const publicUrl = supabase.storage.from("highlights").getPublicUrl(`${user.id}/${uniqueFileName}`).data.publicUrl; setGalleryMedia(prev => [{ id: uniqueFileName, sportName: uploadMediaSport, type: "image", url: publicUrl, fileName: uniqueFileName, createdAt: "剛剛" }, ...prev]); } setIsMediaModalOpen(false); setUploadMediaSport(""); router.refresh(); };
+  const handleMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>) => { const rawFile = e.target.files?.[0]; if (!rawFile || !uploadMediaSport || !user) return; setIsUploadingMedia(true); const fileToUpload = await compressImage(rawFile); const uniqueFileName = `highlight-${Date.now()}.${rawFile.name.split(".").pop()}`; const { error } = await supabase.storage.from("highlights").upload(`${user.id}/${uniqueFileName}`, fileToUpload); if (!error) { const publicUrl = supabase.storage.from("highlights").getPublicUrl(`${user.id}/${uniqueFileName}`).data.publicUrl; setGalleryMedia(prev => [{ id: uniqueFileName, sportName: uploadMediaSport, type: "image", url: publicUrl, fileName: uniqueFileName, createdAt: "剛剛" }, ...prev]); } setIsMediaModalOpen(false); setUploadMediaSport(""); setIsUploadingMedia(false); router.refresh(); };
   const handleDeleteMedia = async (post: MediaItem) => { if (!user || !post.fileName) return; if (!window.confirm("確定刪除此影像？")) return; await supabase.storage.from("highlights").remove([`${user.id}/${post.fileName}`]); setGalleryMedia(prev => prev.filter(m => m.id !== post.id)); setSelectedPost(null); router.refresh(); };
 
   if (isLoading) return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-zinc-500 font-mono">載入總部中...</div>;
@@ -293,7 +285,6 @@ function ProfilePageContent() {
                   <div className="space-y-1"><label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">Unique Handle</label><input className={`w-full bg-slate-950/50 border rounded-xl p-3 text-white text-sm ${handleStatus === 'taken' ? 'border-red-500' : 'border-slate-800'}`} value={editForm.handle} onChange={e => setEditForm({ ...editForm, handle: e.target.value.replace(/[^a-zA-Z0-9_]/g, "") })} placeholder="ID 帳號" /></div>
                   <div className="space-y-1"><label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">Headline</label><input className="w-full bg-slate-950/50 border border-slate-800 rounded-xl p-3 text-white text-sm" value={editForm.headline} onChange={e => setEditForm({ ...editForm, headline: e.target.value })} placeholder="例如: 網球底線玩家" /></div>
                   
-                  {/* 💡 現在地點是從資料庫動態產生的 */}
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1"><label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">國家</label><select className="w-full bg-slate-950/50 border border-slate-800 rounded-xl p-3 text-white text-sm" value={editForm.country} onChange={e => setEditForm({ ...editForm, country: e.target.value, region: "" })}><option value="">選擇國家</option>{Object.keys(locationData).map(c => <option key={c} value={c}>{c}</option>)}</select></div>
                     <div className="space-y-1"><label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">地區</label><select className="w-full bg-slate-950/50 border border-slate-800 rounded-xl p-3 text-white text-sm" value={editForm.region} onChange={e => setEditForm({ ...editForm, region: e.target.value })}><option value="">選擇區域</option>{editForm.country && locationData[editForm.country]?.map(r => <option key={r} value={r}>{r}</option>)}</select></div>
@@ -331,7 +322,7 @@ function ProfilePageContent() {
                   <div className="flex flex-wrap justify-center gap-2 mb-4">
                     <span className="bg-slate-800/80 text-zinc-300 text-[10px] font-black px-3 py-1 rounded-full border border-slate-700">👤 運動員</span>
                     {profile?.is_coach && <span className="bg-amber-500/10 text-amber-400 text-[10px] font-black px-3 py-1 rounded-full border border-amber-500/20">🎓 教練</span>}
-                    {profile?.is_physio && <span className="bg-emerald-500/10 text-emerald-400 text-[10px] font-black px-3 py-1 rounded-full border border-emerald-500/20">⚕️ 運動/物理治療</span>}
+                    {profile?.is_physio && <span className="bg-emerald-500/10 text-emerald-400 text-[10px] font-black px-3 py-1 rounded-full border border-emerald-500/20">⚕️ 物理治療</span>}
                   </div>
                   <p className="text-sm text-zinc-300 leading-relaxed text-left bg-slate-900/30 p-4 rounded-2xl border border-slate-800/50 mb-6">{profile?.bio || "寫下一段關於你的歷程..."}</p>
                   <div className="flex flex-col gap-3">
@@ -353,9 +344,9 @@ function ProfilePageContent() {
             </div>
 
             <div className="flex-1">
-            {activeTab === "dashboard" && (
+              {activeTab === "dashboard" && (
                 <div className="space-y-6 animate-fadeIn">
-                   {/* 💡 加入 Coming Soon 遮罩 */}
+                   {/* 💡 加上了 Coming Soon 的遮罩層 */}
                    <div className="relative group">
                     <div className="absolute inset-0 bg-slate-950/50 backdrop-blur-[2px] z-10 rounded-3xl flex items-center justify-center opacity-100 transition-opacity">
                       <div className="bg-slate-900 border border-slate-700 text-white text-sm font-black px-6 py-2 rounded-full shadow-2xl flex items-center gap-2">
@@ -383,35 +374,40 @@ function ProfilePageContent() {
 
               {activeTab === "expertise" && (
                 <div className="animate-fadeIn space-y-6">
-                  <div className="flex justify-between items-center mb-2 px-2">
-                    <div><h2 className="text-xl font-black text-white">登錄認證技術特長</h2></div>
-                    <button onClick={() => handleOpenSportModal()} className="bg-slate-50 text-black text-xs font-black px-4 py-2.5 rounded-full hover:scale-105">＋ 新增特長</button>
+                  {/* 💡 修改了按鈕的大小和間距，讓手機版不斷行 */}
+                  <div className="flex justify-between items-center mb-4 px-2">
+                    <div><h2 className="text-lg md:text-xl font-black text-white">登錄認證技術特長</h2></div>
+                    <button onClick={() => handleOpenSportModal()} className="bg-slate-50 text-black text-xs font-black px-3 py-2 md:px-4 md:py-2.5 rounded-full hover:scale-105">＋ 新增</button>
                   </div>
-                  <div className="bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs p-3 rounded-xl mb-4 font-bold flex justify-between items-center">
-                    <span>💡 勾選項目將會顯示在 Network 列表卡片上（最多顯示 3 項）</span>
-                    <button onClick={handleSaveProfile} className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded-lg">儲存顯示設定</button>
+                  
+                  {/* 💡 讓手機版的提示文字與按鈕自動折行，避免擠在一起 */}
+                  <div className="bg-blue-500/10 border border-blue-500/20 text-blue-400 text-[10px] md:text-xs p-3 rounded-xl mb-4 font-bold flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                    <span>💡 勾選項目將顯示在名片上（最多3項）</span>
+                    <button onClick={handleSaveProfile} className="bg-blue-600 hover:bg-blue-500 text-white px-3 md:px-4 py-2 rounded-lg w-full sm:w-auto text-xs md:text-sm">儲存設定</button>
                   </div>
+
                   {userSports.length === 0 ? (
                     <div className="text-center py-20 bg-slate-900/30 border border-dashed border-slate-700/50 rounded-3xl"><p className="text-zinc-500 text-sm font-bold">空蕩蕩的技術清單... 立即宣告專業項目！</p></div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                       {userSports.map((us) => (
-                        <div key={us.id} className="bg-slate-900/50 border border-slate-800 rounded-3xl p-6 flex flex-col justify-between">
+                        <div key={us.id} className="bg-slate-900/50 border border-slate-800 rounded-3xl p-5 md:p-6 flex flex-col justify-between">
                           <div>
                             <div className="flex justify-between items-start mb-4">
-                              <span className="text-xl font-black text-white block">{us.sports?.name}</span>
-                              <label className="flex items-center gap-2 cursor-pointer bg-slate-950 p-2 rounded-lg border border-slate-800">
+                              <span className="text-lg md:text-xl font-black text-white block">{us.sports?.name}</span>
+                              <label className="flex items-center gap-2 cursor-pointer bg-slate-950 p-1.5 md:p-2 rounded-lg border border-slate-800">
                                 <input type="checkbox" checked={editForm.display_sports.includes(us.sports?.name || "")} onChange={() => toggleDisplaySport(us.sports?.name || "")} className="rounded" />
-                                <span className="text-[10px] text-zinc-400 font-bold">顯示於名片</span>
+                                <span className="text-[10px] text-zinc-400 font-bold whitespace-nowrap">顯示於名片</span>
                               </label>
                             </div>
                             <div className="space-y-2">
                               {Object.entries(us.metadata || {}).map(([key, val]) => (
-                                <div key={key} className="flex justify-between text-sm pb-1 border-b border-slate-800/50 last:border-0"><span className="text-zinc-500 font-bold capitalize">{key}</span><span className="text-blue-400 font-black">{val as string}</span></div>
+                                <div key={key} className="flex justify-between text-xs md:text-sm pb-1 border-b border-slate-800/50 last:border-0"><span className="text-zinc-500 font-bold capitalize">{key}</span><span className="text-blue-400 font-black">{val as string}</span></div>
                               ))}
                             </div>
                           </div>
-                          <div className="pt-4 mt-4 border-t border-slate-800 flex justify-end gap-3">
+                          {/* 💡 縮小了編輯與刪除的 padding */}
+                          <div className="pt-4 mt-4 border-t border-slate-800 flex justify-end gap-2">
                             <button onClick={() => handleOpenSportModal(us)} className="text-blue-400 text-xs font-bold px-3 py-1.5 bg-blue-500/10 rounded-xl">✏️ 編輯</button>
                             <button onClick={() => handleRemoveSport(us)} className="text-red-400 text-xs font-bold px-3 py-1.5 bg-red-500/10 rounded-xl">🗑️ 移除</button>
                           </div>
@@ -422,12 +418,12 @@ function ProfilePageContent() {
                 </div>
               )}
 
-              {/* 其餘 tab 內容... (highlights, feed 保持不變) */}
               {activeTab === "highlights" && (
                 <div className="animate-fadeIn space-y-6">
-                  <div className="flex flex-wrap justify-between items-end mb-2 px-2 gap-4">
-                    <div><h2 className="text-xl font-black text-white">賽場高清圖庫</h2></div>
-                    {userSports.length > 0 ? <button onClick={() => setIsMediaModalOpen(true)} className="bg-slate-50 text-black text-xs font-black px-4 py-2.5 rounded-full">📸 上傳高光</button> : <p className="text-xs text-amber-500 font-bold bg-amber-500/10 px-3 py-1.5 rounded-lg">先宣告特長</p>}
+                  {/* 💡 手機版標題優化 */}
+                  <div className="flex flex-wrap justify-between items-center mb-4 px-2 gap-2">
+                    <div><h2 className="text-lg md:text-xl font-black text-white">賽場高清圖庫</h2></div>
+                    {userSports.length > 0 ? <button onClick={() => setIsMediaModalOpen(true)} className="bg-slate-50 text-black text-xs font-black px-3 py-2 md:px-4 md:py-2.5 rounded-full">📸 上傳高光</button> : <p className="text-[10px] md:text-xs text-amber-500 font-bold bg-amber-500/10 px-2 py-1 rounded-lg">先宣告特長</p>}
                   </div>
                   <div className="grid grid-cols-3 gap-1 md:gap-2">
                     {galleryMedia.map(m => (
@@ -450,34 +446,34 @@ function ProfilePageContent() {
 
               {activeTab === "coach" && (
                 <div className="space-y-6 animate-fadeIn">
+                  {/* 💡 優化了教練標題與按鈕的空間分配 */}
                   <div className="flex justify-between items-center mb-4">
                     <div>
-                      <h2 className="text-xl font-black text-white">教練多重名片設定</h2>
-                      <p className="text-xs text-zinc-500 mt-1">您可以針對不同的運動項目，分別發布獨立的教練名片。</p>
+                      <h2 className="text-lg md:text-xl font-black text-white">教練名片設定</h2>
+                      <p className="text-[10px] md:text-xs text-zinc-500 mt-1">支援建立多張專項名片。</p>
                     </div>
-                    <button onClick={addCoachProfile} className="bg-amber-600 hover:bg-amber-500 text-white text-xs font-black px-4 py-2.5 rounded-full">＋ 新增教練專項</button>
+                    <button onClick={addCoachProfile} className="bg-amber-600 hover:bg-amber-500 text-white text-xs font-black px-3 py-2 md:px-4 md:py-2.5 rounded-full">＋ 新增專項</button>
                   </div>
 
                   {coachProfiles.length === 0 ? (
                     <div className="text-center py-20 bg-slate-900/30 border border-dashed border-slate-700/50 rounded-3xl"><p className="text-zinc-500 text-sm font-bold">您尚未建立任何教練名片，點擊右上方新增。</p></div>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                       {coachProfiles.map(coach => (
-                        <div key={coach.id} className="bg-slate-900/40 border border-amber-500/20 rounded-3xl p-6 relative">
+                        <div key={coach.id} className="bg-slate-900/40 border border-amber-500/20 rounded-3xl p-5 md:p-6 relative">
                           <div className="space-y-4">
                             <div>
                               <label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">指導專項</label>
-                              <select className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-sm" value={coach.sport} onChange={e => updateCoachProfile(coach.id, "sport", e.target.value)}>
+                              <select className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 md:p-3 text-white text-sm" value={coach.sport} onChange={e => updateCoachProfile(coach.id, "sport", e.target.value)}>
                                 <option value="">-- 選擇專項 --</option>
                                 {allSports.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
                               </select>
                             </div>
                             <div className="grid grid-cols-2 gap-2">
-                              {/* 💡 解決了 input 數字無法為空的問題 */}
-                              <div><label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">時薪 (HK$)</label><input type="number" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-sm" value={coach.rate} placeholder="例如: 500" onChange={e => updateCoachProfile(coach.id, "rate", e.target.value === "" ? "" : Number(e.target.value))} /></div>
+                              <div><label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">時薪 (HK$)</label><input type="number" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 md:p-3 text-white text-sm" value={coach.rate} placeholder="例如: 500" onChange={e => updateCoachProfile(coach.id, "rate", e.target.value === "" ? "" : Number(e.target.value))} /></div>
                               <div>
                                 <label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">狀態</label>
-                                <select className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-sm" value={coach.status} onChange={e => updateCoachProfile(coach.id, "status", e.target.value)}>
+                                <select className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 md:p-3 text-white text-sm" value={coach.status} onChange={e => updateCoachProfile(coach.id, "status", e.target.value)}>
                                   <option value="recruiting">🟢 招生中</option>
                                   <option value="full">🔴 滿員</option>
                                   <option value="hidden">🔒 未發布</option>
@@ -485,13 +481,15 @@ function ProfilePageContent() {
                               </div>
                             </div>
                             <div className="grid grid-cols-2 gap-2">
-                              <div><label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">指導國家</label><select className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-sm" value={coach.country} onChange={e => updateCoachProfile(coach.id, "country", e.target.value)}><option value="">選擇國家</option>{Object.keys(locationData).map(c => <option key={c} value={c}>{c}</option>)}</select></div>
-                              <div><label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">指導區域</label><select className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-sm" value={coach.region} onChange={e => updateCoachProfile(coach.id, "region", e.target.value)}><option value="">選擇區域</option>{coach.country && locationData[coach.country]?.map(r => <option key={r} value={r}>{r}</option>)}</select></div>
+                              <div><label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">指導國家</label><select className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 md:p-3 text-white text-sm" value={coach.country} onChange={e => updateCoachProfile(coach.id, "country", e.target.value)}><option value="">國家</option>{Object.keys(locationData).map(c => <option key={c} value={c}>{c}</option>)}</select></div>
+                              <div><label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">指導區域</label><select className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 md:p-3 text-white text-sm" value={coach.region} onChange={e => updateCoachProfile(coach.id, "region", e.target.value)}><option value="">區域</option>{coach.country && locationData[coach.country]?.map(r => <option key={r} value={r}>{r}</option>)}</select></div>
                             </div>
                           </div>
+                          
+                          {/* 💡 縮短按鈕文字，避免斷行 */}
                           <div className="flex gap-2 pt-4 mt-4 border-t border-slate-800">
-                            <button onClick={() => saveCoachProfile(coach)} className="flex-1 bg-amber-600 text-white font-black py-2 rounded-xl text-sm">儲存/發布這張名片</button>
-                            <button onClick={() => deleteCoachProfile(coach.id)} className="px-4 bg-red-500/10 text-red-400 font-bold rounded-xl hover:bg-red-500/20 transition text-sm">刪除</button>
+                            <button onClick={() => saveCoachProfile(coach)} className="flex-1 bg-amber-600 text-white font-black py-2.5 md:py-3 rounded-xl text-xs md:text-sm shadow-md">儲存 / 發布</button>
+                            <button onClick={() => deleteCoachProfile(coach.id)} className="px-3 md:px-4 bg-red-500/10 text-red-400 font-bold rounded-xl hover:bg-red-500/20 transition text-xs md:text-sm">刪除</button>
                           </div>
                         </div>
                       ))}
@@ -501,31 +499,36 @@ function ProfilePageContent() {
               )}
 
               {activeTab === "physio" && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-fadeIn">
-                  <div className="bg-slate-900/40 border border-slate-800 p-6 rounded-3xl h-fit">
-                    <h3 className="text-lg font-black text-white mb-6">設定運動/物理治療名片</h3>
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 animate-fadeIn">
+                  <div className="bg-slate-900/40 border border-slate-800 p-5 md:p-6 rounded-3xl h-fit">
+                    <h3 className="text-lg font-black text-white mb-6">設定醫療防護名片</h3>
                     <div className="space-y-4">
-                      <div><label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">診所/工作室名稱</label><input type="text" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-sm" value={editForm.clinic_name || ""} onChange={e => setEditForm({...editForm, clinic_name: e.target.value})} placeholder="例如: 運動復健所" /></div>
-                      
-                      {/* 💡 解決了 input 數字無法為空的問題 */}
-                      <div><label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">單次收費 (HK$)</label><input type="number" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-sm" placeholder="例如: 800" value={editForm.physio_rate} onChange={e => setEditForm({...editForm, physio_rate: e.target.value === "" ? "" : Number(e.target.value)})} /></div>
+                      <div><label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">診所/工作室名稱</label><input type="text" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 md:p-3 text-white text-sm" value={editForm.clinic_name || ""} onChange={e => setEditForm({...editForm, clinic_name: e.target.value})} placeholder="例如: 運動復健所" /></div>
+                      <div><label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">單次收費 (HK$)</label><input type="number" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 md:p-3 text-white text-sm" placeholder="例如: 800" value={editForm.physio_rate} onChange={e => setEditForm({...editForm, physio_rate: e.target.value === "" ? "" : Number(e.target.value)})} /></div>
                       
                       <div className="grid grid-cols-2 gap-2">
-                        <div><label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">所在國家</label><select className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-sm" value={editForm.physio_country} onChange={e => setEditForm({...editForm, physio_country: e.target.value, physio_region: ""})}><option value="">選擇國家</option>{Object.keys(locationData).map(c => <option key={c} value={c}>{c}</option>)}</select></div>
-                        <div><label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">所在區域</label><select className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-sm" value={editForm.physio_region} onChange={e => setEditForm({...editForm, physio_region: e.target.value})}><option value="">選擇區域</option>{editForm.physio_country && locationData[editForm.physio_country]?.map(r => <option key={r} value={r}>{r}</option>)}</select></div>
+                        <div><label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">所在國家</label><select className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 md:p-3 text-white text-sm" value={editForm.physio_country} onChange={e => setEditForm({...editForm, physio_country: e.target.value, physio_region: ""})}><option value="">國家</option>{Object.keys(locationData).map(c => <option key={c} value={c}>{c}</option>)}</select></div>
+                        <div><label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">所在區域</label><select className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 md:p-3 text-white text-sm" value={editForm.physio_region} onChange={e => setEditForm({...editForm, physio_region: e.target.value})}><option value="">區域</option>{editForm.physio_country && locationData[editForm.physio_country]?.map(r => <option key={r} value={r}>{r}</option>)}</select></div>
                       </div>
+                      
                       <div>
                         <label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">預約狀態</label>
-                        <select className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-sm" value={editForm.physio_status || "hidden"} onChange={e => setEditForm({...editForm, physio_status: e.target.value})}>
+                        <select className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 md:p-3 text-white text-sm" value={editForm.physio_status || "hidden"} onChange={e => setEditForm({...editForm, physio_status: e.target.value})}>
                           <option value="available">🟢 開放預約</option>
                           <option value="busy">🔴 滿診中</option>
                           <option value="hidden">🔒 未發布 (隱藏中)</option>
                         </select>
                       </div>
-                      <button onClick={handleSaveProfile} disabled={isSaving} className="w-full mt-2 bg-emerald-600 text-white font-black py-3 rounded-xl">{isSaving ? "儲存中..." : "儲存防護設定"}</button>
+                      
+                      {/* 💡 縮短按鈕文字並滿版置中 */}
+                      <button onClick={handleSaveProfile} disabled={isSaving} className="w-full mt-4 bg-emerald-600 text-white font-black py-2.5 md:py-3 rounded-xl text-sm md:text-base shadow-md">
+                        {isSaving ? "儲存中..." : "儲存 / 發布名片"}
+                      </button>
                     </div>
                   </div>
-                  <div>
+                  
+                  {/* 右側公開預覽卡片 */}
+                  <div className="hidden xl:block">
                     <h3 className="text-sm font-bold text-zinc-500 mb-4 px-2">公開列表預覽</h3>
                     <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6 flex flex-col items-center text-center relative overflow-hidden">
                       <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-emerald-500/20 via-teal-500/20 to-cyan-500/20" />
@@ -545,7 +548,7 @@ function ProfilePageContent() {
         </div>
       </div>
       
-      {/* 4 個 Modal */}
+      {/* 4 個 Modal (保持不變) */}
       {isCropModalOpen && cropImageSrc && (<div className="fixed inset-0 bg-black/95 z-50 flex flex-col items-center justify-center p-4"><div className="relative w-full max-w-md h-[400px] bg-slate-900 rounded-3xl overflow-hidden shadow-2xl mb-6"><Cropper image={cropImageSrc} crop={crop} zoom={zoom} aspect={1} cropShape="round" showGrid={false} onCropChange={setCrop} onCropComplete={(_, px) => setCroppedAreaPixels(px as any)} onZoomChange={setZoom} /></div><div className="w-full max-w-md flex gap-4"><button onClick={() => { setIsCropModalOpen(false); setCropImageSrc(null); }} className="flex-1 bg-slate-800 text-white font-bold py-3 rounded-xl">取消</button><button onClick={handleConfirmCrop} className="flex-1 bg-blue-600 text-white font-bold py-3 rounded-xl">確認裁切</button></div></div>)}
       {isSportModalOpen && (<div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fadeIn"><div className="bg-slate-950 border border-slate-800 w-full max-w-sm rounded-3xl p-6 shadow-2xl"><h3 className="text-lg font-black text-white mb-6">{editingUserSportId ? "編輯技術特長" : "添入技術特長"}</h3><form onSubmit={handleSaveSport} className="space-y-5 text-sm"><div><label className="block text-[10px] font-bold text-zinc-500 uppercase mb-2">選擇運動項目</label><select value={selectedSportId} onChange={e => { setSelectedSportId(e.target.value); setSportDynamicData({}); }} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3.5 text-white font-bold outline-none" required><option value="">-- 選擇項目 --</option>{allSports.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>{allSports.find(s => s.id === selectedSportId) && (SPORT_SCHEMA[allSports.find(s => s.id === selectedSportId)!.name] || SPORT_SCHEMA["default"]).map(field => (<div key={field.key} className="animate-fadeIn"><label className="block text-[10px] font-bold text-zinc-500 uppercase mb-2">{field.label}</label>{field.type === "select" ? (<select value={sportDynamicData[field.key] || ""} onChange={e => setSportDynamicData({ ...sportDynamicData, [field.key]: e.target.value })} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white font-bold outline-none" required><option value="">-- 請選擇 --</option>{field.options?.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select>) : (<input type={field.type} value={sportDynamicData[field.key] || ""} onChange={e => setSportDynamicData({ ...sportDynamicData, [field.key]: e.target.value })} placeholder={field.placeholder} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white font-bold outline-none" required />)}</div>))}<div className="flex gap-3 pt-2"><button type="button" onClick={() => setIsSportModalOpen(false)} className="flex-1 bg-slate-900 text-zinc-400 font-bold py-3 rounded-xl">取消</button><button type="submit" disabled={!selectedSportId} className="flex-1 bg-slate-50 text-black font-black py-3 rounded-xl">{editingUserSportId ? "儲存" : "加入"}</button></div></form></div></div>)}
       {isMediaModalOpen && (<div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fadeIn"><div className="bg-slate-950 border border-slate-800 w-full max-w-sm rounded-3xl p-6 shadow-2xl"><h3 className="text-lg font-black text-white mb-6">歸檔雲端賽事影音</h3><div className="space-y-5 text-sm"><div><label className="block text-[10px] font-bold text-zinc-500 uppercase mb-2">1. 歸屬類別</label><select value={uploadMediaSport} onChange={e => setUploadMediaSport(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3.5 text-white font-bold outline-none"><option value="">-- 選擇專長 --</option>{userSports.map(us => <option key={us.id} value={us.sports?.name}>{us.sports?.name}</option>)}</select></div><div><label className="block text-[10px] font-bold text-zinc-500 uppercase mb-2">2. 選擇檔案</label><div className="border-2 border-dashed border-slate-800 hover:border-slate-600 transition rounded-xl p-4 text-center cursor-pointer relative overflow-hidden"><input type="file" ref={mediaInputRef} onChange={handleMediaUpload} accept="image/*" disabled={!uploadMediaSport || isUploadingMedia} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed" /><span className="text-zinc-400 font-bold block">{isUploadingMedia ? "雲端推流中..." : uploadMediaSport ? "點擊選擇照片" : "請先選擇上方類別"}</span></div></div><button onClick={() => setIsMediaModalOpen(false)} className="w-full bg-slate-900 text-zinc-400 font-bold py-3 rounded-xl mt-2">關閉視窗</button></div></div></div>)}
