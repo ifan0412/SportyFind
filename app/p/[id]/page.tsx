@@ -236,7 +236,7 @@ export default function PublicPlayerPage() {
             {TABS.map((t) => (
               <button
                 key={t.id}
-                onClick={() => setActiveTab(t.id)}
+                onClick={() => setActiveTab(t.id as TabId)}
                 className={`flex-1 flex flex-col items-center justify-center py-2 px-1 rounded-xl transition-all duration-300 min-w-0 ${
                   activeTab === t.id
                     ? "bg-pro-slate-50 text-black shadow-lg scale-[1.02]"
