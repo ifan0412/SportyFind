@@ -4,6 +4,10 @@ import { useEffect, useState, useMemo, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { BackButton } from "@/components/BackButton";
+
+// 在 return 的最上方加入：
+<BackButton label="返回列表" />
 
 // ==========================================
 // Types
@@ -123,6 +127,9 @@ function TeamPageContent() {
     <div className="bg-slate-950 min-h-screen text-zinc-200 font-sans selection:bg-blue-500/30 pb-24 relative">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10">
         
+        {/* 💡 把它放在這裡！這樣它就會完美對齊左側，而且不會被 Navbar 遮住 */}
+        <BackButton label="返回上一頁" />
+
         {/* Header */}
         <div className="mb-6 md:mb-8 text-center md:text-left">
           <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight mb-2">戰隊總部 🛡️</h1>

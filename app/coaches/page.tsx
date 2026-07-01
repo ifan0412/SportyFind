@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { BackButton } from "@/components/BackButton";
+
 
 import {
   FilterPanel,
@@ -184,12 +186,8 @@ function CoachesDirectoryComponent() {
   return (
     <div className="min-h-screen bg-slate-950 pb-24 font-sans text-slate-100">
       <div className="mx-auto max-w-6xl px-4 pt-6">
-        <Link
-          href="/"
-          className="text-xs text-slate-500 transition-colors hover:text-slate-300"
-        >
-          ← 返回首頁 Back to Home
-        </Link>
+      
+        <BackButton label="返回上一頁" />
 
         <div className="mt-4 flex flex-col justify-between md:flex-row md:items-end">
           <div>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { BackButton } from "@/components/BackButton";
 
 // ==========================================
 // Types
@@ -105,7 +106,7 @@ export default function PhysioPage() {
   return (
     <div className="bg-slate-950 min-h-screen text-zinc-200 font-sans selection:bg-emerald-500/30 pb-24 relative">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10">
-        
+        <BackButton label="返回上一頁" />
         {/* Header */}
         <div className="mb-6 md:mb-8 text-center md:text-left">
           <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight mb-2">醫療防護室 ⚕️</h1>
