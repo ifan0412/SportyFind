@@ -36,10 +36,10 @@ interface MediaItem {
 // 2. Static data (outside component)
 // ==========================================
 const TABS = [
-  { id: "about", icon: "👤", label: "個人檔案" },
-  { id: "arsenal", icon: "📋", label: "專長規格" },
-  { id: "highlights", icon: "🎞️", label: "賽事影音" },
-  { id: "feed", icon: "📰", label: "產業動態" },
+  { id: "about",      icon: "👤", label: "個人檔案",    en: "About" },
+  { id: "arsenal",    icon: "📋", label: "專長規格",    en: "Expertise" },
+  { id: "highlights", icon: "🎞️", label: "賽事影音",    en: "Highlights" },
+  { id: "feed",       icon: "📰", label: "產業動態",    en: "Feed" },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -231,22 +231,28 @@ export default function PublicPlayerPage() {
           <div className="lg:col-span-8 xl:col-span-9 flex flex-col">
 
             {/* Tab bar */}
-            <div className="bg-pro-slate-900/60 backdrop-blur-xl border border-pro-slate-800/80 p-1.5 rounded-2xl flex overflow-x-auto sticky top-16 z-30 mb-8 shadow-sm">
-              {TABS.map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => setActiveTab(t.id)}
-                  className={`flex-1 min-w-[100px] flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-black transition ${
-                    activeTab === t.id
-                      ? "bg-pro-slate-50 text-black shadow-md"
-                      : "text-zinc-500 hover:text-white"
-                  }`}
-                >
-                  <span>{t.icon}</span>
-                  <span>{t.label}</span>
-                </button>
-              ))}
-            </div>
+            {/* 🚀 強制等分寬度、自動適應螢幕的雙語標籤列 */}
+          <div className="bg-pro-slate-900/60 backdrop-blur-xl border border-pro-slate-800/80 p-1 rounded-2xl flex w-full sticky top-16 z-30 mb-8 shadow-sm">
+            {TABS.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setActiveTab(t.id)}
+                className={`flex-1 flex flex-col items-center justify-center py-2 px-1 rounded-xl transition-all duration-300 min-w-0 ${
+                  activeTab === t.id
+                    ? "bg-pro-slate-50 text-black shadow-lg scale-[1.02]"
+                    : "text-zinc-500 hover:text-white"
+                }`}
+              >
+                <span className="text-lg md:text-xl mb-0.5">{t.icon}</span>
+                <span className="text-[9px] md:text-xs font-black leading-tight truncate w-full text-center">
+                  {t.label}
+                </span>
+                <span className="text-[8px] md:text-[10px] font-medium opacity-70 truncate w-full text-center">
+                  {t.en}
+                </span>
+              </button>
+            ))}
+          </div>
 
             {/* Tab content */}
             <div className="flex-1 bg-pro-slate-900/20 border border-pro-slate-800/60 p-6 rounded-3xl min-h-[500px]">

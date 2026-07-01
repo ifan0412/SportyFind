@@ -51,12 +51,12 @@ type FieldDef = { key: string; label: string; type: "select" | "text" | "number"
 // ==========================================
 // Constants & Static Data
 // ==========================================
-const TABS: { id: TabId; icon: string; label: string }[] = [
-  { id: "dashboard",  icon: "📊", label: "數據後台" },
-  { id: "arsenal",    icon: "📋", label: "專長規格" },
-  { id: "highlights", icon: "🎞️", label: "賽事影音" },
-  { id: "feed",       icon: "📰", label: "產業動態" },
-];
+const TABS = [
+  { id: "about",      icon: "👤", label: "個人檔案",    en: "About" },
+  { id: "arsenal",    icon: "📋", label: "專長規格",    en: "Expertise" },
+  { id: "highlights", icon: "🎞️", label: "賽事影音",    en: "Highlights" },
+  { id: "feed",       icon: "📰", label: "產業動態",    en: "Feed" },
+] as const;
 
 // Phase 3: 動態表單引擎設定檔 (Schema)
 const SPORT_SCHEMA: Record<string, FieldDef[]> = {
@@ -569,19 +569,25 @@ function ProfilePageContent() {
 
           {/* ── Right Main Area ── */}
           <div className="lg:col-span-8 xl:col-span-9 flex flex-col">
-            <div className="bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 p-1.5 rounded-2xl flex sticky top-16 z-30 mb-8">
-              {TABS.map(t => (
+           {/* 🚀 強制等分寬度、自動適應螢幕的雙語標籤列 */}
+            <div className="bg-pro-slate-900/60 backdrop-blur-xl border border-pro-slate-800/80 p-1 rounded-2xl flex w-full sticky top-16 z-30 mb-8 shadow-sm">
+              {TABS.map((t) => (
                 <button
                   key={t.id}
                   onClick={() => setActiveTab(t.id)}
-                  className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-2.5 rounded-xl text-xs font-black transition-all duration-200 whitespace-nowrap ${
+                  className={`flex-1 flex flex-col items-center justify-center py-2 px-1 rounded-xl transition-all duration-300 min-w-0 ${
                     activeTab === t.id
-                      ? "bg-slate-50 text-black shadow-lg scale-[1.02]"
-                      : "text-zinc-500 hover:text-white hover:bg-slate-800/50"
+                      ? "bg-pro-slate-50 text-black shadow-lg scale-[1.02]"
+                      : "text-zinc-500 hover:text-white"
                   }`}
                 >
-                  <span className="text-sm">{t.icon}</span>
-                  <span>{t.label}</span>
+                  <span className="text-lg md:text-xl mb-0.5">{t.icon}</span>
+                  <span className="text-[9px] md:text-xs font-black leading-tight truncate w-full text-center">
+                    {t.label}
+                  </span>
+                  <span className="text-[8px] md:text-[10px] font-medium opacity-70 truncate w-full text-center">
+                    {t.en}
+                  </span>
                 </button>
               ))}
             </div>
