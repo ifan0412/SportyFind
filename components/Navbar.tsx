@@ -124,7 +124,7 @@ export function Navbar() {
             </li>
           ) : (
             <li>
-              <Link href="/auth/login" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-slate-400 hover:bg-slate-800 hover:text-white transition-colors">
+              <Link href="/auth" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-slate-400 hover:bg-slate-800 hover:text-white transition-colors">
                 登入
               </Link>
             </li>
@@ -186,7 +186,7 @@ export function Navbar() {
                 <li><button onClick={() => { setMobileOpen(false); handleLogout(); }} className="flex w-full items-center gap-3 rounded-md px-3 py-3 text-sm font-bold text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"><LogOut className="size-4" /> 登出</button></li>
               </>
             ) : (
-              <li><Link href="/auth/login" className="flex items-center gap-3 rounded-md px-3 py-3 text-sm font-bold text-slate-400 hover:bg-slate-800 hover:text-white" onClick={() => setMobileOpen(false)}>登入</Link></li>
+              <li><Link href="/auth" className="flex items-center gap-3 rounded-md px-3 py-3 text-sm font-bold text-slate-400 hover:bg-slate-800 hover:text-white" onClick={() => setMobileOpen(false)}>登入</Link></li>
             )}
           </ul>
         </div>
