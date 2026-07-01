@@ -33,7 +33,7 @@ export default function HomePage() {
         {/* CTA Buttons */}
         <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
           <Link 
-            href="/network/players"
+            href="/network/"
             className="px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-blue-900/30 flex flex-col items-center justify-center gap-0.5 active:scale-95"
           >
             <span className="text-sm">尋找球友</span>

@@ -175,6 +175,15 @@ export default function PublicPlayerPage() {
   return (
     <div className="bg-pro-slate-950 min-h-screen text-zinc-200 font-sans pb-20 selection:bg-blue-500/30">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* 返回按鈕 */}
+      <div className="mb-6">
+          <button 
+            onClick={() => window.history.back()} 
+            className="group flex items-center gap-2 text-sm font-bold text-zinc-500 hover:text-white transition duration-300"
+          >
+            <span className="group-hover:-translate-x-1 transition duration-300">←</span> 返回列表
+          </button>
+        </div>
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
           {/* Left sidebar */}
@@ -236,7 +245,7 @@ export default function PublicPlayerPage() {
             {TABS.map((t) => (
               <button
                 key={t.id}
-                onClick={() => setActiveTab(t.id as TabId)}
+                onClick={() => setActiveTab(t.id as TabId)}x
                 className={`flex-1 flex flex-col items-center justify-center py-2 px-1 rounded-xl transition-all duration-300 min-w-0 ${
                   activeTab === t.id
                     ? "bg-pro-slate-50 text-black shadow-lg scale-[1.02]"
