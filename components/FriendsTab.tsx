@@ -318,18 +318,20 @@ export function FriendsTab({ currentUserId }: FriendsTabProps) {
           <button
             key={key}
             onClick={() => setActiveSubTab(key)}
-            className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs md:text-sm font-black transition-all ${
+            className={[
+              "flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs md:text-sm font-black transition-all",
               activeSubTab === key
                 ? "bg-blue-600 text-white shadow-lg"
                 : "text-zinc-400 hover:text-white hover:bg-slate-800"
-            }`}
+            ].join(" ")}
           >
             {icon}
             <span className="hidden sm:inline">{label}</span>
             {count > 0 && (
-              <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${
+              <span className={[
+                "text-[10px] font-black px-1.5 py-0.5 rounded-full",
                 activeSubTab === key ? "bg-white/20" : "bg-slate-700 text-zinc-300"
-              }`}>
+              ].join(" ")}>
                 {count}
               </span>
             )}
