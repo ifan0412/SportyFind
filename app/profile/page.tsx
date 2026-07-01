@@ -85,6 +85,7 @@ function ProfilePageContent() {
   
   const [isMediaModalOpen, setIsMediaModalOpen] = useState(false);
   const [uploadMediaSport, setUploadMediaSport] = useState("");
+  const [isUploadingMedia, setIsUploadingMedia] = useState(false); // 💡 把這行加回來！
   const [galleryMedia, setGalleryMedia] = useState<MediaItem[]>([]);
   const [selectedPost, setSelectedPost] = useState<MediaItem | null>(null);
 
