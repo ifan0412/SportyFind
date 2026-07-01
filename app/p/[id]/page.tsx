@@ -136,7 +136,7 @@ export default function PublicPlayerPage() {
                 id: file.id,
                 sportName: "Highlight",
                 url: urlData.publicUrl,
-                createdAt: new Date(file.created_at).toLocaleDateString()
+                createdAt: file.created_at ? new Date(file.created_at).toLocaleDateString() : "最近上傳"
               };
             });
           setGallery(fetchedGallery);
