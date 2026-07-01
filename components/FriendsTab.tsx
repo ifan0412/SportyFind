@@ -180,36 +180,36 @@ export function FriendsTab({ currentUserId }: FriendsTabProps) {
         .eq("sender_id", currentUserId),
     ]);
 
-    // ── Type-safe mapping — no `any` ──
-    if (friendsRes.data) {
-      setFriends(
-        (friendsRes.data as FriendshipRow[]).map((f) => ({
-          id:         f.id,
-          created_at: f.created_at,
-          friend:     f.sender?.id === currentUserId ? f.receiver : f.sender,
-        }))
-      );
-    }
+    // ── Type-safe mapping — bypassing Supabase array inference ──
+  if (friendsRes.data) {
+    setFriends(
+      (friendsRes.data as unknown as FriendshipRow[]).map((f) => ({
+        id:         f.id,
+        created_at: f.created_at,
+        friend:     f.sender?.id === currentUserId ? f.receiver : f.sender,
+      }))
+    );
+  }
 
-    if (pendingRes.data) {
-      setPendingRequests(
-        (pendingRes.data as PendingRow[]).map((f) => ({
-          id:         f.id,
-          created_at: f.created_at,
-          sender:     f.sender,
-        }))
-      );
-    }
+  if (pendingRes.data) {
+    setPendingRequests(
+      (pendingRes.data as unknown as PendingRow[]).map((f) => ({
+        id:         f.id,
+        created_at: f.created_at,
+        sender:     f.sender,
+      }))
+    );
+  }
 
-    if (sentRes.data) {
-      setSentRequests(
-        (sentRes.data as SentRow[]).map((f) => ({
-          id:         f.id,
-          created_at: f.created_at,
-          receiver:   f.receiver,
-        }))
-      );
-    }
+  if (sentRes.data) {
+    setSentRequests(
+      (sentRes.data as unknown as SentRow[]).map((f) => ({
+        id:         f.id,
+        created_at: f.created_at,
+        receiver:   f.receiver,
+      }))
+    );
+  }`
 
     setIsLoading(false);
   }, [supabase, currentUserId]);
