@@ -6,12 +6,11 @@ import { cookies } from 'next/headers'
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
-  
-  // 驗證成功後預設將用戶導向 profile 頁面
   const next = searchParams.get('next') ?? '/profile' 
 
   if (code) {
-    const cookieStore = cookies()
+    // 💡 關鍵：cookies() 現在是一個 Promise，必須 await
+    const cookieStore = await cookies() 
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
