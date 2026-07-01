@@ -53,10 +53,10 @@ export default function NetworkPage() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Filter State
+  // Filter State (改成 Array 來支援多選)
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterRole, setFilterRole] = useState<"all" | "athlete" | "coach">("all");
-  const [filterStatus, setFilterStatus] = useState<"all" | "recruiting" | "seeking_team" | "open_to_match">("all");
+  const [filterRoles, setFilterRoles] = useState<string[]>([]);
+  const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
 
   useEffect(() => {
     const fetchNetwork = async () => {
@@ -77,23 +77,30 @@ export default function NetworkPage() {
     fetchNetwork();
   }, [supabase]);
 
-  // Derived State: Apply Filters
+  // Derived State: Apply Array Filters
   const filteredProfiles = profiles.filter((p) => {
     const matchesSearch = 
       (p.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) || false) || 
       (p.headline?.toLowerCase().includes(searchTerm.toLowerCase()) || false);
     
-    const matchesRole = 
-      filterRole === "all" ? true : 
-      filterRole === "coach" ? p.is_coach === true : 
-      p.is_coach !== true;
+    // 如果陣列為空，代表選了「全部」。否則檢查球員身分是否在陣列中。
+    const pRole = p.is_coach ? "coach" : "athlete";
+    const matchesRole = filterRoles.length === 0 || filterRoles.includes(pRole);
       
-    const matchesStatus = 
-      filterStatus === "all" ? true : 
-      p.status_tag === filterStatus;
+    // 如果陣列為空，代表選了「全部」。否則檢查狀態是否在陣列中。
+    const matchesStatus = filterStatuses.length === 0 || filterStatuses.includes(p.status_tag || "");
 
     return matchesSearch && matchesRole && matchesStatus;
   });
+
+  // Toggle Helpers
+  const toggleRole = (roleId: string) => {
+    setFilterRoles(prev => prev.includes(roleId) ? prev.filter(r => r !== roleId) : [...prev, roleId]);
+  };
+
+  const toggleStatus = (statusId: string) => {
+    setFilterStatuses(prev => prev.includes(statusId) ? prev.filter(s => s !== statusId) : [...prev, statusId]);
+  };
 
   return (
     <div className="bg-slate-950 min-h-screen text-zinc-200 font-sans selection:bg-blue-500/30 pb-20">
@@ -105,7 +112,7 @@ export default function NetworkPage() {
           <p className="text-zinc-400 text-sm md:text-base font-medium">發掘運動員、尋找教練、組建你的最強戰隊。</p>
         </div>
 
-        {/* ── Top Sticky Filter Bar (Exposed Chip UI) ── */}
+        {/* ── Top Sticky Filter Bar (Multi-Select Chips) ── */}
         <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-800 p-4 rounded-3xl mb-8 sticky top-16 z-30 shadow-lg space-y-4">
           
           {/* Search Input */}
@@ -123,16 +130,28 @@ export default function NetworkPage() {
           {/* Role Chip Filters */}
           <div className="flex items-center gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest whitespace-nowrap mr-1">身分</span>
+            
+            {/* 全部 Button */}
+            <button
+              onClick={() => setFilterRoles([])}
+              className={`whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold border transition ${
+                filterRoles.length === 0 
+                  ? "bg-blue-600 border-blue-500 text-white shadow-[0_0_10px_rgba(37,99,235,0.3)]" 
+                  : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500 hover:text-white"
+              }`}
+            >
+              全部
+            </button>
+
             {[
-              { id: "all", label: "全部" },
               { id: "athlete", label: "🏅 運動員" },
               { id: "coach", label: "🏆 認證教練" }
             ].map(role => (
               <button
                 key={role.id}
-                onClick={() => setFilterRole(role.id as any)}
+                onClick={() => toggleRole(role.id)}
                 className={`whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold border transition ${
-                  filterRole === role.id 
+                  filterRoles.includes(role.id)
                     ? "bg-blue-600 border-blue-500 text-white shadow-[0_0_10px_rgba(37,99,235,0.3)]" 
                     : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500 hover:text-white"
                 }`}
@@ -145,17 +164,29 @@ export default function NetworkPage() {
           {/* Status Chip Filters */}
           <div className="flex items-center gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest whitespace-nowrap mr-1">狀態</span>
+            
+            {/* 全部 Button */}
+            <button
+              onClick={() => setFilterStatuses([])}
+              className={`whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold border transition ${
+                filterStatuses.length === 0 
+                  ? "bg-slate-100 border-slate-200 text-black shadow-[0_0_10px_rgba(255,255,255,0.2)]" 
+                  : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500 hover:text-white"
+              }`}
+            >
+              全部
+            </button>
+
             {[
-              { id: "all", label: "全部" },
               { id: "recruiting", label: "🟢 招生中" },
               { id: "seeking_team", label: "🔵 尋找隊伍" },
               { id: "open_to_match", label: "🟡 開放約戰" }
             ].map(status => (
               <button
                 key={status.id}
-                onClick={() => setFilterStatus(status.id as any)}
+                onClick={() => toggleStatus(status.id)}
                 className={`whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold border transition ${
-                  filterStatus === status.id 
+                  filterStatuses.includes(status.id)
                     ? "bg-slate-100 border-slate-200 text-black shadow-[0_0_10px_rgba(255,255,255,0.2)]" 
                     : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500 hover:text-white"
                 }`}
@@ -181,7 +212,7 @@ export default function NetworkPage() {
           ) : filteredProfiles.length === 0 ? (
             <div className="bg-slate-900/40 border border-dashed border-slate-700/50 rounded-3xl py-20 text-center px-4">
               <p className="text-zinc-400 font-bold text-sm">沒有符合條件的檔案。</p>
-              <button onClick={() => {setSearchTerm(""); setFilterRole("all"); setFilterStatus("all");}} className="mt-4 text-sm text-blue-400 hover:text-blue-300 font-bold px-4 py-2 bg-blue-500/10 rounded-lg">清除所有篩選</button>
+              <button onClick={() => {setSearchTerm(""); setFilterRoles([]); setFilterStatuses([]);}} className="mt-4 text-sm text-blue-400 hover:text-blue-300 font-bold px-4 py-2 bg-blue-500/10 rounded-lg">清除所有篩選</button>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6 lg:gap-8">
