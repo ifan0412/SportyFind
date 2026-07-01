@@ -133,7 +133,7 @@ export default function PublicPlayerPage() {
             .map(file => {
               const { data: urlData } = supabase.storage.from("highlights").getPublicUrl(`${targetUserId}/${file.name}`);
               return {
-                id: file.id,
+                id: file.id || file.name,
                 sportName: "Highlight",
                 url: urlData.publicUrl,
                 createdAt: file.created_at ? new Date(file.created_at).toLocaleDateString() : "最近上傳"
