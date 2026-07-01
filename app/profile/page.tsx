@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import Cropper from "react-easy-crop";
 
@@ -42,23 +43,23 @@ interface MediaItem {
   sportName: string;
   type: "image" | "video";
   url: string;
+  fileName?: string; // 👈 Added so we know exactly which file to delete from the cloud
   createdAt: string;
 }
 
-type TabId = "dashboard" | "arsenal" | "highlights" | "feed";
+type TabId = "dashboard" | "expertise" | "highlights" | "feed";
 type FieldDef = { key: string; label: string; type: "select" | "text" | "number"; options?: string[]; placeholder?: string };
 
 // ==========================================
 // Constants & Static Data
 // ==========================================
-const TABS = [
-  { id: "about",      icon: "👤", label: "個人檔案",    en: "About" },
-  { id: "arsenal",    icon: "📋", label: "專長規格",    en: "Expertise" },
-  { id: "highlights", icon: "🎞️", label: "賽事影音",    en: "Highlights" },
-  { id: "feed",       icon: "📰", label: "產業動態",    en: "Feed" },
-] as const;
+const TABS: { id: TabId; icon: string; label: string; en: string }[] = [
+  { id: "dashboard",  icon: "📊", label: "個人後台", en: "Dashboard" },
+  { id: "expertise",  icon: "📋", label: "技術特長", en: "Expertise" },
+  { id: "highlights", icon: "🎞️", label: "賽事影音", en: "Highlights" },
+  { id: "feed",       icon: "📰", label: "產業動態", en: "Feed" },
+];
 
-// Phase 3: 動態表單引擎設定檔 (Schema)
 const SPORT_SCHEMA: Record<string, FieldDef[]> = {
   "Basketball": [
     { key: "position", label: "場上定位", type: "select", options: ["PG 控球後衛", "SG 得分後衛", "SF 小前鋒", "PF 大前鋒", "C 中鋒"] },
@@ -74,20 +75,14 @@ const SPORT_SCHEMA: Record<string, FieldDef[]> = {
     { key: "reach_height", label: "最高打點 (cm)", type: "number", placeholder: "例如: 310" },
   ],
   "default": [
-    { key: "experience", label: "球齡或簡述", type: "text", placeholder: "例如: 5年校隊經驗、喜愛打雙打..." }
+    { key: "experience", label: "球齡或簡述", type: "text", placeholder: "例如: 5年經驗..." }
   ]
 };
-
-const INITIAL_GALLERY: MediaItem[] = [
-  { id: "m-1", sportName: "Volleyball", type: "image", url: "https://images.unsplash.com/photo-1612872087720-bb876e2e67d1?q=80&w=600&auto=format&fit=crop", createdAt: "2天前" },
-  { id: "m-2", sportName: "Volleyball", type: "image", url: "https://images.unsplash.com/photo-1592656094267-764a45160876?q=80&w=600&auto=format&fit=crop", createdAt: "1週前" },
-  { id: "m-3", sportName: "Training",   type: "image", url: "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?q=80&w=600&auto=format&fit=crop", createdAt: "2週前" },
-];
 
 const DEFAULT_FORM = {
   first_name: "", last_name: "", handle: "", full_name: "", headline: "", 
   location: "", country: "", region: "", bio: "", avatar_url: "", 
-  is_coach: false, coach_rate: 0, status_tag: "inactive",
+  is_coach: false, coach_rate: 0, status_tag: "committed",
 };
 
 // ==========================================
@@ -175,6 +170,7 @@ const StatusBadge = ({ tag }: { tag: string | null }) => {
 // ==========================================
 function ProfilePageContent() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+  const router = useRouter();
 
   const avatarInputRef    = useRef<HTMLInputElement>(null);
   const mediaInputRef     = useRef<HTMLInputElement>(null);
@@ -214,7 +210,7 @@ function ProfilePageContent() {
   const [isMediaModalOpen,  setIsMediaModalOpen]  = useState(false);
   const [uploadMediaSport,  setUploadMediaSport]  = useState("");
   const [isUploadingMedia,  setIsUploadingMedia]  = useState(false);
-  const [galleryMedia,      setGalleryMedia]      = useState<MediaItem[]>(INITIAL_GALLERY);
+  const [galleryMedia,      setGalleryMedia]      = useState<MediaItem[]>([]);
   const [selectedPost,      setSelectedPost]      = useState<MediaItem | null>(null);
 
   // ==========================================
@@ -222,6 +218,7 @@ function ProfilePageContent() {
   // ==========================================
   const loadProfileData = useCallback(async (userId: string) => {
     try {
+      // 1. Fetch Profile and Sports
       const [{ data: prof }, { data: usData }, { data: sData }] = await Promise.all([
         supabase.from("profiles").select("*").eq("id", userId).single(),
         supabase.from("user_sports").select("id, sport_id, metadata, sports(name)").eq("user_id", userId),
@@ -235,11 +232,36 @@ function ProfilePageContent() {
           full_name:  prof.full_name  ?? "", headline:   prof.headline   ?? "", location:   prof.location   ?? "",
           country: prof.country ?? "", region: prof.region ?? "", bio: prof.bio ?? "",
           avatar_url: prof.avatar_url ?? "", is_coach:   prof.is_coach   ?? false,
-          coach_rate: prof.coach_rate ?? 0, status_tag: prof.status_tag ?? "inactive",
+          coach_rate: prof.coach_rate ?? 0, status_tag: prof.status_tag ?? "committed",
         });
       }
       if (usData) setUserSports(usData as unknown as UserSport[]);
       if (sData)  setAllSports(sData);
+
+      // 🚀 抓取雲端真實上傳的相片 (覆蓋任何假資料)
+      const { data: files } = await supabase.storage.from("highlights").list(`${userId}/`, {
+        limit: 20,
+        sortBy: { column: "created_at", order: "desc" }
+      });
+
+      if (files && files.length > 0) {
+        const fetchedGallery = files
+          .filter(f => f.name !== ".emptyFolderPlaceholder")
+          .map(file => {
+            const { data: urlData } = supabase.storage.from("highlights").getPublicUrl(`${userId}/${file.name}`);
+            return {
+              id: file.id || file.name,
+              sportName: "Highlight",
+              type: "image" as const,
+              url: urlData.publicUrl,
+              fileName: file.name, // 必須要有這個，才能執行刪除！
+              createdAt: file.created_at ? new Date(file.created_at).toLocaleDateString() : "最近上傳"
+            };
+          });
+        setGalleryMedia(fetchedGallery);
+      } else {
+        setGalleryMedia([]); // 如果雲端沒照片，保證顯示為空
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -347,11 +369,12 @@ function ProfilePageContent() {
     if (!error) {
       setProfile(prev => ({ ...prev!, ...editForm, avatar_url: finalAvatarUrl, full_name: fullName, location: `${editForm.region}, ${editForm.country}` }));
       setIsEditing(false);
+      router.refresh();
     } else {
       alert("資料庫同步失敗：" + error.message);
     }
     setIsSaving(false);
-  }, [user, editForm, handleStatus, supabase]);
+  }, [user, editForm, handleStatus, supabase, router]);
 
   const handleCancelEdit = useCallback(() => {
     setIsEditing(false);
@@ -381,21 +404,24 @@ function ProfilePageContent() {
 
     if (editingUserSportId) {
       const { error } = await supabase.from("user_sports").update({ sport_id: selectedSportId, metadata: sportDynamicData }).eq("id", editingUserSportId);
-      if (!error) { await loadProfileData(user.id); setIsSportModalOpen(false); }
+      if (!error) { await loadProfileData(user.id); setIsSportModalOpen(false); router.refresh(); }
       else alert("更新失敗");
     } else {
       const { error } = await supabase.from("user_sports").insert({ user_id: user.id, sport_id: selectedSportId, metadata: sportDynamicData });
-      if (!error) { await loadProfileData(user.id); setIsSportModalOpen(false); }
+      if (!error) { await loadProfileData(user.id); setIsSportModalOpen(false); router.refresh(); }
       else alert("新增失敗");
     }
     setIsSubmittingSport(false);
-  }, [selectedSportId, sportDynamicData, user, editingUserSportId, supabase, loadProfileData]);
+  }, [selectedSportId, sportDynamicData, user, editingUserSportId, supabase, loadProfileData, router]);
 
   const handleRemoveSport = useCallback(async (us: UserSport) => {
-    if (!window.confirm(`確定要自武器庫移除 ${us.sports?.name} 嗎？`)) return;
+    if (!window.confirm(`確定要自特長清單移除 ${us.sports?.name} 嗎？`)) return;
     const { error } = await supabase.from("user_sports").delete().eq("id", us.id);
-    if (!error) setUserSports(prev => prev.filter(item => item.id !== us.id));
-  }, [supabase]);
+    if (!error) {
+      setUserSports(prev => prev.filter(item => item.id !== us.id));
+      router.refresh();
+    }
+  }, [supabase, router]);
 
   // Media Handlers
   const handleMediaUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -404,13 +430,49 @@ function ProfilePageContent() {
     setIsUploadingMedia(true);
     const fileToUpload = await compressImage(rawFile);
     const fileExt  = rawFile.name.split(".").pop();
-    const filePath = `${user.id}/highlight-${Date.now()}.${fileExt}`;
+    
+    const uniqueFileName = `highlight-${Date.now()}.${fileExt}`;
+    const filePath = `${user.id}/${uniqueFileName}`;
+    
     const { error } = await supabase.storage.from("highlights").upload(filePath, fileToUpload);
     if (error) { alert("上傳失敗"); setIsUploadingMedia(false); return; }
+    
     const publicUrl = supabase.storage.from("highlights").getPublicUrl(filePath).data.publicUrl;
-    setGalleryMedia(prev => [{ id: Date.now().toString(), sportName: uploadMediaSport, type: "image", url: publicUrl, createdAt: "剛剛" }, ...prev]);
+    
+    setGalleryMedia(prev => [{ 
+      id: uniqueFileName, 
+      sportName: uploadMediaSport, 
+      type: "image", 
+      url: publicUrl, 
+      fileName: uniqueFileName, // Store filename so we can delete it instantly if needed
+      createdAt: "剛剛" 
+    }, ...prev]);
+    
     setIsMediaModalOpen(false); setUploadMediaSport(""); setIsUploadingMedia(false);
-  }, [uploadMediaSport, user, supabase]);
+    router.refresh();
+  }, [uploadMediaSport, user, supabase, router]);
+
+  // 🚀 NEW: Delete Media Function
+  const handleDeleteMedia = async (post: MediaItem) => {
+    if (!user) return;
+    if (!post.fileName) {
+      alert("這是系統預設假圖片，無法刪除！請上傳你自己的真實照片。");
+      return;
+    }
+    if (!window.confirm("確定要刪除這張影像嗎？此動作無法復原。")) return;
+
+    // Delete from Supabase Storage bucket
+    const { error } = await supabase.storage.from("highlights").remove([`${user.id}/${post.fileName}`]);
+
+    if (error) {
+      alert("刪除失敗：" + error.message);
+    } else {
+      // Remove from local UI state instantly
+      setGalleryMedia(prev => prev.filter(m => m.id !== post.id));
+      setSelectedPost(null); // Close lightbox
+      router.refresh(); // Purge cache so /p/[id] sees the deletion
+    }
+  };
 
   const handleShareLink = useCallback(() => {
     navigator.clipboard.writeText(`${window.location.origin}/p/${user?.id}`);
@@ -501,7 +563,7 @@ function ProfilePageContent() {
 
                   <div className="p-4 bg-slate-950/50 rounded-2xl border border-slate-800/80 space-y-4 mt-2">
                     <div>
-                      <label className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest block mb-2">招募意向狀態</label>
+                      <label className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest block mb-2">動態意向狀態</label>
                       <select className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white text-xs outline-none" value={editForm.status_tag} onChange={e => setEditForm(prev => ({ ...prev, status_tag: e.target.value }))}>
                         <option value="recruiting">🟢 招生中 (Accepting Students)</option>
                         <option value="seeking_team">🔵 尋找隊伍 (Seeking Team)</option>
@@ -569,16 +631,17 @@ function ProfilePageContent() {
 
           {/* ── Right Main Area ── */}
           <div className="lg:col-span-8 xl:col-span-9 flex flex-col">
-           {/* 🚀 強制等分寬度、自動適應螢幕的雙語標籤列 */}
-            <div className="bg-pro-slate-900/60 backdrop-blur-xl border border-pro-slate-800/80 p-1 rounded-2xl flex w-full sticky top-16 z-30 mb-8 shadow-sm">
+            
+            {/* 🚀 強制等分寬度、自動適應螢幕的雙語標籤列 */}
+            <div className="bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 p-1 rounded-2xl flex w-full sticky top-16 z-30 mb-8 shadow-sm">
               {TABS.map((t) => (
                 <button
                   key={t.id}
                   onClick={() => setActiveTab(t.id as TabId)}
                   className={`flex-1 flex flex-col items-center justify-center py-2 px-1 rounded-xl transition-all duration-300 min-w-0 ${
                     activeTab === t.id
-                      ? "bg-pro-slate-50 text-black shadow-lg scale-[1.02]"
-                      : "text-zinc-500 hover:text-white"
+                      ? "bg-slate-50 text-black shadow-lg scale-[1.02]"
+                      : "text-zinc-500 hover:text-white hover:bg-slate-800/50"
                   }`}
                 >
                   <span className="text-lg md:text-xl mb-0.5">{t.icon}</span>
@@ -617,27 +680,27 @@ function ProfilePageContent() {
                     <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center text-2xl mx-auto mb-4">🏆</div>
                     <h3 className="text-white font-bold mb-2">準備好參加賽事了嗎？</h3>
                     <p className="text-zinc-400 text-sm max-w-md mx-auto leading-relaxed">
-                      完善你的「專長規格」與「賽事影音」，雲端資料庫已就緒，系統將為您智慧推播最合適的戰隊職缺。
+                      完善你的「技術特長」與「賽事影音」，雲端資料庫已就緒，系統將為您智慧推播最合適的戰隊職缺。
                     </p>
                   </div>
                 </div>
               )}
 
-              {/* Arsenal */}
-              {activeTab === "arsenal" && (
+              {/* Expertise */}
+              {activeTab === "expertise" && (
                 <div className="animate-fadeIn space-y-6">
                   <div className="flex justify-between items-center mb-2 px-2">
                     <div>
-                      <h2 className="text-xl font-black text-white">認證裝備與專長規格</h2>
+                      <h2 className="text-xl font-black text-white">登錄認證技術特長</h2>
                       <p className="text-xs text-zinc-500 mt-1">展示你的場上真實硬參數</p>
                     </div>
                     <button onClick={() => handleOpenSportModal()} className="bg-slate-50 text-black text-xs font-black px-4 py-2.5 rounded-full hover:scale-105 transition shadow-[0_0_15px_rgba(255,255,255,0.2)]">
-                      ＋ 新增專長項目
+                      ＋ 新增技術項目
                     </button>
                   </div>
                   {userSports.length === 0 ? (
                     <div className="text-center py-20 bg-slate-900/30 border border-dashed border-slate-700/50 rounded-3xl">
-                      <p className="text-zinc-500 text-sm font-bold">空蕩蕩的專長欄... 立即宣告你的專業項目！</p>
+                      <p className="text-zinc-500 text-sm font-bold">空蕩蕩的技術清單... 立即宣告你的專業項目！</p>
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -686,7 +749,7 @@ function ProfilePageContent() {
                       </button>
                     ) : (
                       <p className="text-xs text-amber-500 font-bold bg-amber-500/10 px-3 py-1.5 rounded-lg border border-amber-500/20">
-                        請先宣告「專長規格」項目
+                        請先宣告「技術特長」項目
                       </p>
                     )}
                   </div>
@@ -701,6 +764,11 @@ function ProfilePageContent() {
                         </div>
                       </div>
                     ))}
+                    {galleryMedia.length === 0 && (
+                      <div className="col-span-3 py-20 text-center text-zinc-500 text-sm font-bold border border-dashed border-slate-800 rounded-2xl">
+                        尚未上傳任何影像。
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -760,7 +828,7 @@ function ProfilePageContent() {
       {isSportModalOpen && (
         <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fadeIn">
           <div className="bg-slate-950 border border-slate-800 w-full max-w-sm rounded-3xl p-6 shadow-2xl">
-            <h3 className="text-lg font-black text-white mb-6">{editingUserSportId ? "編輯專長規格" : "添入專長規格"}</h3>
+            <h3 className="text-lg font-black text-white mb-6">{editingUserSportId ? "編輯技術特長" : "添入技術特長"}</h3>
             <form onSubmit={handleSaveSport} className="space-y-5 text-sm">
               
               <div>
@@ -771,7 +839,6 @@ function ProfilePageContent() {
                 </select>
               </div>
 
-              {/* 🚀 動態表單渲染引擎 */}
               {selectedSportInfo && (SPORT_SCHEMA[selectedSportInfo.name] || SPORT_SCHEMA["default"]).map(field => (
                 <div key={field.key} className="animate-fadeIn">
                   <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">{field.label}</label>
@@ -843,29 +910,21 @@ function ProfilePageContent() {
                   <div className="w-8 h-8 rounded-full bg-slate-700 bg-cover bg-center border border-slate-600" style={{ backgroundImage: avatarSrc ? `url(${avatarSrc})` : "none" }} />
                   <div>
                     <p className="text-sm font-black text-white">{profile?.handle || profile?.first_name || "Athlete"}</p>
-                    <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">{selectedPost.sportName} • {selectedPost.createdAt}</p>
+                    <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">{selectedPost.createdAt}</p>
                   </div>
                 </div>
-                <button className="text-red-400 hover:text-red-300 text-xs font-bold px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 rounded-lg transition">刪除</button>
+                {/* 🚀 刪除按鈕已接上真實的刪除邏輯 */}
+                <button onClick={() => handleDeleteMedia(selectedPost)} className="text-red-400 hover:text-red-300 text-xs font-bold px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 rounded-lg transition">刪除</button>
               </div>
               <div className="flex-1 overflow-y-auto p-4 space-y-5 custom-scrollbar">
-                <div className="flex gap-3">
-                  <div className="w-8 h-8 rounded-full bg-blue-900 border border-blue-700 shrink-0 flex items-center justify-center text-xs font-bold text-white">S</div>
-                  <div>
-                    <p className="text-sm leading-snug"><span className="font-bold text-white mr-2 hover:underline cursor-pointer">scout_official</span><span className="text-zinc-300">Great form! Are you looking for a team this season? 🔥</span></p>
-                    <div className="flex gap-4 mt-1">
-                      <span className="text-[10px] text-zinc-500 font-bold">2h</span>
-                      <span className="text-[10px] text-zinc-500 font-bold hover:text-white cursor-pointer">Reply</span>
-                    </div>
-                  </div>
-                </div>
+                  {/* Empty for future comments */}
               </div>
               <div className="p-4 border-t border-slate-800 bg-slate-950">
                 <div className="flex gap-4 mb-3">
                   <button className="text-2xl hover:scale-110 transition transform active:scale-95 grayscale hover:grayscale-0">❤️</button>
                   <button className="text-2xl hover:scale-110 transition grayscale hover:grayscale-0">💬</button>
                 </div>
-                <p className="text-sm font-bold text-white mb-3">24 likes</p>
+                <p className="text-sm font-bold text-white mb-3">0 likes</p>
                 <div className="flex gap-2 relative">
                   <input type="text" placeholder="Add a comment..." className="w-full bg-slate-900 border border-slate-800 rounded-full py-3 pl-4 pr-16 text-sm text-white focus:outline-none focus:border-slate-600 transition" />
                   <button className="absolute right-4 top-3 text-blue-500 font-bold text-sm hover:text-blue-400 transition">Post</button>

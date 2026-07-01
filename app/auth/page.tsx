@@ -55,8 +55,8 @@ export default function AuthPage() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        // 💡 關鍵修正：指回 callback 接收站，讓後端幫我們寫入 Cookie！
-        redirectTo: `${window.location.origin}/auth/callback?next=/profile`, 
+        // 💡 刪除 ?next=/profile，讓它與 Supabase 後台 100% 完全吻合
+        redirectTo: `${window.location.origin}/auth/callback`, 
       },
     });
   
