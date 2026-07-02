@@ -1,78 +1,170 @@
 "use client";
 
 interface PhysioTabProps {
-  editForm: {
-    clinic_name: string;
-    physio_rate: number | string;
-    physio_country: string;
-    physio_region: string;
-    physio_status: string;
-  };
-  locationData: Record<string, string[]>;
-  isSaving: boolean;
-  avatarSrc: string;
-  profile: { full_name: string | null } | null;
-  onFieldChange: (field: string, value: any) => void;
-  onSave: () => void;
+  editForm?: any;
+  onFieldChange?: (field: string, value: any) => void;
+  onSaveGlobal?: () => void;
+  isSaving?: boolean;
 }
 
-export function PhysioTab({ editForm, locationData, isSaving, avatarSrc, profile, onFieldChange, onSave }: PhysioTabProps) {
+export function PhysioTab({ editForm, onFieldChange, onSaveGlobal, isSaving }: PhysioTabProps) {
+  if (!editForm || !onFieldChange) return null;
+
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 animate-fadeIn">
-      <div className="bg-slate-900/40 border border-slate-800 p-5 md:p-6 rounded-3xl h-fit">
-        <h3 className="text-lg font-black text-white mb-6">設定醫療防護名片</h3>
-        <div className="space-y-4">
-          <div>
-            <label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">診所/工作室名稱</label>
-            <input type="text" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 md:p-3 text-white text-sm" value={editForm.clinic_name} onChange={e => onFieldChange("clinic_name", e.target.value)} placeholder="例如: 運動復健所" />
-          </div>
-          <div>
-            <label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">單次收費 (HK$)</label>
-            <input type="number" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 md:p-3 text-white text-sm" placeholder="例如: 800" value={editForm.physio_rate} onChange={e => onFieldChange("physio_rate", e.target.value === "" ? "" : Number(e.target.value))} />
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">所在國家</label>
-              <select className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 md:p-3 text-white text-sm" value={editForm.physio_country} onChange={e => { onFieldChange("physio_country", e.target.value); onFieldChange("physio_region", ""); }}>
-                <option value="">國家</option>
-                {Object.keys(locationData).map(c => <option key={c} value={c}>{c}</option>)}
+    <div className="space-y-6 animate-fadeIn">
+      {/* ── 頂部標題 ── */}
+      <div className="mb-4">
+        <h2 className="text-lg md:text-xl font-black text-white">防護員 / 物理治療名片設定</h2>
+        <p className="text-[10px] md:text-xs text-zinc-500 mt-1">完善您的專業資歷與服務項目，建立客戶信任感。</p>
+      </div>
+
+      <div className="bg-slate-900/40 border border-slate-800 rounded-3xl p-5 md:p-6 mb-8 shadow-sm space-y-8">
+        
+        {/* 1️⃣ 基本收費與狀態 */}
+        <div>
+          <h3 className="text-sm font-black text-emerald-400 mb-4 flex items-center gap-2">
+            <span className="w-1.5 h-4 bg-emerald-500 rounded-full"></span> 基本資訊
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-[10px] text-zinc-500 font-bold uppercase block pl-1">狀態</label>
+              <select
+                value={editForm.physio_status || "hidden"}
+                onChange={(e) => onFieldChange("physio_status", e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:border-emerald-500 transition-colors outline-none"
+              >
+                <option value="available">🟢 開放預約</option>
+                <option value="full">🔴 滿診中</option>
+                <option value="hidden">🔒 未發布 (隱藏)</option>
               </select>
             </div>
-            <div>
-              <label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">所在區域</label>
-              <select className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 md:p-3 text-white text-sm" value={editForm.physio_region} onChange={e => onFieldChange("physio_region", e.target.value)}>
-                <option value="">區域</option>
-                {editForm.physio_country && locationData[editForm.physio_country]?.map(r => <option key={r} value={r}>{r}</option>)}
-              </select>
+            <div className="space-y-1.5">
+              <label className="text-[10px] text-zinc-500 font-bold uppercase block pl-1">單次參考收費 (HK$)</label>
+              <input
+                type="number"
+                value={editForm.physio_rate || ""}
+                onChange={(e) => onFieldChange("physio_rate", e.target.value === "" ? null : Number(e.target.value))}
+                placeholder="例如: 800"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:border-emerald-500 transition-colors outline-none"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] text-zinc-500 font-bold uppercase block pl-1">所屬診所 / 工作室名稱</label>
+              <input
+                type="text"
+                value={editForm.clinic_name || ""}
+                onChange={(e) => onFieldChange("clinic_name", e.target.value)}
+                placeholder="例如: 獨立接案 / 某某物理治療所"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:border-emerald-500 transition-colors outline-none"
+              />
             </div>
           </div>
-          <div>
-            <label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">預約狀態</label>
-            <select className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 md:p-3 text-white text-sm" value={editForm.physio_status} onChange={e => onFieldChange("physio_status", e.target.value)}>
-              <option value="available">🟢 開放預約</option>
-              <option value="busy">🔴 滿診中</option>
-              <option value="hidden">🔒 未發布 (隱藏中)</option>
-            </select>
+        </div>
+
+        {/* 2️⃣ 專業資歷與服務 */}
+        <div className="pt-6 border-t border-slate-800/80">
+          <h3 className="text-sm font-black text-emerald-400 mb-4 flex items-center gap-2">
+            <span className="w-1.5 h-4 bg-emerald-500 rounded-full"></span> 專業經歷與服務項目
+          </h3>
+          <div className="space-y-5">
+            <div className="space-y-1.5 max-w-xs">
+              <label className="text-[10px] text-zinc-500 font-bold uppercase block pl-1">從業年資 (年)</label>
+              <input
+                type="text"
+                value={editForm.physio_experience_years || ""}
+                onChange={(e) => onFieldChange("physio_experience_years", e.target.value)}
+                placeholder="例如: 5"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:border-emerald-500 transition-colors outline-none"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] text-zinc-500 font-bold uppercase block pl-1">專業證照與資格 (Certifications)</label>
+              <textarea
+                value={editForm.physio_qualifications || ""}
+                onChange={(e) => onFieldChange("physio_qualifications", e.target.value)}
+                placeholder="例如：香港註冊物理治療師、運動按摩認證..."
+                rows={3}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-emerald-500 transition-colors outline-none resize-none"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] text-zinc-500 font-bold uppercase block pl-1">提供的服務 (Services Offered)</label>
+              <textarea
+                value={editForm.physio_services_offered || ""}
+                onChange={(e) => onFieldChange("physio_services_offered", e.target.value)}
+                placeholder="例如：運動傷害復健、筋膜放鬆、術後恢復、貼紮服務..."
+                rows={3}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-emerald-500 transition-colors outline-none resize-none"
+              />
+            </div>
           </div>
-          <button onClick={onSave} disabled={isSaving} className="w-full mt-4 bg-emerald-600 text-white font-black py-2.5 md:py-3 rounded-xl text-sm md:text-base shadow-md">
-            {isSaving ? "儲存中..." : "儲存 / 發布名片"}
+        </div>
+
+        {/* 3️⃣ 對外聯絡與服務地點 */}
+        <div className="pt-6 border-t border-slate-800/80">
+          <h3 className="text-sm font-black text-emerald-400 mb-4 flex items-center gap-2">
+            <span className="w-1.5 h-4 bg-emerald-500 rounded-full"></span> 聯絡與地點
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+            <div className="space-y-1.5">
+              <label className="text-[10px] text-zinc-500 font-bold uppercase block pl-1">公開聯絡信箱</label>
+              <input type="email" value={editForm.physio_contact_email || ""} onChange={(e) => onFieldChange("physio_contact_email", e.target.value)} placeholder="physio@example.com" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:border-emerald-500 transition-colors outline-none" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] text-zinc-500 font-bold uppercase block pl-1">公開聯絡電話</label>
+              <input type="tel" value={editForm.physio_contact_phone || ""} onChange={(e) => onFieldChange("physio_contact_phone", e.target.value)} placeholder="+852 9876 5432" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:border-emerald-500 transition-colors outline-none" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] text-zinc-500 font-bold uppercase block pl-1">主要服務地區</label>
+              <input type="text" value={editForm.physio_city_region || ""} onChange={(e) => onFieldChange("physio_city_region", e.target.value)} placeholder="例如：中環 / 尖沙咀" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:border-emerald-500 transition-colors outline-none" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] text-zinc-500 font-bold uppercase block pl-1">詳細地址</label>
+              <input type="text" value={editForm.physio_address || ""} onChange={(e) => onFieldChange("physio_address", e.target.value)} placeholder="診所或工作室完整地址" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:border-emerald-500 transition-colors outline-none" />
+            </div>
+          </div>
+          
+          <label className="flex items-center gap-3 p-3 bg-slate-950/50 border border-slate-800 rounded-xl cursor-pointer hover:bg-slate-900 transition-colors">
+            <input type="checkbox" checked={editForm.physio_is_address_public ?? true} onChange={(e) => onFieldChange("physio_is_address_public", e.target.checked)} className="w-4 h-4 rounded border-slate-700 text-emerald-500 focus:ring-emerald-500/50 bg-slate-950" />
+            <div className="flex flex-col">
+              <span className="text-sm font-bold text-slate-200">公開詳細地址</span>
+              <span className="text-[10px] md:text-xs text-slate-500">關閉後，名片上將只顯示「主要服務地區」。</span>
+            </div>
+          </label>
+        </div>
+
+        {/* 4️⃣ 社群媒體連結區塊 */}
+        <div className="pt-6 border-t border-slate-800/80">
+          <h3 className="text-sm font-black text-emerald-400 mb-4 flex items-center gap-2">
+            <span className="w-1.5 h-4 bg-emerald-500 rounded-full"></span> 社群媒體
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="text-xs font-bold text-slate-400 mb-1.5 block">Instagram</label>
+              <input type="url" placeholder="https://instagram.com/..." value={editForm.physio_instagram_url || ""} onChange={(e) => onFieldChange("physio_instagram_url", e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-white focus:border-emerald-500 transition-colors" />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-400 mb-1.5 block">Facebook</label>
+              <input type="url" placeholder="https://facebook.com/..." value={editForm.physio_facebook_url || ""} onChange={(e) => onFieldChange("physio_facebook_url", e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-white focus:border-emerald-500 transition-colors" />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-400 mb-1.5 block">Threads</label>
+              <input type="url" placeholder="https://threads.net/..." value={editForm.physio_threads_url || ""} onChange={(e) => onFieldChange("physio_threads_url", e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-white focus:border-emerald-500 transition-colors" />
+            </div>
+          </div>
+        </div>
+
+        {/* ✅ 專屬儲存按鈕 */}
+        <div className="flex justify-end mt-8 pt-5 border-t border-slate-800/80">
+          <button
+            onClick={onSaveGlobal}
+            disabled={isSaving}
+            className="bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-500 text-white text-sm font-black px-8 py-3 rounded-xl transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)] active:scale-95 flex items-center gap-2"
+          >
+            {isSaving ? "儲存中..." : "儲存"}
           </button>
         </div>
-      </div>
-      <div className="hidden xl:block">
-        <h3 className="text-sm font-bold text-zinc-500 mb-4 px-2">公開列表預覽</h3>
-        <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6 flex flex-col items-center text-center relative overflow-hidden">
-          <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-emerald-500/20 via-teal-500/20 to-cyan-500/20" />
-          <div className="relative w-20 h-20 mb-5 mt-2">
-            <div className="w-full h-full rounded-full bg-slate-800 border-2 border-slate-700/50 bg-cover bg-center" style={{ backgroundImage: avatarSrc ? `url(${avatarSrc})` : "none" }} />
-          </div>
-          <h3 className="text-lg font-black text-white">{profile?.full_name || "您的名稱"}</h3>
-          <p className="text-xs text-zinc-400 mb-5 line-clamp-2">{editForm.clinic_name || "未登錄診所"}</p>
-          <div className="flex flex-wrap items-center justify-center gap-2 mb-4 w-full">
-            <div className="bg-slate-950/50 border border-slate-800 text-zinc-400 text-xs font-bold px-3 py-1.5 rounded-lg truncate max-w-[140px]">📍 {editForm.physio_region ? `${editForm.physio_region}` : "地點未設"}</div>
-            <div className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-black px-3 py-1.5 rounded-lg">HK$ {editForm.physio_rate}</div>
-          </div>
-        </div>
+
       </div>
     </div>
   );

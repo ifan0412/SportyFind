@@ -12,9 +12,10 @@ interface CoachTabProps {
   onSave: (coach: any) => void;
   onDelete: (id: string) => void;
   
-  // 👇 新增這兩行
   editForm?: any; 
   onFieldChange?: (field: string, value: any) => void;
+  onSaveGlobal?: () => void; 
+  isSaving?: boolean;       
 }
 
 export function CoachTab({ 
@@ -25,13 +26,15 @@ export function CoachTab({
   onUpdate, 
   onSave, 
   onDelete,
+  onSaveGlobal,  
+  isSaving,       
   editForm,
   onFieldChange
 }: CoachTabProps) {
   return (
     <div className="space-y-6 animate-fadeIn">
       
-      {/* ── 頂部標題 (已移除新增按鈕) ── */}
+      {/* ── 頂部標題 ── */}
       <div className="mb-4">
         <h2 className="text-lg md:text-xl font-black text-white">教練名片設定</h2>
         <p className="text-[10px] md:text-xs text-zinc-500 mt-1">管理您的全域聯絡資訊與各項專業收費標準。</p>
@@ -42,7 +45,7 @@ export function CoachTab({
         <div className="bg-slate-900/40 border border-slate-800 rounded-3xl p-5 md:p-6 mb-8 shadow-sm">
           <div className="mb-5">
             <h3 className="text-sm md:text-base font-black text-white">對外聯絡與服務地點</h3>
-            <p className="text-[10px] md:text-xs text-zinc-500 mt-1">此設定將套用於您所有的教練名片。填寫後請點擊左側面板的「完成變更」以儲存。</p>
+            <p className="text-[10px] md:text-xs text-zinc-500 mt-1">此設定將套用於您所有的教練名片。填寫後請點擊下方的按鈕以儲存。</p>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -91,6 +94,7 @@ export function CoachTab({
             </div>
           </div>
 
+          {/* 隱私開關 (✅ 現在它正確閉合了) */}
           <label className="flex items-center gap-3 p-3 bg-slate-950/50 border border-slate-800 rounded-xl cursor-pointer hover:bg-slate-900 transition-colors">
             <input
               type="checkbox"
@@ -103,10 +107,60 @@ export function CoachTab({
               <span className="text-[10px] md:text-xs text-slate-500">關閉後，名片上將只顯示「主要服務地區」，保護您的隱私。</span>
             </div>
           </label>
+
+          {/* 🌐 社群媒體連結區塊 (✅ 移出了 label 標籤) */}
+          <div className="mt-6 space-y-4 border-t border-slate-800/80 pt-6">
+            <h4 className="text-sm font-bold text-white mb-3">社群媒體連結</h4>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="text-xs font-bold text-slate-400 mb-1.5 block">Instagram</label>
+                <input
+                  type="url"
+                  placeholder="https://instagram.com/..."
+                  value={editForm.instagram_url || ""}
+                  onChange={(e) => onFieldChange("instagram_url", e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-white focus:border-blue-500 transition-colors"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-400 mb-1.5 block">Facebook</label>
+                <input
+                  type="url"
+                  placeholder="https://facebook.com/..."
+                  value={editForm.facebook_url || ""}
+                  onChange={(e) => onFieldChange("facebook_url", e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-white focus:border-blue-500 transition-colors"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-400 mb-1.5 block">Threads</label>
+                <input
+                  type="url"
+                  placeholder="https://threads.net/..."
+                  value={editForm.threads_url || ""}
+                  onChange={(e) => onFieldChange("threads_url", e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-white focus:border-blue-500 transition-colors"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* ✅ 專屬的儲存按鈕 */}
+          <div className="flex justify-end mt-8 pt-5 border-t border-slate-800/80">
+            <button
+              onClick={onSaveGlobal}
+              disabled={isSaving}
+              className="bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-500 text-white text-sm font-black px-8 py-3 rounded-xl transition-all shadow-[0_0_15px_rgba(37,99,235,0.3)] active:scale-95 flex items-center gap-2"
+            >
+              {isSaving ? "儲存中..." : "儲存"}
+            </button>
+          </div>
+          
         </div>
       )}
 
-      {/* ── 專項名片列表區塊標題與新增按鈕 (已移至此處) ── */}
+      {/* ── 專項名片列表區塊標題與新增按鈕 ── */}
       <div className="flex justify-between items-center mt-8 pt-4 border-t border-slate-800/50 mb-2">
         <h3 className="text-base md:text-lg font-black text-white">收費與專項名片</h3>
         <button onClick={onAdd} className="bg-amber-600 hover:bg-amber-500 text-white text-xs font-black px-4 py-2.5 rounded-full shadow-[0_0_15px_rgba(217,119,6,0.3)] transition-all">

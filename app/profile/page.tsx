@@ -249,16 +249,26 @@ function ProfilePageContent() {
 
   const handleSaveProfile = async () => {
     if (!user || handleStatus === "taken") return;
+
+    // ✅ 新增：原生的確認彈出視窗 (Confirm Pop-up)
+    if (!window.confirm("確定要儲存您的個人檔案與專業資訊變更嗎？")) {
+      return; 
+    }
+
     setIsSaving(true);
     let finalAvatarUrl = editForm.avatar_url;
     if (pendingAvatarFile.current) {
       const filePath = `${user.id}/avatar-${Date.now()}.jpg`;
       const { error: uploadError } = await supabase.storage.from("avatars").upload(filePath, pendingAvatarFile.current, { upsert: true });
       if (!uploadError) finalAvatarUrl = supabase.storage.from("avatars").getPublicUrl(filePath).data.publicUrl;
-      pendingAvatarFile.current = null; if (blobUrlRef.current) { URL.revokeObjectURL(blobUrlRef.current); blobUrlRef.current = null; }
+      pendingAvatarFile.current = null; 
+      if (blobUrlRef.current) { URL.revokeObjectURL(blobUrlRef.current); blobUrlRef.current = null; }
     }
+    
     const fullName = `${editForm.first_name} ${editForm.last_name}`.trim();
     const physioRateVal = Number(editForm.physio_rate) || 0;
+
+    // 🎯 👇 這整塊就是你的 upsert 區塊 👇 🎯
     const { error } = await supabase.from("profiles").upsert({ 
       id: user.id, 
       first_name: editForm.first_name, 
@@ -274,26 +284,54 @@ function ProfilePageContent() {
       status_tag: editForm.status_tag, 
       display_sports: editForm.display_sports, 
       
+      // ── 教練相關資訊 ──
       is_coach: editForm.is_coach, 
-      contact_email: editForm.contact_email,             // NEW
-      contact_phone: editForm.contact_phone,             // NEW
-      address: editForm.address,                         // NEW
-      city_region: editForm.city_region,                 // NEW
-      is_address_public: editForm.is_address_public,     // NEW
+      contact_email: editForm.contact_email || null,             
+      contact_phone: editForm.contact_phone || null,             
+      address: editForm.address || null,                         
+      city_region: editForm.city_region || null,                 
+      is_address_public: editForm.is_address_public ?? true,     
+      instagram_url: editForm.instagram_url || null,
+      facebook_url: editForm.facebook_url || null,
+      threads_url: editForm.threads_url || null,
 
+      // ── 防護員基礎與專業經歷資訊 ──
       is_physio: editForm.is_physio, 
       physio_rate: physioRateVal, 
-      clinic_name: editForm.clinic_name, 
-      physio_status: editForm.physio_status, 
-      physio_country: editForm.physio_country, 
-      physio_region: editForm.physio_region 
+      clinic_name: editForm.clinic_name || null, 
+      physio_status: editForm.physio_status || "hidden", 
+      physio_country: editForm.physio_country || null, 
+      physio_region: editForm.physio_region || null,
+      physio_experience_years: editForm.physio_experience_years || null,
+      physio_qualifications: editForm.physio_qualifications || null,
+      physio_services_offered: editForm.physio_services_offered || null,
+
+      // ── ✅ 這裡就是新加入的：防護員獨立聯絡與社群資訊 ──
+      physio_contact_email: editForm.physio_contact_email || null,
+      physio_contact_phone: editForm.physio_contact_phone || null,
+      physio_city_region: editForm.physio_city_region || null,
+      physio_address: editForm.physio_address || null,
+      physio_is_address_public: editForm.physio_is_address_public ?? true,
+      physio_instagram_url: editForm.physio_instagram_url || null,
+      physio_facebook_url: editForm.physio_facebook_url || null,
+      physio_threads_url: editForm.physio_threads_url || null,
     });
-        if (!error) {
+    // 🎯 👆 upsert 區塊結束 👆 🎯
+
+    if (!error) {
       setProfile(prev => ({ ...prev!, ...editForm, avatar_url: finalAvatarUrl, full_name: fullName, location: `${editForm.region}, ${editForm.country}` }));
-      setIsEditing(false); router.refresh();
+      setIsEditing(false); 
+      
+      // 成功時給予提示彈窗
+      alert("✅ 儲存成功！您的個人資料與專業名片已更新。");
+      
+      router.refresh();
       if (editForm.is_coach && !profile?.is_coach) handleTabSwitch("coach");
       else if (editForm.is_physio && !profile?.is_physio) handleTabSwitch("physio");
-    } else alert("同步失敗");
+    } else {
+      console.error("Save Error:", error);
+      alert("❌ 同步失敗，請開啟瀏覽器主控台 (F12 Console) 檢查錯誤詳情。");
+    }
     setIsSaving(false);
   };
 
@@ -528,14 +566,32 @@ function ProfilePageContent() {
                   coachProfiles={coachProfiles}
                   allSports={allSports}
                   locationData={locationData}
-                  editForm={editForm}                                              // NEW
-                  onFieldChange={(field, value) =>                                 // NEW
-                    setEditForm(prev => ({ ...prev, [field]: value }))
-                  }
+                  editForm={editForm}
+                  onFieldChange={(field, value) => setEditForm(prev => ({ ...prev, [field]: value }))}
+                  
+                  // 👇 就是缺了這兩行！把它們補上去！ 👇
+                  onSaveGlobal={handleSaveProfile}
+                  isSaving={isSaving}
+                  // 👆 👆 👆 👆 👆 👆 👆 👆 👆 👆
+                  
                   onAdd={addCoachProfile}
                   onUpdate={updateCoachProfile}
                   onSave={saveCoachProfile}
                   onDelete={deleteCoachProfile}
+                />
+              )}
+{activeTab === "physio" && (
+                <PhysioTab
+                  editForm={editForm}
+                  locationData={locationData}
+                  isSaving={isSaving}
+                  avatarSrc={avatarSrc}
+                  profile={profile}
+                  onFieldChange={(field, value) => setEditForm(prev => ({ ...prev, [field]: value }))}
+                  
+                  // 👇 關鍵修正：把 onSave 改成 onSaveGlobal
+                  onSaveGlobal={handleSaveProfile}
+                  
                 />
               )}
 
@@ -547,7 +603,10 @@ function ProfilePageContent() {
                   avatarSrc={avatarSrc}
                   profile={profile}
                   onFieldChange={(field, value) => setEditForm(prev => ({ ...prev, [field]: value }))}
-                  onSave={handleSaveProfile}
+                  
+                  // 👇 關鍵修正：把 onSave 改成 onSaveGlobal
+                  onSaveGlobal={handleSaveProfile}
+                  
                 />
               )}
             </div>

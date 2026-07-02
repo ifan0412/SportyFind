@@ -433,7 +433,7 @@ useEffect(() => {
               {/* 1. 通知鈴鐺 */}
               <NotificationBell {...bellProps} /> 
               
-              {/* 2. 收件匣捷徑 (✅ 確保這裡有正確閉合 </Link>) */}
+              {/* 2. 收件匣捷徑 */}
               <Link 
                 href="/inbox" 
                 className="text-slate-400 hover:text-white transition-colors p-2 rounded-md hover:bg-slate-800 flex items-center justify-center" 
@@ -442,21 +442,30 @@ useEffect(() => {
                 <MessageSquare className="w-5 h-5" />
               </Link>
 
-             {/* 3. 個人檔案大頭貼 */}
              {/* 3. 個人檔案捷徑 (DP Icon) */}
-    <Link
-      href="/profile"
-      className={cn(
-        "relative flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 transition-all duration-200 bg-slate-900",
-        pathname === "/profile" 
-          ? "border-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.3)] text-blue-400" 
-          : "border-slate-700 text-slate-400 hover:border-slate-400 hover:text-white"
-      )}
-      title="個人檔案"
-      aria-label="前往個人檔案"
-    >
-      <User className="size-4" />
-    </Link>
+            <Link
+              href="/profile"
+              className={cn(
+                "relative flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 transition-all duration-200 bg-slate-900",
+                pathname === "/profile" 
+                  ? "border-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.3)] text-blue-400" 
+                  : "border-slate-700 text-slate-400 hover:border-slate-400 hover:text-white"
+              )}
+              title="個人檔案"
+              aria-label="前往個人檔案"
+            >
+              <User className="size-4" />
+            </Link>
+
+             {/* 4. ✅ 新增的登出按鈕 (Desktop) */}
+             <button
+                onClick={handleLogout}
+                className="flex items-center justify-center p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-colors"
+                title="登出"
+                aria-label="登出"
+              >
+                <LogOut className="w-5 h-5" />
+              </button>
               
             </li>
           ) : (
