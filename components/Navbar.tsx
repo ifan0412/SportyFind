@@ -9,6 +9,8 @@ import {
 import { cn } from "@/lib/utils";
 import { createBrowserClient } from "@supabase/ssr";
 import type { User as SupabaseAuthUser } from "@supabase/supabase-js";
+import { MessageSquare } from "lucide-react"; // 記得在上方引入
+
 
 const navLinks = [
   { href: "/network", label: "Players", icon: Users },
@@ -235,101 +237,63 @@ export function Navbar() {
     return () => subscription.unsubscribe();
   }, [supabase, router, fetchNotifications]);
 
-  // ── Realtime: notifications INSERT + DELETE, friendships UPDATE ──────────
+
 // ── Realtime: notifications + friendships ────────────────────────────────
 useEffect(() => {
   let channel: ReturnType<typeof supabase.channel> | null = null;
+  let isMounted = true; // ✅ 加入掛載標記，防禦非同步卸載競爭
 
   const subscribe = async () => {
-    // ✅ Read user directly from auth, NOT from state
-    // State may still be null on first mount even if session exists
-    const {
-      data: { user: currentUser },
-    } = await supabase.auth.getUser();
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
 
-    if (!currentUser) return;
+    // ✅ 如果在 getUser 過程中組件已經卸載，直接中止，不建立連線
+    if (!currentUser || !isMounted) return; 
+    
     const uid = currentUser.id;
 
     channel = supabase
       .channel(`navbar-notif-${uid}`)
-      // ✅ New notification row — someone sent you a friend request
       .on(
         "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "notifications",
-          filter: `user_id=eq.${uid}`,
-        },
+        { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${uid}` },
         async (payload) => {
-          // Raw payload won't have joined sender data, so re-fetch the full row
           const { data: newNotif } = await supabase
             .from("notifications")
-            .select(
-              `id, type, is_read, created_at, friendship_id,
-               sender:sender_id (id, full_name, avatar_url)`
-            )
+            .select(`id, type, is_read, created_at, friendship_id, sender:sender_id (id, full_name, avatar_url)`)
             .eq("id", payload.new.id)
             .single();
 
-          if (newNotif) {
+          if (newNotif && isMounted) { // ✅ 防呆檢查
             setNotifications((prev) => {
-              // Guard against duplicates
               if (prev.some((n) => n.id === newNotif.id)) return prev;
               return [newNotif as unknown as Notification, ...prev];
             });
           }
         }
       )
-      // ✅ Notification deleted — accepted or rejected elsewhere
       .on(
         "postgres_changes",
-        {
-          event: "DELETE",
-          schema: "public",
-          table: "notifications",
-          filter: `user_id=eq.${uid}`,
-        },
+        { event: "DELETE", schema: "public", table: "notifications", filter: `user_id=eq.${uid}` },
         (payload) => {
-          setNotifications((prev) =>
-            prev.filter((n) => n.id !== payload.old.id)
-          );
+          setNotifications((prev) => prev.filter((n) => n.id !== payload.old.id));
         }
       )
-      // ✅ Friendship accepted on profile page → re-fetch so bell shows updated state
       .on(
         "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "friendships",
-        },
+        { event: "UPDATE", schema: "public", table: "friendships" },
         async (payload) => {
-          if (
-            payload.new.sender_id === uid ||
-            payload.new.receiver_id === uid
-          ) {
-            // Re-fetch full notifications list to reflect accepted state
-            await fetchNotifications(uid);
+          if (payload.new.sender_id === uid || payload.new.receiver_id === uid) {
+            // ✅ 如果組件還在，才執行重新獲取
+            if (isMounted) await fetchNotifications(uid);
           }
         }
       )
-      // ✅ Friendship deleted (rejected/cancelled on profile page) → remove from bell
       .on(
         "postgres_changes",
-        {
-          event: "DELETE",
-          schema: "public",
-          table: "friendships",
-        },
+        { event: "DELETE", schema: "public", table: "friendships" },
         (payload) => {
-          if (
-            payload.old.sender_id === uid ||
-            payload.old.receiver_id === uid
-          ) {
-            setNotifications((prev) =>
-              prev.filter((n) => n.friendship_id !== payload.old.id)
-            );
+          if (payload.old.sender_id === uid || payload.old.receiver_id === uid) {
+            setNotifications((prev) => prev.filter((n) => n.friendship_id !== payload.old.id));
           }
         }
       )
@@ -339,9 +303,11 @@ useEffect(() => {
   subscribe();
 
   return () => {
-    if (channel) supabase.removeChannel(channel);
+    isMounted = false; // ✅ 標記組件已死
+    if (channel) {
+      supabase.removeChannel(channel);
+    }
   };
-  // ✅ No dependency on user state — always resolves via getUser() on mount
 }, [supabase, fetchNotifications]);
 
   const handleMarkAllRead = useCallback(async () => {
@@ -361,6 +327,8 @@ useEffect(() => {
       if (error) throw error;
       // Optimistically remove — realtime DELETE listener will also fire as backup
       setNotifications((prev) => prev.filter((n) => n.id !== notif.id));
+      // ✅ 新增這行：通知其他頁面更新狀態
+      window.dispatchEvent(new CustomEvent("sync-friendship"));
     } catch (err) {
       console.error("handleAccept:", err);
     } finally {
@@ -461,30 +429,35 @@ useEffect(() => {
 
           {user ? (
             <li className="flex items-center gap-4 ml-4 pl-4 border-l border-slate-800">
-              <NotificationBell {...bellProps} />
-              <Link
-                href="/profile"
-                className={cn(
-                  "relative flex size-8 shrink-0 overflow-hidden rounded-full border-2 transition-all duration-200",
-                  pathname === "/profile" ? "border-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.3)]" : "border-slate-700 hover:border-slate-400"
-                )}
-                aria-label="前往個人檔案"
+              
+              {/* 1. 通知鈴鐺 */}
+              <NotificationBell {...bellProps} /> 
+              
+              {/* 2. 收件匣捷徑 (✅ 確保這裡有正確閉合 </Link>) */}
+              <Link 
+                href="/inbox" 
+                className="text-slate-400 hover:text-white transition-colors p-2 rounded-md hover:bg-slate-800 flex items-center justify-center" 
+                title="收件匣"
               >
-                {avatarUrl ? (
-                  <div className="h-full w-full bg-cover bg-center" style={{ backgroundImage: `url(${avatarUrl})` }} />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center bg-slate-800">
-                    <User className="size-4 text-slate-400" />
-                  </div>
-                )}
+                <MessageSquare className="w-5 h-5" />
               </Link>
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-1 rounded-md px-2 py-2 text-sm font-medium text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
-                title="登出"
-              >
-                <LogOut className="size-4" />
-              </button>
+
+             {/* 3. 個人檔案大頭貼 */}
+             {/* 3. 個人檔案捷徑 (DP Icon) */}
+    <Link
+      href="/profile"
+      className={cn(
+        "relative flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 transition-all duration-200 bg-slate-900",
+        pathname === "/profile" 
+          ? "border-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.3)] text-blue-400" 
+          : "border-slate-700 text-slate-400 hover:border-slate-400 hover:text-white"
+      )}
+      title="個人檔案"
+      aria-label="前往個人檔案"
+    >
+      <User className="size-4" />
+    </Link>
+              
             </li>
           ) : (
             <li>

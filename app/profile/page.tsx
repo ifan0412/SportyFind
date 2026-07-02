@@ -17,8 +17,22 @@ import { PhysioTab } from "@/components/profile/PhysioTab";
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Profile {
   id: string; full_name: string | null; first_name: string | null; last_name: string | null; handle: string | null; headline: string | null; bio: string | null; location: string | null; country: string | null; region: string | null; avatar_url: string | null; status_tag: string | null; display_sports: string[] | null;
+  
+  // Coach specific
   is_coach: boolean | null;
-  is_physio: boolean | null; physio_rate: number | string; clinic_name: string | null; physio_status: string | null; physio_country: string | null; physio_region: string | null;
+  contact_email: string | null;      // NEW
+  contact_phone: string | null;      // NEW
+  address: string | null;            // NEW
+  city_region: string | null;        // NEW
+  is_address_public: boolean | null; // NEW
+
+  // Physio specific
+  is_physio: boolean | null; 
+  physio_rate: number | string; 
+  clinic_name: string | null; 
+  physio_status: string | null; 
+  physio_country: string | null; 
+  physio_region: string | null;
 }
 interface CoachProfile { id: string; sport: string; rate: number | string; status: string; country: string; region: string; }
 interface Sport { id: string; name: string; }
@@ -37,7 +51,22 @@ const SPORT_SCHEMA: Record<string, FieldDef[]> = {
 
 const DEFAULT_FORM = {
   first_name: "", last_name: "", handle: "", full_name: "", headline: "", location: "", country: "", region: "", bio: "", avatar_url: "", status_tag: "committed", display_sports: [] as string[],
-  is_coach: false, is_physio: false, physio_rate: "" as number | string, clinic_name: "", physio_status: "hidden", physio_country: "", physio_region: ""
+  
+  // Coach specific defaults
+  is_coach: false, 
+  contact_email: "",       // NEW
+  contact_phone: "",       // NEW
+  address: "",             // NEW
+  city_region: "",         // NEW
+  is_address_public: true, // NEW
+
+  // Physio specific defaults
+  is_physio: false, 
+  physio_rate: "" as number | string, 
+  clinic_name: "", 
+  physio_status: "hidden", 
+  physio_country: "", 
+  physio_region: ""
 };
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
@@ -137,7 +166,34 @@ function ProfilePageContent() {
       }
       if (prof) {
         setProfile(prof);
-        setEditForm({ first_name: prof.first_name ?? "", last_name: prof.last_name ?? "", handle: prof.handle ?? "", full_name: prof.full_name ?? "", headline: prof.headline ?? "", location: prof.location ?? "", country: prof.country ?? "", region: prof.region ?? "", bio: prof.bio ?? "", avatar_url: prof.avatar_url ?? "", status_tag: prof.status_tag ?? "committed", display_sports: prof.display_sports ?? [], is_coach: prof.is_coach ?? false, is_physio: prof.is_physio ?? false, physio_rate: prof.physio_rate === 0 ? "" : (prof.physio_rate ?? ""), clinic_name: prof.clinic_name ?? "", physio_status: prof.physio_status ?? "hidden", physio_country: prof.physio_country ?? "", physio_region: prof.physio_region ?? "" });
+        setEditForm({ 
+          first_name: prof.first_name ?? "", 
+          last_name: prof.last_name ?? "", 
+          handle: prof.handle ?? "", 
+          full_name: prof.full_name ?? "", 
+          headline: prof.headline ?? "", 
+          location: prof.location ?? "", 
+          country: prof.country ?? "", 
+          region: prof.region ?? "", 
+          bio: prof.bio ?? "", 
+          avatar_url: prof.avatar_url ?? "", 
+          status_tag: prof.status_tag ?? "committed", 
+          display_sports: prof.display_sports ?? [], 
+          
+          is_coach: prof.is_coach ?? false, 
+          contact_email: prof.contact_email ?? "",             // NEW
+          contact_phone: prof.contact_phone ?? "",             // NEW
+          address: prof.address ?? "",                         // NEW
+          city_region: prof.city_region ?? "",                 // NEW
+          is_address_public: prof.is_address_public ?? true,   // NEW
+
+          is_physio: prof.is_physio ?? false, 
+          physio_rate: prof.physio_rate === 0 ? "" : (prof.physio_rate ?? ""), 
+          clinic_name: prof.clinic_name ?? "", 
+          physio_status: prof.physio_status ?? "hidden", 
+          physio_country: prof.physio_country ?? "", 
+          physio_region: prof.physio_region ?? "" 
+        });
       }
       if (usData) setUserSports(usData as unknown as UserSport[]);
       if (sData) setAllSports(sData);
@@ -203,8 +259,36 @@ function ProfilePageContent() {
     }
     const fullName = `${editForm.first_name} ${editForm.last_name}`.trim();
     const physioRateVal = Number(editForm.physio_rate) || 0;
-    const { error } = await supabase.from("profiles").upsert({ id: user.id, first_name: editForm.first_name, last_name: editForm.last_name, handle: editForm.handle, full_name: fullName, headline: editForm.headline, country: editForm.country, region: editForm.region, location: editForm.region ? `${editForm.region}, ${editForm.country}` : editForm.country, bio: editForm.bio, avatar_url: finalAvatarUrl, status_tag: editForm.status_tag, display_sports: editForm.display_sports, is_coach: editForm.is_coach, is_physio: editForm.is_physio, physio_rate: physioRateVal, clinic_name: editForm.clinic_name, physio_status: editForm.physio_status, physio_country: editForm.physio_country, physio_region: editForm.physio_region });
-    if (!error) {
+    const { error } = await supabase.from("profiles").upsert({ 
+      id: user.id, 
+      first_name: editForm.first_name, 
+      last_name: editForm.last_name, 
+      handle: editForm.handle, 
+      full_name: fullName, 
+      headline: editForm.headline, 
+      country: editForm.country, 
+      region: editForm.region, 
+      location: editForm.region ? `${editForm.region}, ${editForm.country}` : editForm.country, 
+      bio: editForm.bio, 
+      avatar_url: finalAvatarUrl, 
+      status_tag: editForm.status_tag, 
+      display_sports: editForm.display_sports, 
+      
+      is_coach: editForm.is_coach, 
+      contact_email: editForm.contact_email,             // NEW
+      contact_phone: editForm.contact_phone,             // NEW
+      address: editForm.address,                         // NEW
+      city_region: editForm.city_region,                 // NEW
+      is_address_public: editForm.is_address_public,     // NEW
+
+      is_physio: editForm.is_physio, 
+      physio_rate: physioRateVal, 
+      clinic_name: editForm.clinic_name, 
+      physio_status: editForm.physio_status, 
+      physio_country: editForm.physio_country, 
+      physio_region: editForm.physio_region 
+    });
+        if (!error) {
       setProfile(prev => ({ ...prev!, ...editForm, avatar_url: finalAvatarUrl, full_name: fullName, location: `${editForm.region}, ${editForm.country}` }));
       setIsEditing(false); router.refresh();
       if (editForm.is_coach && !profile?.is_coach) handleTabSwitch("coach");
@@ -444,6 +528,10 @@ function ProfilePageContent() {
                   coachProfiles={coachProfiles}
                   allSports={allSports}
                   locationData={locationData}
+                  editForm={editForm}                                              // NEW
+                  onFieldChange={(field, value) =>                                 // NEW
+                    setEditForm(prev => ({ ...prev, [field]: value }))
+                  }
                   onAdd={addCoachProfile}
                   onUpdate={updateCoachProfile}
                   onSave={saveCoachProfile}

@@ -1,10 +1,11 @@
 "use client";
 
-import { use, useEffect, useState, useMemo } from "react";
+import { use, useEffect, useState, useMemo, useCallback } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { BackButton } from "@/components/BackButton";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { MapPin, Phone, Mail, EyeOff } from "lucide-react";
 
 interface Profile {
   id: string; full_name: string | null; handle: string | null; headline: string | null; bio: string | null; location: string | null; avatar_url: string | null; status_tag: string | null; display_sports: string[] | null;
@@ -59,7 +60,7 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
   const [showUnfriendConfirm, setShowUnfriendConfirm] = useState(false);
 
   // --- Re-fetch friendship status from DB ---
-  const refetchFriendshipStatus = async (uid: string) => {
+  const refetchFriendshipStatus = useCallback(async (uid: string) => {
     const { data: friendData } = await supabase
       .from("friendships")
       .select("id, status, sender_id, receiver_id")
@@ -77,7 +78,7 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
       setFriendshipId(null);
       setFriendshipStatus("none");
     }
-  };
+  }, [id, supabase]); // ✅ 加入依賴陣列
 
   useEffect(() => {
     const fetchData = async () => {
@@ -200,6 +201,8 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
       if (error) throw error;
 
       await refetchFriendshipStatus(currentUserId);
+      // ✅ 新增這行：通知 Navbar 鈴鐺瞬間更新
+      window.dispatchEvent(new CustomEvent("sync-friendship")); // ✅ 新增這行
       router.refresh();
     } catch (err: any) {
       // ✅ 攔截資料庫的 Unique Violation (代碼 23505)
@@ -225,6 +228,8 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
 
       setShowUnfriendConfirm(false);
       await refetchFriendshipStatus(currentUserId);
+      // ✅ 新增這行：通知 Navbar 鈴鐺瞬間更新
+      window.dispatchEvent(new CustomEvent("sync-friendship")); // ✅ 新增這行
       router.refresh();
     } catch (err: any) {
       console.error("Failed to remove friendship:", err.message || err);
@@ -246,6 +251,8 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
       if (error) throw error;
 
       await refetchFriendshipStatus(currentUserId);
+      // ✅ 新增這行：通知 Navbar 鈴鐺瞬間更新
+      window.dispatchEvent(new CustomEvent("sync-friendship")); // ✅ 新增這行
       router.refresh();
     } catch (err: any) {
       console.error("Failed to accept friend request:", err.message || err);
@@ -263,6 +270,8 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
       if (error) throw error;
 
       await refetchFriendshipStatus(currentUserId);
+      // ✅ 新增這行：通知 Navbar 鈴鐺瞬間更新
+      window.dispatchEvent(new CustomEvent("sync-friendship"));
       router.refresh();
     } catch (err: any) {
       console.error("Failed to reject friend request:", err.message || err);
@@ -277,35 +286,38 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
     if (!currentUserId || currentUserId === id) return null;
 
     if (friendshipStatus === "accepted") {
-      return (
-        <div className="relative mt-4">
-          <button
-            onClick={() => setShowUnfriendConfirm(true)}
-            className="w-full py-2.5 px-6 rounded-full text-sm font-black bg-blue-600/20 border border-blue-500/30 text-blue-400 hover:bg-red-500/20 hover:border-red-500/30 hover:text-red-400 transition-all duration-300"
-          >
-            ✓ 已加好友
-          </button>
-          {showUnfriendConfirm && (
-            <div className="absolute top-12 left-0 right-0 z-50 bg-slate-900 border border-slate-700 rounded-2xl p-4 shadow-2xl text-center">
-              <p className="text-sm text-zinc-300 font-bold mb-3">確定要解除好友關係？</p>
-              <div className="flex gap-2">
-                <button
-                  onClick={handleCancelOrUnfriend}
-                  disabled={friendLoading}
-                  className="flex-1 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-black transition"
-                >
-                  {friendLoading ? "處理中..." : "解除好友"}
-                </button>
-                <button
-                  onClick={() => setShowUnfriendConfirm(false)}
-                  className="flex-1 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-zinc-300 text-xs font-black transition"
-                >
-                  取消
-                </button>
-              </div>
+      // 💡 點擊後，原本的按鈕直接「變形」成確認框，完全避開層級重疊與絕對定位的問題
+      if (showUnfriendConfirm) {
+        return (
+          <div className="mt-4 bg-slate-900 border border-slate-700 rounded-2xl p-4 shadow-xl text-center animate-fadeIn">
+            <p className="text-sm text-zinc-300 font-bold mb-4">確定要解除好友關係？</p>
+            <div className="flex gap-2">
+              <button
+                onClick={handleCancelOrUnfriend}
+                disabled={friendLoading}
+                className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-black transition shadow-[0_0_10px_rgba(220,38,38,0.2)]"
+              >
+                {friendLoading ? "處理中..." : "解除好友"}
+              </button>
+              <button
+                onClick={() => setShowUnfriendConfirm(false)}
+                className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-zinc-300 text-xs font-black transition"
+              >
+                取消
+              </button>
             </div>
-          )}
-        </div>
+          </div>
+        );
+      }
+
+      // 💡 預設的按鈕狀態
+      return (
+        <button
+          onClick={() => setShowUnfriendConfirm(true)}
+          className="w-full mt-4 py-2.5 px-6 rounded-full text-sm font-black bg-blue-600/20 border border-blue-500/30 text-blue-400 hover:bg-red-500/20 hover:border-red-500/30 hover:text-red-400 transition-all duration-300"
+        >
+          ✓ 已加好友
+        </button>
       );
     }
 
