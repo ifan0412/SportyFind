@@ -168,12 +168,14 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
     const channel = supabase
       .channel(`profile-friendship-${currentUserId}-${id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "friendships" }, async (payload) => {
-          const row = payload.new || payload.old;
-          if (row && ((row.sender_id === currentUserId && row.receiver_id === id) || (row.sender_id === id && row.receiver_id === currentUserId))) {
-            await refetchFriendshipStatus(currentUserId);
-          }
+        // 👇 在這裡加上 as any，強制消除 TypeScript 警告
+        const row = (payload.new || payload.old) as any; 
+        
+        if (row && ((row.sender_id === currentUserId && row.receiver_id === id) || (row.sender_id === id && row.receiver_id === currentUserId))) {
+          await refetchFriendshipStatus(currentUserId);
         }
-      ).subscribe();
+      }
+    ).subscribe();
   
     return () => { supabase.removeChannel(channel); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
