@@ -242,7 +242,7 @@ function ProfilePageContent() {
       pendingAvatarFile.current = compressed;
       if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
       const localUrl = URL.createObjectURL(compressed); blobUrlRef.current = localUrl;
-      ssetEditForm((prev: any) => ({ ...prev, avatar_url: localUrl }));
+      setEditForm((prev: any) => ({ ...prev, avatar_url: localUrl }));
       setIsCropModalOpen(false); setCropImageSrc(null);
     } catch (e) { console.error(e); }
   };
