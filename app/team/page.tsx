@@ -63,6 +63,8 @@ function TeamPageContent() {
 
   const [teams, setTeams] = useState<TeamProfile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+// ✅ 新增這個狀態：用來記錄使用者是否已經開始篩選 (跳過初始畫面)
+  const [hasInteracted, setHasInteracted] = useState(!!initialSport);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [filterSports, setFilterSports] = useState<string[]>(initialSport ? [initialSport] : []);
@@ -105,10 +107,12 @@ function TeamPageContent() {
   useEffect(() => { setVisibleCount(12); }, [searchTerm, filterSports, filterStatuses]);
 
   const toggleSport = (sportId: string) => {
+    setHasInteracted(true); // ✅ 標記為已互動
     setFilterSports(prev => prev.includes(sportId) ? prev.filter(s => s !== sportId) : [...prev, sportId]);
   };
 
   const toggleStatus = (statusId: string) => {
+    setHasInteracted(true); // ✅ 標記為已互動
     setFilterStatuses(prev => prev.includes(statusId) ? prev.filter(s => s !== statusId) : [...prev, statusId]);
   };
 
@@ -121,7 +125,8 @@ function TeamPageContent() {
     );
   }
 
-  const isInitialState = filterSports.length === 0 && searchTerm === "";
+  // ✅ 只有在完全沒有互動過，且沒有搜尋字詞時，才顯示 Landing Page
+  const isInitialState = !hasInteracted && searchTerm === "";
 
   return (
     <div className="bg-slate-950 min-h-screen text-zinc-200 font-sans selection:bg-blue-500/30 pb-24 relative">
@@ -153,7 +158,10 @@ function TeamPageContent() {
             <div className="flex items-center gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
               <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest whitespace-nowrap mr-1">項目</span>
               <button
-                onClick={() => setFilterSports([])}
+                onClick={() => {
+                  setHasInteracted(true); // ✅ 加入這行
+                  setFilterSports([]);
+                }}
                 className={`whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold border transition ${
                   filterSports.length === 0 ? "bg-blue-600 border-blue-500 text-white shadow-[0_0_10px_rgba(37,99,235,0.3)]" : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500 hover:text-white"
                 }`}
@@ -180,7 +188,10 @@ function TeamPageContent() {
             <div className="flex items-center gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
               <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest whitespace-nowrap mr-1">狀態</span>
               <button
-                onClick={() => setFilterStatuses([])}
+                onClick={() => {
+                  setHasInteracted(true); // ✅ 加入這行
+                  setFilterStatuses([]);
+                }}
                 className={`whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold border transition ${
                   filterStatuses.length === 0 ? "bg-slate-100 border-slate-200 text-black shadow-[0_0_10px_rgba(255,255,255,0.2)]" : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500 hover:text-white"
                 }`}

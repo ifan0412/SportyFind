@@ -4,6 +4,7 @@ import { use, useEffect, useState, useMemo } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { BackButton } from "@/components/BackButton";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 interface Profile {
   id: string; full_name: string | null; handle: string | null; headline: string | null; bio: string | null; location: string | null; avatar_url: string | null; status_tag: string | null; display_sports: string[] | null;
@@ -38,6 +39,7 @@ const StatusBadge = ({ tag, type = "athlete" }: { tag: string | null, type?: "at
 export default function PublicProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+  const router = useRouter(); // ✅ 加入 router
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [coachProfiles, setCoachProfiles] = useState<CoachProfile[]>([]);
@@ -56,7 +58,7 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
   const [friendLoading, setFriendLoading] = useState(false);
   const [showUnfriendConfirm, setShowUnfriendConfirm] = useState(false);
 
-  // --- Re-fetch friendship status from DB (prevents race conditions) ---
+  // --- Re-fetch friendship status from DB ---
   const refetchFriendshipStatus = async (uid: string) => {
     const { data: friendData } = await supabase
       .from("friendships")
@@ -80,7 +82,6 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fix: use getUser() instead of getSession() to ensure token is always verified and fresh
         const [
           { data: prof, error: profErr },
           { data: usData },
@@ -90,7 +91,7 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
           supabase.from("profiles").select("*").eq("id", id).single(),
           supabase.from("user_sports").select("id, metadata, sports(name)").eq("user_id", id),
           supabase.from("coach_profiles").select("*").eq("user_id", id).neq("status", "hidden"),
-          supabase.auth.getUser(), // ✅ replaces getSession()
+          supabase.auth.getUser(),
         ]);
 
         if (profErr || !prof) { setIsNotFound(true); return; }
@@ -101,7 +102,6 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
         if (user) {
           const uid = user.id;
           setCurrentUserId(uid);
-
           if (uid !== id) {
             await refetchFriendshipStatus(uid);
           }
@@ -118,6 +118,7 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
       } catch (err) { setIsNotFound(true); } finally { setIsLoading(false); }
     };
     fetchData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, supabase]);
 
   // --- Friend action handlers ---
@@ -133,16 +134,11 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
 
       if (error) throw error;
 
-      await supabase.from("notifications").insert({
-        user_id: id,
-        sender_id: currentUserId,
-        type: "friend_request",
-        friendship_id: data.id,
-      });
-
       await refetchFriendshipStatus(currentUserId);
-    } catch (err) {
-      console.error("Failed to send friend request:", err);
+      router.refresh();
+    } catch (err: any) {
+      console.error("Failed to send friend request:", err.message || JSON.stringify(err));
+      alert(`發送失敗: ${err.message || "發生未知錯誤"}`);
     } finally {
       setFriendLoading(false);
     }
@@ -152,11 +148,15 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
     if (!friendshipId || !currentUserId) return;
     setFriendLoading(true);
     try {
-      await supabase.from("friendships").delete().eq("id", friendshipId);
+      const { error } = await supabase.from("friendships").delete().eq("id", friendshipId);
+      if (error) throw error;
+
       setShowUnfriendConfirm(false);
       await refetchFriendshipStatus(currentUserId);
-    } catch (err) {
-      console.error("Failed to remove friendship:", err);
+      router.refresh();
+    } catch (err: any) {
+      console.error("Failed to remove friendship:", err.message || err);
+      alert(`解除失敗: ${err.message || "發生未知錯誤"}`);
     } finally {
       setFriendLoading(false);
     }
@@ -166,21 +166,18 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
     if (!friendshipId || !currentUserId) return;
     setFriendLoading(true);
     try {
-      await supabase
+      const { error } = await supabase
         .from("friendships")
         .update({ status: "accepted" })
         .eq("id", friendshipId);
 
-      await supabase.from("notifications").insert({
-        user_id: id,
-        sender_id: currentUserId,
-        type: "friend_accepted",
-        friendship_id: friendshipId,
-      });
+      if (error) throw error;
 
       await refetchFriendshipStatus(currentUserId);
-    } catch (err) {
-      console.error("Failed to accept friend request:", err);
+      router.refresh();
+    } catch (err: any) {
+      console.error("Failed to accept friend request:", err.message || err);
+      alert(`接受失敗: ${err.message || "發生未知錯誤"}`);
     } finally {
       setFriendLoading(false);
     }
@@ -190,19 +187,14 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
     if (!friendshipId || !currentUserId) return;
     setFriendLoading(true);
     try {
-      // Fix: also clean up the related notification so it doesn't linger as unread
-      await Promise.all([
-        supabase.from("friendships").delete().eq("id", friendshipId),
-        supabase
-          .from("notifications")
-          .delete()
-          .eq("friendship_id", friendshipId)
-          .eq("type", "friend_request"),
-      ]);
+      const { error } = await supabase.from("friendships").delete().eq("id", friendshipId);
+      if (error) throw error;
 
       await refetchFriendshipStatus(currentUserId);
-    } catch (err) {
-      console.error("Failed to reject friend request:", err);
+      router.refresh();
+    } catch (err: any) {
+      console.error("Failed to reject friend request:", err.message || err);
+      alert(`拒絕失敗: ${err.message || "發生未知錯誤"}`);
     } finally {
       setFriendLoading(false);
     }

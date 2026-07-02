@@ -227,18 +227,15 @@ export function FriendsTab({ currentUserId }: FriendsTabProps) {
 
     startProcessing(req.id);
     try {
-      const [updateRes, insertRes] = await Promise.all([
-        supabase.from("friendships").update({ status: "accepted" }).eq("id", req.id),
-        supabase.from("notifications").insert({
-          user_id:       req.sender.id,
-          sender_id:     currentUserId,
-          type:          "friend_accepted",
-          friendship_id: req.id,
-        }),
-      ]);
-      if (updateRes.error) throw updateRes.error;
-      if (insertRes.error) throw insertRes.error;
+      // ✅ 只需要更新 friendship 狀態
+      const { error } = await supabase
+        .from("friendships")
+        .update({ status: "accepted" })
+        .eq("id", req.id);
+        
+      if (error) throw error;
 
+      // 更新本地 UI：從「待處理」移到「好友列表」
       setPendingRequests((prev) => prev.filter((r) => r.id !== req.id));
       setFriends((prev) => [
         ...prev,
@@ -288,6 +285,10 @@ export function FriendsTab({ currentUserId }: FriendsTabProps) {
 
   // ── Unfriend ─────────────────────────────────────────────────────────────
   const handleUnfriend = async (friendship: Friendship) => {
+    // ✅ 加入確認對話框
+    const isConfirmed = window.confirm(`確定要與 ${friendship.friend.full_name || "這位運動員"} 解除好友關係嗎？`);
+    if (!isConfirmed) return; // 如果使用者點擊「取消」，則中斷執行
+
     if (isProcessing(friendship.id)) return;
     startProcessing(friendship.id);
     try {

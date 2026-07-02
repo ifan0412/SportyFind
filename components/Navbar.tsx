@@ -12,25 +12,23 @@ import type { SupabaseClient, User as SupabaseAuthUser } from "@supabase/supabas
 
 // ── Nav links ──────────────────────────────────────────────────────────────
 const navLinks = [
-  { href: "/network", label: "Network", icon: Users }, // 
+  { href: "/network", label: "Players", icon: Users },
   { href: "/coaches", label: "Coaches", icon: GraduationCap },
   {
     href: "/team",
-    label: "Sports Team", //
+    label: "Teams",
     icon: Shield,
     subLinks: [
       { href: "/team?sport=Basketball", label: "🏀 籃球 (Basketball)" },
       { href: "/team?sport=Volleyball", label: "🏐 排球 (Volleyball)" },
       { href: "/team?sport=Tennis",     label: "🎾 網球 (Tennis)" },
-      { href: "/team",                  label: "查看所有群組 →" }, // ✅ 修改：球隊 -> 群組
+      { href: "/team",                  label: "查看所有球隊 →" },
     ],
   },
   { href: "/physio", label: "Physio", icon: Activity },
 ];
 
 // ── Types ──────────────────────────────────────────────────────────────────
-// Extensible: add more union members as the app grows
-// e.g. | "match_invite" | "team_announcement"
 export interface Notification {
   id: string;
   type: "friend_request" | "friend_accepted";
@@ -44,34 +42,31 @@ export interface Notification {
   } | null;
 }
 
-// ── NotificationBell ───────────────────────────────────────────────────────
-// Isolated as a proper component so that:
-//   1. Each call site gets its own ref → no shared-ref DOM conflict
-//   2. Each call site gets its own outside-click listener
-//   3. Navbar stays lean — all bell logic lives here
 interface NotificationBellProps {
   notifications: Notification[];
   onMarkAllRead: () => Promise<void>;
   onAccept: (notif: Notification) => Promise<void>;
   onReject: (notif: Notification) => Promise<void>;
+  onDismiss: (e: React.MouseEvent, notifId: string) => Promise<void>;
   isProcessing: (id: string) => boolean;
+  router: any; // 用於點擊通知主體跳轉
 }
 
+// ── NotificationBell ───────────────────────────────────────────────────────
 function NotificationBell({
   notifications,
   onMarkAllRead,
   onAccept,
   onReject,
+  onDismiss,
   isProcessing,
+  router,
 }: NotificationBellProps) {
   const [open, setOpen] = useState(false);
-  // Each instance of this component creates its own ref
-  // so desktop and mobile never share a DOM node reference
   const ref = useRef<HTMLDivElement>(null);
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
-  // Outside-click — scoped to this component's ref only
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) {
@@ -109,7 +104,6 @@ function NotificationBell({
       {/* Dropdown */}
       {open && (
         <div className="absolute right-0 top-11 w-80 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl z-50 overflow-hidden">
-
           {/* Header */}
           <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
             <span className="text-sm font-black text-white">通知</span>
@@ -126,10 +120,24 @@ function NotificationBell({
               notifications.map((notif) => (
                 <div
                   key={notif.id}
-                  className={`p-4 transition-colors ${!notif.is_read ? "bg-blue-500/5" : ""}`}
+                  onClick={() => {
+                    // ✅ 點擊主體跳轉並關閉選單
+                    setOpen(false);
+                    router.push("/profile?tab=friends");
+                  }}
+                  className={`relative p-4 transition-colors cursor-pointer hover:bg-slate-800/50 ${!notif.is_read ? "bg-blue-500/5" : ""}`}
                 >
+                  {/* ✅ 右上角的刪除按鈕 (小 X) */}
+                  <button
+                    onClick={(e) => onDismiss(e, notif.id)}
+                    className="absolute top-2 right-2 p-1 text-zinc-500 hover:text-white hover:bg-slate-700 rounded-full transition-colors z-10"
+                    title="移除通知"
+                  >
+                    <X className="size-3" />
+                  </button>
+
                   {/* Avatar + message */}
-                  <div className="flex items-center gap-3 mb-3">
+                  <div className="flex items-center gap-3 mb-3 pr-4">
                     <div
                       className="w-9 h-9 rounded-full bg-slate-800 flex-shrink-0 overflow-hidden flex items-center justify-center"
                       style={{
@@ -154,7 +162,7 @@ function NotificationBell({
                             <span className="text-white">
                               {notif.sender?.full_name ?? "某人"}
                             </span>{" "}
-                            向你發送了好友請求
+                            想與你成為好友
                           </>
                         )}
                         {notif.type === "friend_accepted" && (
@@ -185,47 +193,24 @@ function NotificationBell({
                   {notif.type === "friend_request" && notif.friendship_id && (
                     <div className="flex gap-2">
                       <button
-                        onClick={() => onAccept(notif)}
+                        onClick={(e) => { e.stopPropagation(); onAccept(notif); }}
                         disabled={isProcessing(notif.id)}
-                        className="flex-1 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-black transition"
+                        className="flex-1 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-black transition z-10 relative"
                       >
                         {isProcessing(notif.id) ? "處理中..." : "✓ 接受"}
                       </button>
                       <button
-                        onClick={() => onReject(notif)}
+                        onClick={(e) => { e.stopPropagation(); onReject(notif); }}
                         disabled={isProcessing(notif.id)}
-                        className="flex-1 py-1.5 rounded-xl bg-slate-800 hover:bg-red-500/20 border border-slate-700 hover:border-red-500/30 disabled:opacity-50 disabled:cursor-not-allowed text-zinc-400 hover:text-red-400 text-xs font-black transition"
+                        className="flex-1 py-1.5 rounded-xl bg-slate-800 hover:bg-red-500/20 border border-slate-700 hover:border-red-500/30 disabled:opacity-50 disabled:cursor-not-allowed text-zinc-400 hover:text-red-400 text-xs font-black transition z-10 relative"
                       >
                         {isProcessing(notif.id) ? "處理中..." : "✕ 拒絕"}
                       </button>
                     </div>
                   )}
-
-                  {/* Actions — friend_accepted */}
-                  {notif.type === "friend_accepted" && notif.sender?.id && (
-                    <Link
-                      href={`/p/${notif.sender.id}`}
-                      onClick={() => setOpen(false)}
-                      className="block text-center py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-zinc-300 text-xs font-black transition"
-                    >
-                      查看檔案
-                    </Link>
-                  )}
                 </div>
               ))
             )}
-          </div>
-
-          {/* Footer — always points to Profile friends tab,
-              never to a standalone /friends page */}
-          <div className="border-t border-slate-800 px-4 py-3">
-            <Link
-              href="/profile?tab=friends"
-              onClick={() => setOpen(false)}
-              className="block text-center text-xs font-black text-blue-400 hover:text-blue-300 transition"
-            >
-              管理所有好友請求 →
-            </Link>
           </div>
         </div>
       )}
@@ -240,10 +225,9 @@ export function Navbar() {
 
   const [mobileOpen, setMobileOpen] = useState(false);
   const [user, setUser]             = useState<SupabaseAuthUser | null>(null);
-  const [avatarUrl, setAvatarUrl]   = useState<string | null>(null); // ✅ 新增：用來存放使用者頭像
+  const [avatarUrl, setAvatarUrl]   = useState<string | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
 
-  // Double-click protection
   const processingIds = useRef<Set<string>>(new Set());
   const [processingSet, setProcessingSet] = useState<Set<string>>(new Set());
 
@@ -262,8 +246,6 @@ export function Navbar() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
   ), []);
 
-  // ── Fetch notifications & Profile DP ──────────────────────────────────────
-  // ✅ 更新：不僅抓取通知，同時抓取使用者的 avatar_url
   const fetchProfileAndNotifs = useCallback(async (uid: string) => {
     const [notifRes, profileRes] = await Promise.all([
       supabase
@@ -286,7 +268,6 @@ export function Navbar() {
     if (profileRes.data?.avatar_url) setAvatarUrl(profileRes.data.avatar_url);
   }, [supabase]);
 
-  // ── Auth listener ────────────────────────────────────────────────────────
   useEffect(() => {
     const init = async () => {
       const { data } = await supabase.auth.getUser();
@@ -303,7 +284,7 @@ export function Navbar() {
         }
         if (event === "SIGNED_OUT") {
           setNotifications([]);
-          setAvatarUrl(null); // ✅ 登出時清空頭像
+          setAvatarUrl(null);
         }
         if (event === "SIGNED_IN" || event === "SIGNED_OUT") router.refresh();
       }
@@ -312,7 +293,6 @@ export function Navbar() {
     return () => subscription.unsubscribe();
   }, [supabase, router, fetchProfileAndNotifs]);
 
-  // ── Realtime: new notification INSERT ───────────────────────────────────
   useEffect(() => {
     if (!user?.id) return;
 
@@ -349,12 +329,9 @@ export function Navbar() {
     return () => { supabase.removeChannel(channel); };
   }, [user?.id, supabase]);
 
-  // ── Mark all read (optimistic first, then persist) ───────────────────────
   const handleMarkAllRead = useCallback(async () => {
     if (!user?.id) return;
-    // Optimistic: update UI immediately
     setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
-    // Persist in background
     await supabase
       .from("notifications")
       .update({ is_read: true })
@@ -362,25 +339,17 @@ export function Navbar() {
       .eq("is_read", false);
   }, [supabase, user?.id]);
 
-  // ── Accept ───────────────────────────────────────────────────────────────
+  // ── Accept (Trigger 會自動發送通知，故移除 insert) ────────────────────
   const handleAccept = useCallback(async (notif: Notification) => {
     if (!notif.friendship_id || !user?.id || isProcessing(notif.id)) return;
     startProcessing(notif.id);
     try {
-      const [updateRes, insertRes] = await Promise.all([
-        supabase
-          .from("friendships")
-          .update({ status: "accepted" })
-          .eq("id", notif.friendship_id),
-        supabase.from("notifications").insert({
-          user_id:       notif.sender?.id,
-          sender_id:     user.id,
-          type:          "friend_accepted",
-          friendship_id: notif.friendship_id,
-        }),
-      ]);
-      if (updateRes.error) throw updateRes.error;
-      if (insertRes.error) throw insertRes.error;
+      const { error } = await supabase
+        .from("friendships")
+        .update({ status: "accepted" })
+        .eq("id", notif.friendship_id);
+        
+      if (error) throw error;
       setNotifications((prev) => prev.filter((n) => n.id !== notif.id));
     } catch (err) {
       console.error("handleAccept:", err);
@@ -410,6 +379,13 @@ export function Navbar() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supabase, processingSet]);
 
+  // ── Dismiss (小 X 刪除通知) ───────────────────────────────────────────────
+  const handleDismiss = useCallback(async (e: React.MouseEvent, notifId: string) => {
+    e.stopPropagation();
+    setNotifications((prev) => prev.filter((n) => n.id !== notifId));
+    await supabase.from("notifications").delete().eq("id", notifId);
+  }, [supabase]);
+
   // ── Logout ───────────────────────────────────────────────────────────────
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -420,13 +396,15 @@ export function Navbar() {
     router.refresh();
   };
 
-  // Shared props object — avoids repeating the same five props twice below
+  // ✅ 確保這個物件在整個檔案中只宣告了一次
   const bellProps: NotificationBellProps = {
     notifications,
     onMarkAllRead: handleMarkAllRead,
     onAccept:      handleAccept,
     onReject:      handleReject,
+    onDismiss:     handleDismiss,
     isProcessing,
+    router,
   };
 
   return (
@@ -492,10 +470,8 @@ export function Navbar() {
 
           {user ? (
             <li className="flex items-center gap-4 ml-4 pl-4 border-l border-slate-800">
-              {/* Desktop bell — its own component instance, its own ref */}
               <NotificationBell {...bellProps} />
               
-              {/* ✅ 修改：將原本的 "ME" 替換為個人圓形頭像 (DP) */}
               <Link
                 href="/profile"
                 className={cn(
@@ -535,7 +511,6 @@ export function Navbar() {
 
         {/* ── Mobile right cluster ── */}
         <div className="flex items-center gap-2 md:hidden">
-          {/* Mobile bell — separate component instance, separate ref */}
           {user && <NotificationBell {...bellProps} />}
           <button
             type="button"
@@ -593,14 +568,9 @@ export function Navbar() {
 
             <div className="h-px bg-slate-800 my-4" />
 
-            {/* No /friends link here — friend management is accessed via:
-                  1. Bell dropdown → "管理所有好友請求 →" → /profile?tab=friends
-                  2. Directly visiting /profile
-                Both desktop and mobile behave identically. */}
             {user ? (
               <>
                 <li>
-                  {/* ✅ 修改：Mobile 版本將頭像與名稱放在選單內 */}
                   <Link
                     href="/profile"
                     className={cn(
