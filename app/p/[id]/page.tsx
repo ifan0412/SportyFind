@@ -93,12 +93,12 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
           supabase.from("coach_profiles").select("*").eq("user_id", id).neq("status", "hidden"),
           supabase.auth.getUser(),
         ]);
-
+  
         if (profErr || !prof) { setIsNotFound(true); return; }
         setProfile(prof);
         if (usData) setUserSports(usData as unknown as UserSport[]);
         if (coachesData) setCoachProfiles(coachesData);
-
+  
         if (user) {
           const uid = user.id;
           setCurrentUserId(uid);
@@ -106,7 +106,7 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
             await refetchFriendshipStatus(uid);
           }
         }
-
+  
         const { data: storageFiles } = await supabase.storage.from("highlights").list(`${id}/`, { limit: 20 });
         if (storageFiles && storageFiles.length > 0) {
           const fetchedGallery = storageFiles.filter(f => f.name !== ".emptyFolderPlaceholder").map(file => {
@@ -120,6 +120,71 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
     fetchData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, supabase]);
+  
+  // ✅ Realtime — updates friendship button when anything changes involving this pair
+  useEffect(() => {
+    if (!currentUserId || !id || currentUserId === id) return;
+  
+    const channel = supabase
+      .channel(`profile-friendship-${currentUserId}-${id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "friendships",
+        },
+        async (payload) => {
+          const row = payload.new;
+          if (
+            (row.sender_id === currentUserId && row.receiver_id === id) ||
+            (row.sender_id === id && row.receiver_id === currentUserId)
+          ) {
+            await refetchFriendshipStatus(currentUserId);
+          }
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "friendships",
+        },
+        async (payload) => {
+          const row = payload.new;
+          if (
+            (row.sender_id === currentUserId && row.receiver_id === id) ||
+            (row.sender_id === id && row.receiver_id === currentUserId)
+          ) {
+            await refetchFriendshipStatus(currentUserId);
+          }
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "DELETE",
+          schema: "public",
+          table: "friendships",
+        },
+        async (payload) => {
+          const row = payload.old;
+          if (
+            (row.sender_id === currentUserId && row.receiver_id === id) ||
+            (row.sender_id === id && row.receiver_id === currentUserId)
+          ) {
+            await refetchFriendshipStatus(currentUserId);
+          }
+        }
+      )
+      .subscribe();
+  
+    return () => {
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUserId, id, supabase]);
 
   // --- Friend action handlers ---
   const handleSendRequest = async () => {
@@ -137,8 +202,15 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
       await refetchFriendshipStatus(currentUserId);
       router.refresh();
     } catch (err: any) {
-      console.error("Failed to send friend request:", err.message || JSON.stringify(err));
-      alert(`發送失敗: ${err.message || "發生未知錯誤"}`);
+      // ✅ 攔截資料庫的 Unique Violation (代碼 23505)
+      if (err.code === '23505') {
+        console.log("好友請求已存在或對方已向你發送請求");
+        // 默默重新抓取最新狀態，讓畫面從「加好友」變成「接受/拒絕」或「已發送」
+        await refetchFriendshipStatus(currentUserId); 
+      } else {
+        console.error("Failed to send friend request:", err.message || err);
+        alert(`發送失敗: ${err.message || "發生未知錯誤"}`);
+      }
     } finally {
       setFriendLoading(false);
     }
