@@ -108,7 +108,7 @@ function ProfilePageContent() {
   const [activeTab, setActiveTab] = useState<TabId>("expertise");
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [editForm, setEditForm] = useState(DEFAULT_FORM);
+  const [editForm, setEditForm] = useState<any>(DEFAULT_FORM);
   const [handleStatus, setHandleStatus] = useState<"idle" | "checking" | "available" | "taken">("idle");
   const [locationData, setLocationData] = useState<Record<string, string[]>>({});
 
