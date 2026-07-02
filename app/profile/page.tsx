@@ -16,23 +16,49 @@ import { PhysioTab } from "@/components/profile/PhysioTab";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Profile {
-  id: string; full_name: string | null; first_name: string | null; last_name: string | null; handle: string | null; headline: string | null; bio: string | null; location: string | null; country: string | null; region: string | null; avatar_url: string | null; status_tag: string | null; display_sports: string[] | null;
-  
-  // Coach specific
-  is_coach: boolean | null;
-  contact_email: string | null;      // NEW
-  contact_phone: string | null;      // NEW
-  address: string | null;            // NEW
-  city_region: string | null;        // NEW
-  is_address_public: boolean | null; // NEW
+  id: string;
+  full_name: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  handle: string | null;
+  headline: string | null;
+  bio: string | null;
+  location: string | null;
+  country: string | null;
+  region: string | null;
+  avatar_url: string | null;
+  status_tag: string | null;
+  display_sports: string[] | null;
 
-  // Physio specific
-  is_physio: boolean | null; 
-  physio_rate: number | string; 
-  clinic_name: string | null; 
-  physio_status: string | null; 
-  physio_country: string | null; 
+  // Coach global fields
+  is_coach: boolean | null;
+  contact_email: string | null;
+  contact_phone: string | null;
+  address: string | null;
+  city_region: string | null;
+  is_address_public: boolean | null;
+  instagram_url: string | null;
+  facebook_url: string | null;
+  threads_url: string | null;
+
+  // Physio global fields
+  is_physio: boolean | null;
+  physio_rate: number | string;
+  clinic_name: string | null;
+  physio_status: string | null;
+  physio_country: string | null;
   physio_region: string | null;
+  physio_experience_years: string | null;
+  physio_qualifications: string | null;
+  physio_services_offered: string | null;
+  physio_contact_email: string | null;
+  physio_contact_phone: string | null;
+  physio_city_region: string | null;
+  physio_address: string | null;
+  physio_is_address_public: boolean | null;
+  physio_instagram_url: string | null;
+  physio_facebook_url: string | null;
+  physio_threads_url: string | null;
 }
 interface CoachProfile { id: string; sport: string; rate: number | string; status: string; country: string; region: string; }
 interface Sport { id: string; name: string; }
@@ -51,22 +77,36 @@ const SPORT_SCHEMA: Record<string, FieldDef[]> = {
 
 const DEFAULT_FORM = {
   first_name: "", last_name: "", handle: "", full_name: "", headline: "", location: "", country: "", region: "", bio: "", avatar_url: "", status_tag: "committed", display_sports: [] as string[],
-  
-  // Coach specific defaults
-  is_coach: false, 
-  contact_email: "",       // NEW
-  contact_phone: "",       // NEW
-  address: "",             // NEW
-  city_region: "",         // NEW
-  is_address_public: true, // NEW
 
-  // Physio specific defaults
-  is_physio: false, 
-  physio_rate: "" as number | string, 
-  clinic_name: "", 
-  physio_status: "hidden", 
-  physio_country: "", 
-  physio_region: ""
+  // Coach global fields
+  is_coach: false,
+  contact_email: "",
+  contact_phone: "",
+  address: "",
+  city_region: "",
+  is_address_public: true,
+  instagram_url: "",
+  facebook_url: "",
+  threads_url: "",
+
+  // Physio global fields
+  is_physio: false,
+  physio_rate: "" as number | string,
+  clinic_name: "",
+  physio_status: "hidden",
+  physio_country: "",
+  physio_region: "",
+  physio_experience_years: "",
+  physio_qualifications: "",
+  physio_services_offered: "",
+  physio_contact_email: "",
+  physio_contact_phone: "",
+  physio_city_region: "",
+  physio_address: "",
+  physio_is_address_public: true,
+  physio_instagram_url: "",
+  physio_facebook_url: "",
+  physio_threads_url: "",
 };
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
@@ -180,19 +220,35 @@ function ProfilePageContent() {
           status_tag: prof.status_tag ?? "committed", 
           display_sports: prof.display_sports ?? [], 
           
-          is_coach: prof.is_coach ?? false, 
-          contact_email: prof.contact_email ?? "",             // NEW
-          contact_phone: prof.contact_phone ?? "",             // NEW
-          address: prof.address ?? "",                         // NEW
-          city_region: prof.city_region ?? "",                 // NEW
-          is_address_public: prof.is_address_public ?? true,   // NEW
+          // Coach global fields
+          is_coach: prof.is_coach ?? false,
+          contact_email: prof.contact_email ?? "",
+          contact_phone: prof.contact_phone ?? "",
+          address: prof.address ?? "",
+          city_region: prof.city_region ?? "",
+          is_address_public: prof.is_address_public ?? true,
+          instagram_url: prof.instagram_url ?? "",
+          facebook_url: prof.facebook_url ?? "",
+          threads_url: prof.threads_url ?? "",
 
-          is_physio: prof.is_physio ?? false, 
-          physio_rate: prof.physio_rate === 0 ? "" : (prof.physio_rate ?? ""), 
-          clinic_name: prof.clinic_name ?? "", 
-          physio_status: prof.physio_status ?? "hidden", 
-          physio_country: prof.physio_country ?? "", 
-          physio_region: prof.physio_region ?? "" 
+          // Physio global fields
+          is_physio: prof.is_physio ?? false,
+          physio_rate: prof.physio_rate === 0 ? "" : (prof.physio_rate ?? ""),
+          clinic_name: prof.clinic_name ?? "",
+          physio_status: prof.physio_status ?? "hidden",
+          physio_country: prof.physio_country ?? "",
+          physio_region: prof.physio_region ?? "",
+          physio_experience_years: prof.physio_experience_years ?? "",
+          physio_qualifications: prof.physio_qualifications ?? "",
+          physio_services_offered: prof.physio_services_offered ?? "",
+          physio_contact_email: prof.physio_contact_email ?? "",
+          physio_contact_phone: prof.physio_contact_phone ?? "",
+          physio_city_region: prof.physio_city_region ?? "",
+          physio_address: prof.physio_address ?? "",
+          physio_is_address_public: prof.physio_is_address_public ?? true,
+          physio_instagram_url: prof.physio_instagram_url ?? "",
+          physio_facebook_url: prof.physio_facebook_url ?? "",
+          physio_threads_url: prof.physio_threads_url ?? "",
         });
       }
       if (usData) setUserSports(usData as unknown as UserSport[]);
@@ -588,25 +644,7 @@ function ProfilePageContent() {
                   avatarSrc={avatarSrc}
                   profile={profile}
                   onFieldChange={(field, value) => setEditForm((prev: any) => ({ ...prev, [field]: value }))}
-                  
-                  // 👇 關鍵修正：把 onSave 改成 onSaveGlobal
                   onSaveGlobal={handleSaveProfile}
-                  
-                />
-              )}
-
-              {activeTab === "physio" && (
-                <PhysioTab
-                  editForm={editForm}
-                  locationData={locationData}
-                  isSaving={isSaving}
-                  avatarSrc={avatarSrc}
-                  profile={profile}
-                  onFieldChange={(field, value) => setEditForm((prev: any) => ({ ...prev, [field]: value }))}
-                  
-                  // 👇 關鍵修正：把 onSave 改成 onSaveGlobal
-                  onSaveGlobal={handleSaveProfile}
-                  
                 />
               )}
             </div>
