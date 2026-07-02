@@ -354,7 +354,7 @@ function ProfilePageContent() {
   };
 
   const toggleDisplaySport = (sportName: string) => {
-    setEditForm(pr(prev: any) => { let current = [...prev.display_sports]; if (current.includes(sportName)) current = current.filter(s => s !== sportName); else { if (current.length >= 3) current.shift(); current.push(sportName); } return { ...prev, display_sports: current }; });
+    setEditForm((prev: any) => { let current = [...prev.display_sports]; if (current.includes(sportName)) current = current.filter(s => s !== sportName); else { if (current.length >= 3) current.shift(); current.push(sportName); } return { ...prev, display_sports: current }; });
   };
 
   const handleOpenSportModal = useCallback((us?: UserSport) => {
