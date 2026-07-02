@@ -242,7 +242,7 @@ function ProfilePageContent() {
       pendingAvatarFile.current = compressed;
       if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
       const localUrl = URL.createObjectURL(compressed); blobUrlRef.current = localUrl;
-      setEditForm(prev => ({ ...prev, avatar_url: localUrl }));
+      ssetEditForm((prev: any) => ({ ...prev, avatar_url: localUrl }));
       setIsCropModalOpen(false); setCropImageSrc(null);
     } catch (e) { console.error(e); }
   };
@@ -354,7 +354,7 @@ function ProfilePageContent() {
   };
 
   const toggleDisplaySport = (sportName: string) => {
-    setEditForm(prev => { let current = [...prev.display_sports]; if (current.includes(sportName)) current = current.filter(s => s !== sportName); else { if (current.length >= 3) current.shift(); current.push(sportName); } return { ...prev, display_sports: current }; });
+    setEditForm(pr(prev: any) => { let current = [...prev.display_sports]; if (current.includes(sportName)) current = current.filter(s => s !== sportName); else { if (current.length >= 3) current.shift(); current.push(sportName); } return { ...prev, display_sports: current }; });
   };
 
   const handleOpenSportModal = useCallback((us?: UserSport) => {
@@ -427,13 +427,13 @@ function ProfilePageContent() {
                   <div className="p-4 bg-slate-950/50 rounded-2xl border border-slate-800/80 space-y-4 mt-2">
                     <div>
                       <label className="text-[10px] text-zinc-400 font-bold uppercase pl-1 block mb-2">運動員/一般狀態</label>
-                      <select className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white text-xs" value={editForm.status_tag} onChange={e => setEditForm(prev => ({ ...prev, status_tag: e.target.value }))}>
+                      <select className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white text-xs" value={editForm.status_tag} onChange={e => setEditForm((prev: any) => ({ ...prev, status_tag: e.target.value }))}>
                         <option value="recruiting">🟢 尋找新血</option><option value="seeking_team">🔵 尋找隊伍</option><option value="open_to_match">🟡 開放約戰</option><option value="committed">⚪ 穩定狀態</option><option value="hidden">🔒 未發布 (隱藏中)</option>
                       </select>
                     </div>
                     <div className="pt-3 border-t border-slate-800/80 space-y-3">
-                      <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={editForm.is_coach} onChange={e => setEditForm(prev => ({ ...prev, is_coach: e.target.checked }))} className="rounded bg-slate-900 border-slate-700" /><span className="text-xs font-bold text-amber-400">開啟教練管理功能</span></label>
-                      <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={editForm.is_physio} onChange={e => setEditForm(prev => ({ ...prev, is_physio: e.target.checked }))} className="rounded bg-slate-900 border-slate-700" /><span className="text-xs font-bold text-emerald-400">開啟運動/物理治療功能</span></label>
+                      <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={editForm.is_coach} onChange={e => setEditForm((prev: any) => ({ ...prev, is_coach: e.target.checked }))} className="rounded bg-slate-900 border-slate-700" /><span className="text-xs font-bold text-amber-400">開啟教練管理功能</span></label>
+                      <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={editForm.is_physio} onChange={e => setEditForm((prev: any) => ({ ...prev, is_physio: e.target.checked }))} className="rounded bg-slate-900 border-slate-700" /><span className="text-xs font-bold text-emerald-400">開啟運動/物理治療功能</span></label>
                     </div>
                   </div>
                   <div className="flex gap-2 pt-4">
@@ -567,7 +567,7 @@ function ProfilePageContent() {
                   allSports={allSports}
                   locationData={locationData}
                   editForm={editForm}
-                  onFieldChange={(field, value) => setEditForm(prev => ({ ...prev, [field]: value }))}
+                  onFieldChange={(field, value) => setEditForm((prev: any) => ({ ...prev, [field]: value }))}
                   
                   // 👇 就是缺了這兩行！把它們補上去！ 👇
                   onSaveGlobal={handleSaveProfile}
@@ -587,7 +587,7 @@ function ProfilePageContent() {
                   isSaving={isSaving}
                   avatarSrc={avatarSrc}
                   profile={profile}
-                  onFieldChange={(field, value) => setEditForm(prev => ({ ...prev, [field]: value }))}
+                  onFieldChange={(field, value) => setEditForm((prev: any) => ({ ...prev, [field]: value }))}
                   
                   // 👇 關鍵修正：把 onSave 改成 onSaveGlobal
                   onSaveGlobal={handleSaveProfile}
@@ -602,7 +602,7 @@ function ProfilePageContent() {
                   isSaving={isSaving}
                   avatarSrc={avatarSrc}
                   profile={profile}
-                  onFieldChange={(field, value) => setEditForm(prev => ({ ...prev, [field]: value }))}
+                  onFieldChange={(field, value) => setEditForm((prev: any) => ({ ...prev, [field]: value }))}
                   
                   // 👇 關鍵修正：把 onSave 改成 onSaveGlobal
                   onSaveGlobal={handleSaveProfile}
