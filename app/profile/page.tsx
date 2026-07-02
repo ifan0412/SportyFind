@@ -298,7 +298,7 @@ function ProfilePageContent() {
   };
 
   const addCoachProfile = () => setCoachProfiles(prev => [...prev, { id: `new_${Date.now()}`, sport: "", rate: "", status: "hidden", country: "", region: "" }]);
-  const updateCoachProfile = (id: string, field: keyof CoachProfile, value: any) => setCoachProfiles(prev => prev.map(c => c.id === id ? { ...c, [field]: value } : c));
+  const updateCoachProfile = (id: string, field: string, value: any) => setCoachProfiles(prev => prev.map(c => c.id === id ? { ...c, [field as keyof CoachProfile]: value } : c));
   const saveCoachProfile = async (coach: CoachProfile) => {
     if (!user || !coach.sport) return alert("請選擇專項");
     const isNew = coach.id.startsWith("new_");
