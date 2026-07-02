@@ -157,7 +157,7 @@ export function CoachTab({
                     <label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">指導區域</label>
                     <select className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 md:p-3 text-white text-sm" value={coach.region} onChange={e => onUpdate(coach.id, "region", e.target.value)}>
                       <option value="">區域</option>
-                      {coach.country && locationData[coach.country]?.map(r => <option key={r} value={r}>{r}</option>)}
+                      {coach.country && locationData[coach.country]?.map((r: string) => <option key={r} value={r}>{r}</option>)}
                     </select>
                   </div>
                 </div>
