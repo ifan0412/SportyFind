@@ -5,9 +5,21 @@ interface PhysioTabProps {
   onFieldChange?: (field: string, value: any) => void;
   onSaveGlobal?: () => void;
   isSaving?: boolean;
+  avatarSrc?: string;
+  profile?: any;
+  // 👇 把這行補上去：
+  locationData?: any; 
 }
 
-export function PhysioTab({ editForm, onFieldChange, onSaveGlobal, isSaving }: PhysioTabProps) {
+export function PhysioTab({ 
+  editForm, 
+  onFieldChange, 
+  onSaveGlobal, 
+  isSaving, 
+  avatarSrc, 
+  profile,
+  locationData, // ✅ 確保這裡有接收
+  }: PhysioTabProps) {
   if (!editForm || !onFieldChange) return null;
 
   return (
