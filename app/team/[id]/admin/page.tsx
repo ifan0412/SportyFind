@@ -186,7 +186,7 @@ export default function TeamAdminDashboard() {
     }
   };
 
-  // ✅ 解散與刪除球隊邏輯
+  // ✅ 解散與刪除球隊邏輯 (升級修正版)
   const handleDeleteTeam = async () => {
     const promptMatch = prompt(`⚠️ 極度危險操作！解散後所有成員紀錄將被清除且無法復原。\n請輸入球隊英文名稱「${team.name_en}」確認刪除：`);
     if (promptMatch !== team.name_en) {
@@ -196,16 +196,35 @@ export default function TeamAdminDashboard() {
 
     setIsDeleting(true);
     try {
-      // 依序刪除成員與球隊
-      await supabase.from("team_members").delete().eq("team_id", id);
-      const { error } = await supabase.from("teams").delete().eq("id", id);
+      // 1. 先清空球隊成員紀錄，並嚴格檢查是否有 RLS 或權限錯誤
+      const { error: memberErr } = await supabase
+        .from("team_members")
+        .delete()
+        .eq("team_id", id);
 
-      if (!error) {
-        alert("🗑️ 群組已成功解散並移除。");
-        router.push("/team");
-      } else {
-        alert("解散群組失敗：" + error.message);
+      if (memberErr) {
+        alert("清除成員紀錄失敗：" + memberErr.message);
+        return;
       }
+
+      // 2. 刪除球隊本體
+      const { error: teamErr } = await supabase
+        .from("teams")
+        .delete()
+        .eq("id", id);
+
+      if (teamErr) {
+        alert("解散群組失敗：" + teamErr.message);
+        return;
+      }
+
+      // 3. 成功通知並導向 Profile 管理分頁
+      alert("🗑️ 群組已成功解散並移除。");
+      router.push("/profile?tab=teams");
+      router.refresh(); // 🔥 關鍵：強制 Next.js 清除畫面快取，確保球隊卡片立刻消失！
+    } catch (err: any) {
+      console.error("刪除操作發生未預期例外:", err);
+      alert("發生未預期的系統錯誤：" + (err?.message || err));
     } finally {
       setIsDeleting(false);
     }

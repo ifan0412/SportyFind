@@ -5,7 +5,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { BackButton } from "@/components/BackButton";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Mail, Phone, MapPin, X, EyeOff } from "lucide-react"; 
+import { Mail, Phone, MapPin, X, EyeOff, MessageSquare, Zap } from "lucide-react"; 
 
 // ── 自訂社群圖示 (SVG) ──
 const FacebookIcon = ({ className }: { className?: string }) => (
@@ -34,7 +34,6 @@ interface Profile {
   is_coach: boolean | null;
   is_physio: boolean | null; physio_rate: number | null; clinic_name: string | null; physio_status: string | null; physio_region: string | null;
   
-  // 教練的聯絡與社群資訊
   contact_email?: string | null;
   contact_phone?: string | null;
   city_region?: string | null;
@@ -44,7 +43,6 @@ interface Profile {
   facebook_url?: string | null;
   threads_url?: string | null;
 
-  // 防護員的聯絡與社群資訊
   physio_contact_email?: string | null;
   physio_contact_phone?: string | null;
   physio_city_region?: string | null;
@@ -54,7 +52,6 @@ interface Profile {
   physio_facebook_url?: string | null;
   physio_threads_url?: string | null;
 
-  // 防護員專業經歷
   physio_experience_years?: string | null;
   physio_qualifications?: string | null;
   physio_services_offered?: string | null;
@@ -168,7 +165,6 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
     const channel = supabase
       .channel(`profile-friendship-${currentUserId}-${id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "friendships" }, async (payload) => {
-        // 👇 在這裡加上 as any，強制消除 TypeScript 警告
         const row = (payload.new || payload.old) as any; 
         
         if (row && ((row.sender_id === currentUserId && row.receiver_id === id) || (row.sender_id === id && row.receiver_id === currentUserId))) {
@@ -192,7 +188,7 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
       router.refresh();
     } catch (err: any) {
       if (err.code === '23505') await refetchFriendshipStatus(currentUserId); 
-      else alert(`發送失敗: ${err.message || "發生未知錯誤"}`);
+      else alert(`發送失敗: ${err.inbox || "發生未知錯誤"}`);
     } finally { setFriendLoading(false); }
   };
 
@@ -206,7 +202,7 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
       await refetchFriendshipStatus(currentUserId);
       window.dispatchEvent(new CustomEvent("sync-friendship")); 
       router.refresh();
-    } catch (err: any) { alert(`解除失敗: ${err.message || "發生未知錯誤"}`);
+    } catch (err: any) { alert(`解除失敗: ${err.inbox || "發生未知錯誤"}`);
     } finally { setFriendLoading(false); }
   };
 
@@ -219,7 +215,7 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
       await refetchFriendshipStatus(currentUserId);
       window.dispatchEvent(new CustomEvent("sync-friendship")); 
       router.refresh();
-    } catch (err: any) { alert(`接受失敗: ${err.message || "發生未知錯誤"}`);
+    } catch (err: any) { alert(`接受失敗: ${err.inbox || "發生未知錯誤"}`);
     } finally { setFriendLoading(false); }
   };
 
@@ -232,7 +228,7 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
       await refetchFriendshipStatus(currentUserId);
       window.dispatchEvent(new CustomEvent("sync-friendship"));
       router.refresh();
-    } catch (err: any) { alert(`拒絕失敗: ${err.message || "發生未知錯誤"}`);
+    } catch (err: any) { alert(`拒絕失敗: ${err.inbox || "發生未知錯誤"}`);
     } finally { setFriendLoading(false); }
   };
 
@@ -392,7 +388,6 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
               {activeRole === "coach" && (
                 <div className="space-y-8 animate-fadeIn">
                   
-                  {/* 📍 教練專屬：公開聯絡與服務地點卡片 */}
                   {(profile.contact_email || profile.contact_phone || profile.city_region) && (
                     <div className="bg-slate-900/40 border border-slate-800 rounded-3xl p-5 md:p-6 mb-8 mt-4">
                       <h3 className="text-sm md:text-base font-black text-white mb-5 flex items-center gap-2">
@@ -455,7 +450,6 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
                     </div>
                   )}
 
-                  {/* 教練卡片列表 */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {coachProfiles.map(coach => (
                       <div key={coach.id} className="bg-amber-500/5 border border-amber-500/20 rounded-3xl p-6 md:p-8 flex flex-col justify-between items-center text-center">
@@ -484,7 +478,6 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
               {activeRole === "physio" && (
                 <div className="space-y-8 animate-fadeIn">
                   
-                  {/* 📍 防護員專屬：公開聯絡與服務地點卡片 */}
                   {(profile.physio_contact_email || profile.physio_contact_phone || profile.physio_city_region) && (
                     <div className="bg-slate-900/40 border border-slate-800 rounded-3xl p-5 md:p-6 mb-8 mt-4">
                       <h3 className="text-sm md:text-base font-black text-white mb-5 flex items-center gap-2">
@@ -529,10 +522,7 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
                     </div>
                   )}
 
-                  {/* ⚕️ 專業履歷區塊 */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    
-                    {/* 左側：基本資訊與預約按鈕 */}
                     <div className="md:col-span-1 space-y-6">
                       <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-3xl p-6 md:p-8 text-center flex flex-col justify-center h-[calc(100%-88px)]">
                         <div>
@@ -556,7 +546,6 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
                       </div>
                     </div>
 
-                    {/* 右側：專業經歷與服務項目 */}
                     <div className="md:col-span-2 space-y-6">
                       <div className="bg-slate-900/40 border border-slate-800 rounded-3xl p-6 md:p-8">
                         <h3 className="text-lg font-black text-emerald-400 mb-6 flex items-center gap-2">
@@ -587,7 +576,6 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
                         </p>
                       </div>
                     </div>
-
                   </div>
                 </div>
               )}
@@ -596,29 +584,86 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
         </div>
       </div>
 
-      {/* 📩 聯絡資訊彈出視窗 (Modal) */}
+      {/* 📩 聯絡資訊與即時通訊彈出視窗 (Modal) */}
       {isContactModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fadeIn">
           {(() => {
-            // 動態判斷要顯示哪一組聯絡資訊
             const modalEmail = activeRole === "physio" ? profile.physio_contact_email : profile.contact_email;
             const modalPhone = activeRole === "physio" ? profile.physio_contact_phone : profile.contact_phone;
             const modalIg = activeRole === "physio" ? profile.physio_instagram_url : profile.instagram_url;
             const modalFb = activeRole === "physio" ? profile.physio_facebook_url : profile.facebook_url;
             const modalThreads = activeRole === "physio" ? profile.physio_threads_url : profile.threads_url;
             
+            // 生成 WhatsApp URL (自動移除空格與符號)
+            const cleanPhone = modalPhone ? modalPhone.replace(/\D/g, "") : null;
+            const roleTitle = activeRole === "coach" ? "教練" : "物理治療";
+            const greeting = encodeURIComponent(`您好 ${profile.full_name || ""}！我在 SportyFind 上看到您的${roleTitle}檔案，希望能向您諮詢或預約。`);
+            const whatsappUrl = cleanPhone ? `https://wa.me/${cleanPhone}?text=${greeting}` : null;
+
             return (
               <div className="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden relative animate-slideUp">
                 
                 <div className="p-5 border-b border-slate-800 flex justify-between items-center bg-slate-800/50">
-                  <h3 className="text-lg font-black text-white">聯絡 {profile.full_name}</h3>
+                  <div>
+                    <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                      {roleTitle} 聯絡
+                    </span>
+                    <h3 className="text-lg font-black text-white mt-1">聯絡 {profile.full_name}</h3>
+                  </div>
                   <button onClick={() => setIsContactModalOpen(false)} className="text-slate-400 hover:text-white transition">
                     <X className="w-6 h-6" />
                   </button>
                 </div>
 
-                <div className="p-6 space-y-5">
+                <div className="p-6 space-y-6">
+                  
+                  {/* ⚡ 即時通訊區塊 (Instant Messaging) */}
                   <div className="space-y-3">
+                    <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider pl-1">即時線上洽詢</p>
+                    
+                    {/* 1. WhatsApp Button */}
+                    {whatsappUrl ? (
+                      <a
+                        href={whatsappUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full flex items-center justify-between bg-emerald-600 hover:bg-emerald-500 text-white font-black p-4 rounded-2xl transition shadow-[0_0_15px_rgba(16,185,129,0.2)] group"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="text-2xl">💬</span>
+                          <div className="text-left">
+                            <div className="text-sm">使用 WhatsApp 洽詢</div>
+                            <div className="text-[10px] text-emerald-200 font-normal">自動開啟並填入打招呼訊息</div>
+                          </div>
+                        </div>
+                        <span className="group-hover:translate-x-1 transition-transform">↗</span>
+                      </a>
+                    ) : (
+                      <div className="p-3 rounded-xl bg-slate-950/50 border border-slate-800 text-xs text-zinc-500 text-center font-bold">
+                        尚未設定 WhatsApp 聯絡電話
+                      </div>
+                    )}
+
+                    {/* 2. Internal Direct inbox Button */}
+                    <button
+                      onClick={() => router.push(`/inbox?to=${id}&role=${activeRole}`)}
+                      className="w-full flex items-center justify-between bg-blue-600 hover:bg-blue-500 text-white font-black p-4 rounded-2xl transition shadow-[0_0_15px_rgba(37,99,235,0.2)] group"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Zap className="w-6 h-6 text-yellow-300" />
+                        <div className="text-left">
+                          <div className="text-sm">站內即時訊息 (Platform Chat)</div>
+                          <div className="text-[10px] text-blue-200 font-normal">將對話紀錄安全留於 SportyFind</div>
+                        </div>
+                      </div>
+                      <span className="group-hover:translate-x-1 transition-transform">→</span>
+                    </button>
+                  </div>
+
+                  {/* 📞 傳統聯絡資訊區塊 */}
+                  <div className="space-y-3 pt-4 border-t border-slate-800">
+                    <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider pl-1">傳統聯絡方式</p>
+                    
                     {modalEmail && (
                       <a href={`mailto:${modalEmail}`} className="flex items-center gap-4 p-3 bg-slate-950 rounded-xl hover:bg-slate-800 transition border border-slate-800">
                         <div className="p-2 bg-blue-500/20 text-blue-400 rounded-lg"><Mail className="w-5 h-5" /></div>
@@ -638,12 +683,13 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
                       </a>
                     )}
                     {!modalEmail && !modalPhone && (
-                      <div className="text-center text-sm text-zinc-500 py-4 font-bold border border-dashed border-slate-800 rounded-xl">
-                        該用戶尚未提供聯絡方式，請透過站內信聯絡。
+                      <div className="text-center text-xs text-zinc-500 py-3 font-bold border border-dashed border-slate-800 rounded-xl">
+                        無提供傳統聯絡管道，請利用上方站內訊息洽詢。
                       </div>
                     )}
                   </div>
 
+                  {/* 🌐 社群帳號追蹤 */}
                   {(modalIg || modalFb || modalThreads) && (
                     <div className="pt-4 border-t border-slate-800">
                       <p className="text-xs font-bold text-slate-400 mb-3 text-center">追蹤社群</p>

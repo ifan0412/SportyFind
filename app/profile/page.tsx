@@ -154,7 +154,7 @@ function ProfilePageContent() {
 
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const mediaInputRef = useRef<HTMLInputElement>(null);
-  const contentRef = useRef<HTMLDivElement>(null); // 用於手機版平滑滾動定位
+  const contentRef = useRef<HTMLDivElement>(null);
   const pendingAvatarFile = useRef<File | Blob | null>(null);
   const blobUrlRef = useRef<string | null>(null);
 
@@ -165,7 +165,6 @@ function ProfilePageContent() {
   const [allSports, setAllSports] = useState<Sport[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // 預設 Tab 變更為公開的 expertise
   const [activeTab, setActiveTab] = useState<TabId>("expertise");
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -191,7 +190,15 @@ function ProfilePageContent() {
   const [selectedPost, setSelectedPost] = useState<MediaItem | null>(null);
   const [userTeams, setUserTeams] = useState<UserTeamRow[]>([]);
 
-  // 重構 publicTabs，將後台管理的 Tab 移出
+  // Automatically switch views if the URL contains ?tab=... or ?view=... (e.g. ?view=teams after deletion)
+  useEffect(() => {
+    const tabParam = (searchParams?.get("tab") || searchParams?.get("view")) as TabId | null;
+    if (tabParam && ["dashboard", "expertise", "highlights", "feed", "coach", "physio", "friends", "teams"].includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams]);
+
+  // Public frontend tabs ONLY (no backend items like teams)
   const publicTabs = useMemo(() => {
     const base: { id: TabId; icon: string; label: string; en: string }[] = [
       { id: "expertise", icon: "📋", label: "技術特長", en: "Expertise" },
@@ -203,7 +210,6 @@ function ProfilePageContent() {
     return base;
   }, [profile?.is_coach, profile?.is_physio, editForm.is_coach, editForm.is_physio]);
 
-  // 新增一個共用的切換 Tab 函數，處理手機版滾動
   const handleTabSwitch = useCallback((tab: TabId) => {
     setActiveTab(tab);
     if (window.innerWidth < 1024 && contentRef.current) {
@@ -243,7 +249,6 @@ function ProfilePageContent() {
           status_tag: prof.status_tag ?? "committed", 
           display_sports: prof.display_sports ?? [], 
           
-          // Coach global fields
           is_coach: prof.is_coach ?? false,
           contact_email: prof.contact_email ?? "",
           contact_phone: prof.contact_phone ?? "",
@@ -254,7 +259,6 @@ function ProfilePageContent() {
           facebook_url: prof.facebook_url ?? "",
           threads_url: prof.threads_url ?? "",
 
-          // Physio global fields
           is_physio: prof.is_physio ?? false,
           physio_rate: prof.physio_rate === 0 ? "" : (prof.physio_rate ?? ""),
           clinic_name: prof.clinic_name ?? "",
@@ -292,10 +296,6 @@ function ProfilePageContent() {
   }, [loadProfileData, supabase]);
 
   useEffect(() => {
-    if (searchParams.get("tab") === "friends") handleTabSwitch("friends");
-  }, [searchParams, handleTabSwitch]);
-
-  useEffect(() => {
     if (!isEditing || editForm.handle === profile?.handle || editForm.handle.length < 3) { setHandleStatus("idle"); return; }
     const timer = setTimeout(async () => {
       setHandleStatus("checking");
@@ -329,11 +329,7 @@ function ProfilePageContent() {
 
   const handleSaveProfile = async () => {
     if (!user || handleStatus === "taken") return;
-
-    // ✅ 新增：原生的確認彈出視窗 (Confirm Pop-up)
-    if (!window.confirm("確定要儲存您的個人檔案與專業資訊變更嗎？")) {
-      return; 
-    }
+    if (!window.confirm("確定要儲存您的個人檔案與專業資訊變更嗎？")) return; 
 
     setIsSaving(true);
     let finalAvatarUrl = editForm.avatar_url;
@@ -348,7 +344,6 @@ function ProfilePageContent() {
     const fullName = `${editForm.first_name} ${editForm.last_name}`.trim();
     const physioRateVal = Number(editForm.physio_rate) || 0;
 
-    // 🎯 👇 這整塊就是你的 upsert 區塊 👇 🎯
     const { error } = await supabase.from("profiles").upsert({ 
       id: user.id, 
       first_name: editForm.first_name, 
@@ -364,7 +359,6 @@ function ProfilePageContent() {
       status_tag: editForm.status_tag, 
       display_sports: editForm.display_sports, 
       
-      // ── 教練相關資訊 ──
       is_coach: editForm.is_coach, 
       contact_email: editForm.contact_email || null,             
       contact_phone: editForm.contact_phone || null,             
@@ -375,7 +369,6 @@ function ProfilePageContent() {
       facebook_url: editForm.facebook_url || null,
       threads_url: editForm.threads_url || null,
 
-      // ── 防護員基礎與專業經歷資訊 ──
       is_physio: editForm.is_physio, 
       physio_rate: physioRateVal, 
       clinic_name: editForm.clinic_name || null, 
@@ -386,7 +379,6 @@ function ProfilePageContent() {
       physio_qualifications: editForm.physio_qualifications || null,
       physio_services_offered: editForm.physio_services_offered || null,
 
-      // ── ✅ 這裡就是新加入的：防護員獨立聯絡與社群資訊 ──
       physio_contact_email: editForm.physio_contact_email || null,
       physio_contact_phone: editForm.physio_contact_phone || null,
       physio_city_region: editForm.physio_city_region || null,
@@ -396,15 +388,11 @@ function ProfilePageContent() {
       physio_facebook_url: editForm.physio_facebook_url || null,
       physio_threads_url: editForm.physio_threads_url || null,
     });
-    // 🎯 👆 upsert 區塊結束 👆 🎯
 
     if (!error) {
       setProfile(prev => ({ ...prev!, ...editForm, avatar_url: finalAvatarUrl, full_name: fullName, location: `${editForm.region}, ${editForm.country}` }));
       setIsEditing(false); 
-      
-      // 成功時給予提示彈窗
       alert("✅ 儲存成功！您的個人資料與專業名片已更新。");
-      
       router.refresh();
       if (editForm.is_coach && !profile?.is_coach) handleTabSwitch("coach");
       else if (editForm.is_physio && !profile?.is_physio) handleTabSwitch("physio");
@@ -534,19 +522,18 @@ function ProfilePageContent() {
                   <p className="text-sm text-zinc-300 leading-relaxed text-left bg-slate-900/30 p-4 rounded-2xl border border-slate-800/50 mb-6">{profile?.bio || "寫下一段關於你的歷程..."}</p>
                   <div className="flex flex-col gap-3">
                     <button onClick={() => setIsEditing(true)} className="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition flex items-center justify-center gap-2">✏️ 編輯基礎檔案與身份</button>
-                    <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/p/${user?.id}`); alert("名片網址已複製！"); }} className="w-full bg-transparent border border-slate-700 hover:border-slate-500 text-zinc-300 font-bold py-3 rounded-xl transition">分享連結 ↗</button>
+                    {/* 🔥 新增：預覽與分享按鈕並列 */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <button onClick={() => router.push(`/p/${user?.id}`)} className="w-full bg-blue-600/20 border border-blue-500/40 hover:bg-blue-600 hover:text-white text-blue-400 font-bold py-3 rounded-xl transition flex items-center justify-center gap-1.5 text-xs">👁️ 預覽公開名片</button>
+                      <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/p/${user?.id}`); alert("名片網址已複製！"); }} className="w-full bg-transparent border border-slate-700 hover:border-slate-500 text-zinc-300 font-bold py-3 rounded-xl transition text-xs">分享連結 ↗</button>
+                    </div>
                   </div>
                   
-                  {/* ─── Private Management Section (New) ─── */}
+                  {/* ─── Private Backend Section (Rearranged & Teams added conditionally) ─── */}
                   <div className="mt-6 pt-6 border-t border-slate-800/80 space-y-3">
-                    <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider pl-1 text-left">專屬後台</p>
-                    <button
-                      onClick={() => handleTabSwitch("dashboard")}
-                      className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold transition ${activeTab === "dashboard" ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20" : "bg-slate-900/50 text-zinc-400 hover:bg-slate-800 hover:text-white"}`}
-                    >
-                      <span className="flex items-center gap-3"><span className="text-lg">📊</span> 數據後台</span>
-                      <span className="text-xs">→</span>
-                    </button>
+                    <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider pl-1 text-left">專屬後台 (Backend)</p>
+                    
+                    {/* Option 1: Friends Management */}
                     <button
                       onClick={() => handleTabSwitch("friends")}
                       className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold transition ${activeTab === "friends" ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20" : "bg-slate-900/50 text-zinc-400 hover:bg-slate-800 hover:text-white"}`}
@@ -554,11 +541,24 @@ function ProfilePageContent() {
                       <span className="flex items-center gap-3"><span className="text-lg">👥</span> 好友管理</span>
                       <span className="text-xs">→</span>
                     </button>
+
+                    {/* Option 2: Teams Management (Only appears if user has teams) */}
+                    {userTeams.length > 0 && (
+                      <button
+                        onClick={() => handleTabSwitch("teams")}
+                        className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold transition ${activeTab === "teams" ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20" : "bg-slate-900/50 text-zinc-400 hover:bg-slate-800 hover:text-white"}`}
+                      >
+                        <span className="flex items-center gap-3"><span className="text-lg">🛡️</span> 我的球隊 / 群組</span>
+                        <span className="text-xs">→</span>
+                      </button>
+                    )}
+
+                    {/* Option 3: Analytics Dashboard (Moved to Bottom) */}
                     <button
-                      onClick={() => handleTabSwitch("teams")}
-                      className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold transition ${activeTab === "teams" ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20" : "bg-slate-900/50 text-zinc-400 hover:bg-slate-800 hover:text-white"}`}
+                      onClick={() => handleTabSwitch("dashboard")}
+                      className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold transition ${activeTab === "dashboard" ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20" : "bg-slate-900/50 text-zinc-400 hover:bg-slate-800 hover:text-white"}`}
                     >
-                      <span className="flex items-center gap-3"><span className="text-lg">🛡️</span> 我的球隊 / 群組</span>
+                      <span className="flex items-center gap-3"><span className="text-lg">📊</span> 數據後台</span>
                       <span className="text-xs">→</span>
                     </button>
                   </div>
@@ -571,13 +571,14 @@ function ProfilePageContent() {
           {/* ── Tab Area (Right/Main Column) ── */}
           <div className="lg:col-span-8 xl:col-span-9 flex flex-col" ref={contentRef}>
             
-            {/* 判斷目前是否處於私密後台 Tab */}
+            {/* Private Backend View Header */}
             {(() => {
               const isPrivateTab = ["dashboard", "friends", "teams"].includes(activeTab);
               
               if (isPrivateTab) {
                 return (
-                  <div className="bg-slate-900 border border-slate-800 p-3 md:p-4 rounded-2xl flex items-center justify-between w-full mb-8 shadow-sm">                    <div className="flex items-center gap-3">
+                  <div className="bg-slate-900 border border-slate-800 p-3 md:p-4 rounded-2xl flex items-center justify-between w-full mb-8 shadow-sm">
+                    <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-xl">
                         {activeTab === "dashboard" ? "📊" : activeTab === "teams" ? "🛡️" : "👥"}
                       </div>
@@ -612,9 +613,7 @@ function ProfilePageContent() {
             })()}
 
             <div className="flex-1">
-              {/* 下面的各個 Tab 內容維持完全不變... */}
               {activeTab === "dashboard" && <DashboardTab profile={profile} avatarSrc={avatarSrc} />}
-              {/* ... 其他 Tabs ... */}
 
               {activeTab === "expertise" && (
                 <ExpertiseTab
@@ -655,19 +654,16 @@ function ProfilePageContent() {
                   locationData={locationData}
                   editForm={editForm}
                   onFieldChange={(field, value) => setEditForm((prev: any) => ({ ...prev, [field]: value }))}
-                  
-                  // 👇 就是缺了這兩行！把它們補上去！ 👇
                   onSaveGlobal={handleSaveProfile}
                   isSaving={isSaving}
-                  // 👆 👆 👆 👆 👆 👆 👆 👆 👆 👆
-                  
                   onAdd={addCoachProfile}
                   onUpdate={updateCoachProfile}
                   onSave={saveCoachProfile}
                   onDelete={deleteCoachProfile}
                 />
               )}
-{activeTab === "physio" && (
+
+              {activeTab === "physio" && (
                 <PhysioTab
                   editForm={editForm}
                   locationData={locationData}

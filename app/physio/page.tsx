@@ -30,11 +30,23 @@ export default function PhysioPage() {
 
   useEffect(() => {
     const fetchPhysios = async () => {
-      const { data, error } = await supabase
+      // 💡 步驟 1：先獲取目前正在瀏覽網頁的登入用戶 ID
+      const { data: { user } } = await supabase.auth.getUser();
+      const currentUserId = user?.id || null;
+
+      // 💡 步驟 2：準備查詢防護員/運動物理治療師檔案的 Query
+      let query = supabase
         .from("profiles")
         .select("id, full_name, physio_region, physio_status, clinic_name, physio_rate, avatar_url")
         .eq("is_physio", true)
         .neq("physio_status", "hidden");
+
+      // 🔥 核心修正：如果使用者有登入，在列表查詢中自動排除自己的 ID！
+      if (currentUserId) {
+        query = query.neq("id", currentUserId);
+      }
+
+      const { data, error } = await query;
       if (!error && data) setPhysios(data as PhysioProfile[]);
       setIsLoading(false);
     };

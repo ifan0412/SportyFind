@@ -5,6 +5,7 @@ import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { BackButton } from "@/components/BackButton";
 import { SportFilterModal } from "@/components/SportFilterModal";
+
 // ==========================================
 // Types
 // ==========================================
@@ -20,7 +21,6 @@ interface ProfileRow {
   coach_status: string | null;
   is_physio: boolean | null;
   physio_status: string | null;
-  // 💡 新增：用來在背景記錄該用戶"所有"專長的陣列（不限於顯示在卡片上的3個）
   all_sport_names?: string[]; 
 }
 
@@ -58,17 +58,28 @@ export default function NetworkPage() {
 
   useEffect(() => {
     const fetchData = async () => {
-      // 💡 關鍵修正：在 select 時，把 user_sports 表也關聯進來 (JOIN)，藉此獲得使用者的「所有」運動項目
+      // 💡 步驟 1：先獲取目前正在瀏覽網頁的登入用戶 ID
+      const { data: { user } } = await supabase.auth.getUser();
+      const currentUserId = user?.id || null;
+
+      // 💡 步驟 2：準備查詢全體球員檔案的 Query
+      let profilesQuery = supabase
+        .from("profiles")
+        .select(`
+          id, full_name, location, headline, avatar_url, status_tag, display_sports, is_coach, coach_status, is_physio, physio_status,
+          user_sports (
+            sports ( name )
+          )
+        `)
+        .order("full_name", { ascending: true });
+
+      // 🔥 核心修正：如果使用者有登入，在列表查詢中自動排除自己的 ID！
+      if (currentUserId) {
+        profilesQuery = profilesQuery.neq("id", currentUserId);
+      }
+
       const [profilesRes, sportsRes] = await Promise.all([
-        supabase
-          .from("profiles")
-          .select(`
-            id, full_name, location, headline, avatar_url, status_tag, display_sports, is_coach, coach_status, is_physio, physio_status,
-            user_sports (
-              sports ( name )
-            )
-          `)
-          .order("full_name", { ascending: true }),
+        profilesQuery,
         supabase
           .from("sports")
           .select("id, name")
@@ -76,7 +87,6 @@ export default function NetworkPage() {
       ]);
 
       if (!profilesRes.error && profilesRes.data) {
-        // 資料清洗：把關聯進來的巢狀 user_sports 陣列，壓平變成一個簡單的 string[] 方便我們過濾
         const formattedProfiles = profilesRes.data.map((p: any) => ({
           ...p,
           all_sport_names: p.user_sports?.map((us: any) => us.sports?.name).filter(Boolean) || []
@@ -98,7 +108,6 @@ export default function NetworkPage() {
   const filteredProfiles = profiles.filter(p => {
     const matchSearch = (p.full_name || "").toLowerCase().includes(searchTerm.toLowerCase()) || (p.location || "").toLowerCase().includes(searchTerm.toLowerCase());
     
-    // 💡 關鍵修正：現在是去檢查隱藏在背景的 `all_sport_names`，而不是只看卡片上的 `display_sports`！
     const matchSport = selectedSports.length === 0 
       ? true 
       : selectedSports.some(sport => p.all_sport_names?.includes(sport));
@@ -133,7 +142,6 @@ export default function NetworkPage() {
             />
           </div>
 
-          {/* 運動過濾按鈕 (點擊開 Modal) */}
           <button 
             onClick={() => setIsSportModalOpen(true)}
             className={`w-full md:w-auto flex items-center justify-between gap-3 px-5 py-3 rounded-xl border text-sm font-bold transition flex-shrink-0 ${

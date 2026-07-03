@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { Send, Loader2, AlertCircle, RefreshCw } from "lucide-react";
+import { Send, Loader2, AlertCircle, RefreshCw, Check, X } from "lucide-react";
 
 interface Message {
   id: string;
@@ -20,6 +20,8 @@ interface ChatBoxProps {
   targetUserId: string;
   targetAvatarUrl?: string;
   targetName?: string;
+  friendshipStatus?: string; // "accepted" | "pending" | "rejected" | "none"
+  isSender?: boolean;
 }
 
 const PAGE_SIZE = 50;
@@ -29,6 +31,8 @@ export function ChatBox({
   targetUserId,
   targetAvatarUrl,
   targetName,
+  friendshipStatus: initialStatus = "none",
+  isSender: initialIsSender = false,
 }: ChatBoxProps) {
   // ── Stable supabase client (never recreated on re-render) ──
   const supabase = useRef(createSupabaseBrowserClient()).current;
@@ -40,8 +44,13 @@ export function ChatBox({
   const [hasMore, setHasMore] = useState(true);
   const [isSendingLocked, setIsSendingLocked] = useState(false);
 
+  // ── Anti-Spam State Machine ──
+  const [friendshipId, setFriendshipId] = useState<string | null>(null);
+  const [status, setStatus] = useState<string>(initialStatus);
+  const [isSenderState, setIsSenderState] = useState<boolean>(initialIsSender);
+
   const scrollRef = useRef<HTMLDivElement>(null);
-  const messagesLengthRef = useRef(0); // avoids stale closure in loadMessages
+  const messagesLengthRef = useRef(0);
 
   const scrollToBottom = useCallback((delay = 50) => {
     setTimeout(() => {
@@ -50,6 +59,34 @@ export function ChatBox({
       }
     }, delay);
   }, []);
+
+  // ── 0. Fetch authoritative friendship status ──
+  useEffect(() => {
+    const fetchFriendship = async () => {
+      const { data: friendRow } = await supabase
+        .from("friendships")
+        .select("id, status, sender_id")
+        .or(
+          `and(sender_id.eq.${currentUserId},receiver_id.eq.${targetUserId}),` +
+          `and(sender_id.eq.${targetUserId},receiver_id.eq.${currentUserId})`
+        )
+        .maybeSingle();
+
+      if (friendRow) {
+        setFriendshipId(friendRow.id);
+        setStatus(friendRow.status);
+        setIsSenderState(friendRow.sender_id === currentUserId);
+      } else {
+        setFriendshipId(null);
+        setStatus("none");
+        setIsSenderState(true);
+      }
+    };
+
+    if (currentUserId && targetUserId) {
+      fetchFriendship();
+    }
+  }, [currentUserId, targetUserId, supabase]);
 
   // ── 1. Mark incoming messages as read ──
   const markAsRead = useCallback(
@@ -108,7 +145,6 @@ export function ChatBox({
           return unique;
         });
 
-        // Mark received messages as read
         const unread = data
           .filter((m) => m.receiver_id === currentUserId && !m.is_read)
           .map((m) => m.id);
@@ -130,10 +166,9 @@ export function ChatBox({
     setIsLoading(true);
     messagesLengthRef.current = 0;
     loadMessages(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [targetUserId]);
+  }, [targetUserId, loadMessages]);
 
-  // ── 4. Infinite scroll (scroll to top triggers load more) ──
+  // ── 4. Infinite scroll ──
   const handleScroll = useCallback(
     (e: React.UIEvent<HTMLDivElement>) => {
       if (e.currentTarget.scrollTop === 0 && hasMore && !isLoadingMore) {
@@ -169,7 +204,6 @@ export function ChatBox({
           if (!isRelevant) return;
 
           setMessages((prev) => {
-            // Replace optimistic temp message if it exists
             const hasTempMatch = prev.some(
               (m) =>
                 m.isSending &&
@@ -185,12 +219,10 @@ export function ChatBox({
                   : m
               );
             }
-            // Deduplicate before appending
             if (prev.some((m) => m.id === newMsg.id)) return prev;
             return [...prev, newMsg];
           });
 
-          // Auto-mark as read if we are the receiver
           if (newMsg.receiver_id === currentUserId) {
             markAsRead([newMsg.id]);
           }
@@ -205,11 +237,57 @@ export function ChatBox({
     };
   }, [currentUserId, targetUserId, supabase, markAsRead, scrollToBottom]);
 
-  // ── 6. Optimistic send with retry ──
+  // ── Manual Accept/Reject handlers for Receiver ──
+  const handleManualAccept = async () => {
+    if (!friendshipId) return;
+    await supabase.from("friendships").update({ status: "accepted" }).eq("id", friendshipId);
+    setStatus("accepted");
+  };
+
+  const handleManualReject = async () => {
+    if (!friendshipId) return;
+    await supabase.from("friendships").update({ status: "rejected" }).eq("id", friendshipId);
+    setStatus("rejected");
+  };
+
+  // ── 6. Optimistic send with Anti-Spam state rules ──
   const sendMessage = useCallback(
     async (msgText: string, retryTempId?: string) => {
       const tempId = retryTempId ?? `temp-${Date.now()}`;
 
+      // A. Handle First Message Inquiry Creation
+      if (status === "none") {
+        const { data: newFriendRow, error: friendErr } = await supabase
+          .from("friendships")
+          .insert({
+            sender_id: currentUserId,
+            receiver_id: targetUserId,
+            status: "pending",
+          })
+          .select("id")
+          .single();
+
+        if (friendErr && friendErr.code !== "23505") {
+          console.error("[ChatBox] First inquiry error:", friendErr.message);
+          return;
+        }
+
+        if (newFriendRow) setFriendshipId(newFriendRow.id);
+        setStatus("pending");
+        setIsSenderState(true);
+      }
+
+      // B. Handle Reply Auto-Accept (Receiver replying to pending request)
+      if (status === "pending" && !isSenderState && friendshipId) {
+        await supabase
+          .from("friendships")
+          .update({ status: "accepted" })
+          .eq("id", friendshipId);
+
+        setStatus("accepted");
+      }
+
+      // Optimistic UI Append
       if (!retryTempId) {
         const tempMsg: Message = {
           id: tempId,
@@ -225,7 +303,6 @@ export function ChatBox({
         messagesLengthRef.current += 1;
         scrollToBottom(10);
       } else {
-        // Reset error state on retry
         setMessages((prev) =>
           prev.map((m) =>
             m.id === retryTempId ? { ...m, isSending: true, isError: false } : m
@@ -251,13 +328,12 @@ export function ChatBox({
           )
         );
       } else {
-        // Realtime will handle the replacement — but as a fallback, do it here too
         setMessages((prev) =>
           prev.map((m) => (m.id === tempId ? insertedMsg : m))
         );
       }
     },
-    [currentUserId, targetUserId, supabase, scrollToBottom]
+    [currentUserId, targetUserId, supabase, scrollToBottom, status, isSenderState, friendshipId]
   );
 
   const handleSendMessage = useCallback(
@@ -302,20 +378,26 @@ export function ChatBox({
     <div className="flex flex-col bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden h-[450px] md:h-full shadow-xl relative">
       
       {/* Header */}
-      <div className="flex items-center gap-3 p-4 border-b border-slate-800 bg-slate-900/80 backdrop-blur-sm z-10 shrink-0">
-        <div
-          className="w-8 h-8 rounded-full bg-slate-700 bg-cover bg-center border border-slate-600"
-          style={{
-            backgroundImage: targetAvatarUrl ? `url(${targetAvatarUrl})` : "none",
-          }}
-        />
-        <div>
-          <h3 className="text-sm font-black text-white">
-            {targetName || "好友"}
-          </h3>
-          <p className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider">
-            在線
-          </p>
+      <div className="flex items-center justify-between p-4 border-b border-slate-800 bg-slate-900/80 backdrop-blur-sm z-10 shrink-0">
+        <div className="flex items-center gap-3">
+          <div
+            className="w-8 h-8 rounded-full bg-slate-700 bg-cover bg-center border border-slate-600"
+            style={{
+              backgroundImage: targetAvatarUrl ? `url(${targetAvatarUrl})` : "none",
+            }}
+          />
+          <div>
+            <h3 className="text-sm font-black text-white">
+              {targetName || "好友"}
+            </h3>
+            <p className="text-[10px] text-zinc-400 font-medium">
+              {status === "accepted" && "🟢 好友 · 可以自由對話"}
+              {status === "pending" && isSenderState && "⏳ 等待對方接受您的初次洽詢"}
+              {status === "pending" && !isSenderState && "👋 對方發起了洽詢"}
+              {status === "none" && "⚡ 初次洽詢對象"}
+              {status === "rejected" && "🔴 對話已關閉"}
+            </p>
+          </div>
         </div>
       </div>
 
@@ -332,8 +414,13 @@ export function ChatBox({
         )}
 
         {messages.length === 0 ? (
-          <div className="h-full flex items-center justify-center text-zinc-500 text-xs font-bold">
+          <div className="h-full flex flex-col items-center justify-center text-zinc-500 text-xs font-bold text-center p-6">
             開始與 {targetName || "他"} 聊天吧！
+            {status === "none" && (
+              <span className="text-[10px] text-zinc-600 font-normal mt-1 block max-w-xs">
+                您發送的第一則訊息將自動附帶「洽詢請求」，為防範騷擾，發送後需等候對方確認才能繼續對話。
+              </span>
+            )}
           </div>
         ) : (
           messages.map((msg) => {
@@ -385,32 +472,67 @@ export function ChatBox({
         )}
       </div>
 
-      {/* Input */}
-      <form
-        onSubmit={handleSendMessage}
-        className="p-3 border-t border-slate-800 bg-slate-950 flex gap-2 shrink-0"
-      >
-        <input
-          type="text"
-          value={newMessage}
-          onChange={(e) => setNewMessage(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="輸入訊息..."
-          maxLength={2000}
-          className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500 transition-all"
-        />
-        <button
-          type="submit"
-          disabled={!newMessage.trim() || isSendingLocked}
-          className="w-11 h-11 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-500 text-white flex items-center justify-center rounded-xl transition-colors shrink-0"
-        >
-          {isSendingLocked ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <Send className="w-4 h-4 ml-0.5" />
-          )}
-        </button>
-      </form>
+      {/* Input / Anti-Spam Control Area */}
+      <div className="p-3 border-t border-slate-800 bg-slate-950 shrink-0">
+        
+        {/* State 1: Locked waiting for receiver acceptance */}
+        {status === "pending" && isSenderState && (
+          <div className="p-3 bg-slate-900 border border-slate-800 rounded-xl text-center">
+            <p className="text-xs text-amber-400 font-bold">⏳ 洽詢訊息已發送</p>
+            <p className="text-[10px] text-zinc-500 mt-0.5">請等候對方接受您的洽詢後，即可繼續發送訊息。</p>
+          </div>
+        )}
+
+        {/* State 2: Action Needed for Receiver */}
+        {status === "pending" && !isSenderState && (
+          <div className="mb-2 p-2.5 bg-blue-950/40 border border-blue-500/30 rounded-xl flex items-center justify-between gap-3">
+            <span className="text-xs text-blue-200 font-medium pl-1">
+              👋 對方發起了諮詢，直接回覆或點擊接受：
+            </span>
+            <div className="flex gap-1.5 shrink-0">
+              <button onClick={handleManualAccept} className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white text-xs font-black rounded-lg transition flex items-center gap-1">
+                <Check className="w-3.5 h-3.5" /> 接受
+              </button>
+              <button onClick={handleManualReject} className="px-2.5 py-1 bg-slate-800 hover:bg-red-500/20 hover:text-red-400 text-zinc-400 text-xs font-bold rounded-lg transition">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* State 3: Rejected / Closed */}
+        {status === "rejected" && (
+          <div className="p-3 bg-slate-900 border border-red-500/20 rounded-xl text-center">
+            <p className="text-xs text-red-400 font-bold">🚫 此對話已關閉</p>
+          </div>
+        )}
+
+        {/* State 4: Active Input Bar (Allowed for 'accepted', 'none', or Receiver of 'pending') */}
+        {(status === "accepted" || status === "none" || (status === "pending" && !isSenderState)) && (
+          <form onSubmit={handleSendMessage} className="flex gap-2">
+            <input
+              type="text"
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={status === "none" ? "輸入初次洽詢訊息..." : "輸入訊息..."}
+              maxLength={2000}
+              className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500 transition-all"
+            />
+            <button
+              type="submit"
+              disabled={!newMessage.trim() || isSendingLocked}
+              className="w-11 h-11 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-500 text-white flex items-center justify-center rounded-xl transition-colors shrink-0"
+            >
+              {isSendingLocked ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Send className="w-4 h-4 ml-0.5" />
+              )}
+            </button>
+          </form>
+        )}
+      </div>
     </div>
   );
 }

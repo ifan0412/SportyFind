@@ -31,7 +31,6 @@ export default function CoachesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("");
 
-  // 💡 Modal 狀態與多選陣列
   const [selectedSports, setSelectedSports] = useState<string[]>([]);
   const [isSportModalOpen, setIsSportModalOpen] = useState(false);
   
@@ -40,10 +39,22 @@ export default function CoachesPage() {
 
   useEffect(() => {
     const fetchCoaches = async () => {
-      const { data, error } = await supabase
+      // 💡 步驟 1：獲取當前登入者 ID
+      const { data: { user } } = await supabase.auth.getUser();
+      const currentUserId = user?.id || null;
+
+      // 💡 步驟 2：建立 Query
+      let query = supabase
         .from("coach_profiles")
         .select("id, user_id, sport, rate, status, region, profiles(full_name, headline, avatar_url)")
         .neq("status", "hidden");
+
+      // 🔥 核心修正：排除自己
+      if (currentUserId) {
+        query = query.neq("user_id", currentUserId);
+      }
+
+      const { data, error } = await query;
       if (!error && data) setCoaches(data as unknown as CoachProfileRow[]);
       setIsLoading(false);
     };
@@ -53,7 +64,6 @@ export default function CoachesPage() {
   const uniqueSports = Array.from(new Set(coaches.map(c => c.sport).filter(Boolean))) as string[];
   const uniqueLocations = Array.from(new Set(coaches.map(c => c.region).filter(Boolean))) as string[];
 
-  // 💡 支援多選的過濾邏輯
   const filteredCoaches = coaches.filter(c => {
     const matchSearch = (c.profiles?.full_name || "").toLowerCase().includes(searchTerm.toLowerCase());
     const matchSport = selectedSports.length === 0 ? true : selectedSports.includes(c.sport);
@@ -81,17 +91,14 @@ export default function CoachesPage() {
             <input type="text" placeholder="搜尋教練名稱..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-xl py-3 pl-10 pr-4 text-sm text-white focus:outline-none focus:border-amber-500 transition" />
           </div>
           
-          {/* 運動項目 Modal 按鈕 */}
           <button onClick={() => setIsSportModalOpen(true)} className={`w-full md:w-auto flex items-center justify-between gap-3 px-5 py-3 rounded-xl border text-sm font-bold transition flex-shrink-0 ${selectedSports.length > 0 ? "bg-amber-600/10 border-amber-500 text-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.2)]" : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"}`}>
             <span>專項 {selectedSports.length > 0 ? `(${selectedSports.length})` : "(全部)"}</span><span className="text-[10px]">▼</span>
           </button>
 
-          {/* 地區 Modal 按鈕 */}
           <button onClick={() => setIsLocationModalOpen(true)} className={`w-full md:w-auto flex items-center justify-between gap-3 px-5 py-3 rounded-xl border text-sm font-bold transition flex-shrink-0 ${selectedLocations.length > 0 ? "bg-amber-600/10 border-amber-500 text-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.2)]" : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"}`}>
             <span>地區 {selectedLocations.length > 0 ? `(${selectedLocations.length})` : "(全區)"}</span><span className="text-[10px]">▼</span>
           </button>
 
-          {/* 狀態過濾列 */}
           <div className="flex items-center gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden w-full md:w-auto">
             <button onClick={() => setFilterStatus("")} className={`whitespace-nowrap px-4 py-2.5 rounded-xl text-xs font-bold border transition ${!filterStatus ? "bg-slate-100 border-slate-200 text-black shadow-[0_0_10px_rgba(255,255,255,0.2)]" : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"}`}>全部狀態</button>
             <button onClick={() => setFilterStatus("recruiting")} className={`whitespace-nowrap px-4 py-2.5 rounded-xl text-xs font-bold border transition ${filterStatus === "recruiting" ? "bg-slate-100 border-slate-200 text-black shadow-[0_0_10px_rgba(255,255,255,0.2)]" : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"}`}>🟢 招生中</button>
