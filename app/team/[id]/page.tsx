@@ -167,23 +167,40 @@ export default function TeamDetailPage() {
   const adminsAndLeads = members.filter((m) => ["admin", "coach", "captain"].includes(m.role));
   const regularMembers = members.filter((m) => m.role === "player");
 
+  // 🔥 修正版：加入 team_id 欄位
   const handleJoin = async () => {
     if (!currentUserId) { router.push("/auth"); return; }
     setJoinState("loading");
     setJoinError(null);
-    const { error } = await supabase
+
+    // 1. 寫入加入請求
+    const { error: insertError } = await supabase
       .from("team_members")
       .insert({ team_id: id, user_id: currentUserId, role: "pending" });
-    if (error) {
-      setJoinError(error.message);
+
+    if (insertError) {
+      setJoinError(insertError.message);
       setJoinState("error");
-    } else {
-      setJoinState("done");
-      setMembers((prev) => [
-        ...prev,
-        { team_id: id, user_id: currentUserId, role: "pending", joined_at: new Date().toISOString(), profiles: null },
-      ]);
+      return;
     }
+
+    // 2. 發送通知給 Admin
+    const adminMember = members.find(m => m.role === "admin");
+    if (adminMember) {
+      await supabase.from("notifications").insert({
+        user_id: adminMember.user_id,
+        sender_id: currentUserId,
+        type: "team_join_request",
+        team_id: id,
+        is_read: false
+      });
+    }
+
+    setJoinState("done");
+    setMembers((prev) => [
+      ...prev,
+      { team_id: id, user_id: currentUserId, role: "pending", joined_at: new Date().toISOString(), profiles: null },
+    ]);
   };
 
   if (isLoading) {

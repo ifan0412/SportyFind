@@ -87,16 +87,63 @@ export default function TeamAdminDashboard() {
   }, [id, supabase]);
 
   const handleApprove = async (userId: string) => {
-    const { error } = await supabase.from("team_members").update({ role: "player" }).eq("team_id", id).eq("user_id", userId);
-    if (!error) fetchDashboardData();
+    try {
+      console.log("正在批准用戶:", userId);
+
+      const { data, error } = await supabase
+        .from("team_members")
+        .update({ role: "player" })
+        .eq("team_id", id)
+        .eq("user_id", userId)
+        .select();
+
+      if (error) {
+        // 🔥 強制顯示詳細錯誤 (包括 Supabase 回傳的 hint)
+        console.error("詳細錯誤訊息:", JSON.stringify(error, null, 2));
+        alert("資料庫更新失敗，錯誤代碼: " + error.code + "\n訊息: " + error.message);
+        return;
+      }
+
+      console.log("資料庫更新成功");
+
+      // 2. 呼叫通知函數
+      await supabase.rpc('notify_team_decision', {
+        p_team_id: id,
+        p_user_id: userId,
+        p_approved: true
+      });
+
+      // 3. 強制刷新
+      alert("🎉 已成功批准該成員！");
+      await fetchDashboardData();
+      
+    } catch (err) {
+      console.error("批准流程錯誤:", err);
+      alert("批准失敗: " + (err instanceof Error ? err.message : "未知的錯誤"));
+    }
   };
 
   const handleRejectOrRemove = async (userId: string, isRemove = false) => {
     if (isRemove && userId === currentUserId) { alert("身為最高管理員，您不能將自己移出群組。"); return; }
-    if (isRemove && !confirm("確定要移除此成員嗎？該成員將失去瀏覽內部資訊的權限。")) return;
+    if (isRemove && !confirm("確定要移除此成員嗎？")) return;
     
-    const { error } = await supabase.from("team_members").delete().eq("team_id", id).eq("user_id", userId);
-    if (!error) fetchDashboardData();
+    try {
+      // 1. 呼叫通知函數 (Reject)
+      await supabase.rpc('notify_team_decision', {
+        p_team_id: id,
+        p_user_id: userId,
+        p_approved: false
+      });
+
+      // 2. 刪除成員
+      const { error } = await supabase.from("team_members").delete().eq("team_id", id).eq("user_id", userId);
+      if (error) throw error;
+      
+      fetchDashboardData();
+    } catch (err) {
+      console.error("Reject/Remove error:", err);
+      alert("操作失敗");
+    }
   };
 
   const handleRoleChange = async (userId: string, newRole: string) => {

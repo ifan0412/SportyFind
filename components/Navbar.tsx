@@ -10,32 +10,21 @@ import { cn } from "@/lib/utils";
 import { createBrowserClient } from "@supabase/ssr";
 import type { User as SupabaseAuthUser } from "@supabase/supabase-js";
 
-// ─── 完整的 8 種運動項目資料配置 (讓動態撈取的 Category 有美觀的 Label 與 Emoji) ───
-const SPORT_DICTIONARY: { value: string; emoji: string; label: string; labelZh: string }[] = [
-  { value: "volleyball",  emoji: "🏐", label: "Volleyball",  labelZh: "排球" },
-  { value: "basketball",  emoji: "🏀", label: "Basketball",  labelZh: "籃球" },
-  { value: "soccer",      emoji: "⚽", label: "Soccer",      labelZh: "足球" },
-  { value: "tennis",      emoji: "🎾", label: "Tennis",      labelZh: "網球" },
-  { value: "badminton",   emoji: "🏸", label: "Badminton",   labelZh: "羽毛球" },
-  { value: "pickleball",  emoji: "🏓", label: "Pickleball",  labelZh: "匹克球" },
-  { value: "gym",         emoji: "🏋️", label: "Gym",         labelZh: "健身" },
-  { value: "running",     emoji: "🏃", label: "Running",     labelZh: "路跑" },
-];
-
-// 🔥 修改點 1: 移除了靜態的 subLinks 寫死資料，改由元件內部動態渲染
 const navLinks = [
-  { href: "/network", label: "Players", icon: Users, hasDynamicSubLinks: false },
-  { href: "/coaches", label: "Coaches", icon: GraduationCap, hasDynamicSubLinks: false },
-  { href: "/team",    label: "Teams",   icon: Shield,        hasDynamicSubLinks: true },
-  { href: "/physio",  label: "Physio",  icon: Activity,      hasDynamicSubLinks: false },
+  { href: "/network", label: "Players", icon: Users },
+  { href: "/coaches", label: "Coaches", icon: GraduationCap },
+  { href: "/team",    label: "Teams",   icon: Shield },
+  { href: "/physio",  label: "Physio",  icon: Activity },
 ];
 
+// 🔥 修改點 1: 更新介面，確保包含 team_id
 export interface Notification {
   id: string;
-  type: "friend_request" | "friend_accepted";
+  type: "friend_request" | "friend_accepted" | "team_join_request" | "team_request_accepted" | "team_request_rejected";
   is_read: boolean;
   created_at: string;
   friendship_id: string | null;
+  team_id: string | null; // 新增欄位
   sender: {
     id: string;
     full_name: string | null;
@@ -66,6 +55,24 @@ function NotificationBell({
   const ref = useRef<HTMLDivElement>(null);
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
+
+  // 🔥 修改點 2: 處理動態導航邏輯
+  const handleNotifClick = (notif: Notification) => {
+    setOpen(false);
+    
+    // 如果是球隊加入請求，導向管理頁面
+    if (notif.type === "team_join_request" && notif.team_id) {
+      router.push(`/team/${notif.team_id}/admin`);
+    } 
+    // 如果是加入結果通知，導向球隊詳情頁
+    else if ((notif.type === "team_request_accepted" || notif.type === "team_request_rejected") && notif.team_id) {
+      router.push(`/team/${notif.team_id}`);
+    } 
+    // 預設導向好友頁面
+    else {
+      router.push("/profile?tab=friends");
+    }
+  };
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -112,11 +119,11 @@ function NotificationBell({
               notifications.map((notif) => (
                 <div
                   key={notif.id}
-                  onClick={() => { setOpen(false); router.push("/profile?tab=friends"); }}
+                  onClick={() => handleNotifClick(notif)}
                   className={`relative p-4 transition-colors cursor-pointer hover:bg-slate-800/50 ${!notif.is_read ? "bg-blue-500/5" : ""}`}
                 >
                   <button
-                    onClick={(e) => onDismiss(e, notif.id)}
+                    onClick={(e) => { e.stopPropagation(); onDismiss(e, notif.id); }}
                     className="absolute top-2 right-2 p-1 text-zinc-500 hover:text-white hover:bg-slate-700 rounded-full transition-colors z-10"
                     title="移除通知"
                   >
@@ -146,6 +153,15 @@ function NotificationBell({
                         )}
                         {notif.type === "friend_accepted" && (
                           <><span className="text-white">{notif.sender?.full_name ?? "某人"}</span> 接受了你的好友請求 🎉</>
+                        )}
+                        {notif.type === "team_join_request" && (
+                          <><span className="text-white">{notif.sender?.full_name ?? "某人"}</span> 申請加入您的球隊</>
+                        )}
+                        {notif.type === "team_request_accepted" && (
+                          <><span className="text-white">系統通知</span>：您的加入申請已被接受 🎉</>
+                        )}
+                        {notif.type === "team_request_rejected" && (
+                          <><span className="text-white">系統通知</span>：您的加入申請已被拒絕</>
                         )}
                       </p>
                       <span className="text-[10px] text-zinc-500">
@@ -192,11 +208,7 @@ export function Navbar() {
 
   const [mobileOpen, setMobileOpen] = useState(false);
   const [user, setUser]             = useState<SupabaseAuthUser | null>(null);
-  const [avatarUrl, setAvatarUrl]   = useState<string | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
-
-  // 🔥 修改點 2: 動態記錄目前資料庫中有哪些活著的 Teams 運動分類
-  const [activeSports, setActiveSports] = useState<typeof SPORT_DICTIONARY>([]);
 
   const processingIds = useRef<Set<string>>(new Set());
   const [processingSet, setProcessingSet] = useState<Set<string>>(new Set());
@@ -210,33 +222,12 @@ export function Navbar() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
   ), []);
 
-  // ─── 撈取資料庫中目前真正有註冊的分類項目 ───
-  useEffect(() => {
-    async function fetchActiveCategories() {
-      const { data } = await supabase
-        .from("teams")
-        .select("sport_category");
-      
-      if (data) {
-        const uniqueCategories = [
-          ...new Set(data.map((t: any) => t.sport_category?.toLowerCase()))
-        ];
-
-        const matchedSports = SPORT_DICTIONARY.filter((sport) =>
-          uniqueCategories.includes(sport.value.toLowerCase())
-        );
-
-        setActiveSports(matchedSports);
-      }
-    }
-    fetchActiveCategories();
-  }, [supabase]);
-
   const fetchNotifications = useCallback(async (uid: string) => {
+    // 🔥 修改點 3: 撈取資料時加入 team_id
     const { data } = await supabase
       .from("notifications")
       .select(
-        `id, type, is_read, created_at, friendship_id,
+        `id, type, is_read, created_at, friendship_id, team_id,
          sender:sender_id (id, full_name, avatar_url)`
       )
       .eq("user_id", uid)
@@ -256,14 +247,14 @@ export function Navbar() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setUser(session?.user ?? null);
       if (event === "SIGNED_IN" && session?.user) await fetchNotifications(session.user.id);
-      if (event === "SIGNED_OUT") { setNotifications([]); setAvatarUrl(null); }
+      if (event === "SIGNED_OUT") { setNotifications([]); }
       if (event === "SIGNED_IN" || event === "SIGNED_OUT") router.refresh();
     });
 
     return () => subscription.unsubscribe();
   }, [supabase, router, fetchNotifications]);
 
-  // ── Realtime: notifications + friendships ────────────────────────────────
+  // ── Realtime 監聽 ────────────────────────────────
   useEffect(() => {
     let channel: ReturnType<typeof supabase.channel> | null = null;
     let isMounted = true;
@@ -279,9 +270,10 @@ export function Navbar() {
           "postgres_changes",
           { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${uid}` },
           async (payload) => {
+            // 🔥 修改點 4: 即時撈取新資料時確保包含 team_id
             const { data: newNotif } = await supabase
               .from("notifications")
-              .select(`id, type, is_read, created_at, friendship_id, sender:sender_id (id, full_name, avatar_url)`)
+              .select(`id, type, is_read, created_at, friendship_id, team_id, sender:sender_id (id, full_name, avatar_url)`)
               .eq("id", payload.new.id)
               .single();
 
@@ -300,24 +292,6 @@ export function Navbar() {
             setNotifications((prev) => prev.filter((n) => n.id !== payload.old.id));
           }
         )
-        .on(
-          "postgres_changes",
-          { event: "UPDATE", schema: "public", table: "friendships" },
-          async (payload) => {
-            if (payload.new.sender_id === uid || payload.new.receiver_id === uid) {
-              if (isMounted) await fetchNotifications(uid);
-            }
-          }
-        )
-        .on(
-          "postgres_changes",
-          { event: "DELETE", schema: "public", table: "friendships" },
-          (payload) => {
-            if (payload.old.sender_id === uid || payload.old.receiver_id === uid) {
-              setNotifications((prev) => prev.filter((n) => n.friendship_id !== payload.old.id));
-            }
-          }
-        )
         .subscribe();
     };
 
@@ -331,6 +305,7 @@ export function Navbar() {
     };
   }, [supabase, fetchNotifications]);
 
+  // ... (handleMarkAllRead, handleAccept, handleReject, handleDismiss 保持不變)
   const handleMarkAllRead = useCallback(async () => {
     if (!user?.id) return;
     setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
@@ -353,7 +328,6 @@ export function Navbar() {
     } finally {
       stopProcessing(notif.id);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supabase, user?.id, processingSet]);
 
   const handleReject = useCallback(async (notif: Notification) => {
@@ -372,7 +346,6 @@ export function Navbar() {
     } finally {
       stopProcessing(notif.id);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supabase, processingSet]);
 
   const handleDismiss = useCallback(async (e: React.MouseEvent, notifId: string) => {
@@ -383,7 +356,7 @@ export function Navbar() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    setUser(null); setNotifications([]); setAvatarUrl(null);
+    setUser(null); setNotifications([]);
     router.push("/"); router.refresh();
   };
 
@@ -400,7 +373,6 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-50 border-b border-slate-800 bg-slate-950/90 backdrop-blur-md shadow-sm">
       <nav className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6 lg:px-8">
-
         <Link href="/" className="flex items-center gap-2 transition-opacity hover:opacity-80" onClick={() => setMobileOpen(false)}>
           <span className="flex size-8 items-center justify-center rounded-md bg-blue-600 text-white">
             <Zap className="size-4" aria-hidden="true" />
@@ -409,12 +381,11 @@ export function Navbar() {
             SPORTY<span className="text-blue-400">FIND</span>
           </span>
         </Link>
-
         <ul className="hidden items-center gap-1 md:flex">
-          {navLinks.map(({ href, label, icon: Icon, hasDynamicSubLinks }) => {
+          {navLinks.map(({ href, label, icon: Icon }) => {
             const isActive = pathname === href || pathname.startsWith(`${href}/`);
             return (
-              <li key={href} className="relative group">
+              <li key={href}>
                 <Link
                   href={href}
                   className={cn(
@@ -424,182 +395,58 @@ export function Navbar() {
                 >
                   <Icon className="size-4" aria-hidden="true" />
                   {label}
-                  {hasDynamicSubLinks && <span className="text-[10px] ml-1 opacity-50 group-hover:opacity-100 transition-opacity">▼</span>}
                 </Link>
-
-                {/* 🔥 修改點 3: 動態渲染下拉選單中已建立球隊的運動分類項目 */}
-                {hasDynamicSubLinks && (
-                  <div className="absolute top-full left-0 mt-0 w-52 bg-slate-900 border border-slate-800 rounded-xl shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 overflow-hidden">
-                    {activeSports.length === 0 ? (
-                      <div className="px-4 py-3 text-xs text-zinc-500 font-bold">目前暫無分類</div>
-                    ) : (
-                      activeSports.map((sport) => (
-                        <Link
-                          key={sport.value}
-                          href={`/team?sport=${sport.value.toLowerCase()}`}
-                          className="block px-4 py-2.5 text-xs font-bold text-zinc-400 hover:text-white hover:bg-slate-800 transition"
-                        >
-                          {sport.emoji} {sport.labelZh} ({sport.label})
-                        </Link>
-                      ))
-                    )}
-                    <Link
-                      href="/team"
-                      className="block px-4 py-3 text-xs font-black text-blue-400 border-t border-slate-800/80 hover:bg-slate-800 transition"
-                    >
-                      查看所有球隊 →
-                    </Link>
-                  </div>
-                )}
               </li>
             );
           })}
-
           {user ? (
             <li className="flex items-center gap-4 ml-4 pl-4 border-l border-slate-800">
-              
-              {/* 1. 通知鈴鐺 */}
               <NotificationBell {...bellProps} /> 
-              
-              {/* 2. 收件匣捷徑 */}
-              <Link 
-                href="/inbox" 
-                className="text-slate-400 hover:text-white transition-colors p-2 rounded-md hover:bg-slate-800 flex items-center justify-center" 
-                title="收件匣"
-              >
+              <Link href="/inbox" className="text-slate-400 hover:text-white transition-colors p-2 rounded-md hover:bg-slate-800 flex items-center justify-center" title="收件匣">
                 <MessageSquare className="w-5 h-5" />
               </Link>
-
-              {/* 3. 個人檔案捷徑 (DP Icon) */}
-              <Link
-                href="/profile"
-                className={cn(
-                  "relative flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 transition-all duration-200 bg-slate-900",
-                  pathname === "/profile" 
-                    ? "border-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.3)] text-blue-400" 
-                    : "border-slate-700 text-slate-400 hover:border-slate-400 hover:text-white"
-                )}
-                title="個人檔案"
-                aria-label="前往個人檔案"
-              >
+              <Link href="/profile" className={cn("relative flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 transition-all duration-200 bg-slate-900", pathname === "/profile" ? "border-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.3)] text-blue-400" : "border-slate-700 text-slate-400 hover:border-slate-400 hover:text-white")} title="個人檔案">
                 <User className="size-4" />
               </Link>
-
-              {/* 4. 登出按鈕 (Desktop) */}
-              <button
-                onClick={handleLogout}
-                className="flex items-center justify-center p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-colors"
-                title="登出"
-                aria-label="登出"
-              >
+              <button onClick={handleLogout} className="flex items-center justify-center p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-colors" title="登出">
                 <LogOut className="w-5 h-5" />
               </button>
-              
             </li>
           ) : (
             <li>
-              <Link href="/auth" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-slate-400 hover:bg-slate-800 hover:text-white transition-colors">
-                登入
-              </Link>
+              <Link href="/auth" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-slate-400 hover:bg-slate-800 hover:text-white transition-colors">登入</Link>
             </li>
           )}
         </ul>
-
         <div className="flex items-center gap-2 md:hidden">
           {user && <NotificationBell {...bellProps} />}
-          <button
-            type="button"
-            className="inline-flex size-9 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
-            onClick={() => setMobileOpen((o) => !o)}
-          >
+          <button type="button" className="inline-flex size-9 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-slate-800 hover:text-white" onClick={() => setMobileOpen((o) => !o)}>
             {mobileOpen ? <X className="size-5" /> : <Menu className="size-5" />}
           </button>
         </div>
       </nav>
-
       {mobileOpen && (
         <div className="border-t border-slate-800 bg-slate-950 md:hidden absolute w-full max-h-[85vh] overflow-y-auto shadow-2xl">
           <ul className="mx-auto max-w-6xl space-y-2 px-4 py-4 sm:px-6">
-            {navLinks.map(({ href, label, icon: Icon, hasDynamicSubLinks }) => {
+            {navLinks.map(({ href, label, icon: Icon }) => {
               const isActive = pathname === href || pathname.startsWith(`${href}/`);
               return (
-                <li key={href} className="space-y-1">
-                  <Link
-                    href={href}
-                    className={cn(
-                      "flex items-center gap-3 rounded-md px-3 py-3 text-sm font-bold transition-colors",
-                      isActive ? "bg-blue-600/15 text-blue-400" : "text-slate-400 hover:bg-slate-800 hover:text-white",
-                    )}
-                    onClick={() => !hasDynamicSubLinks && setMobileOpen(false)}
-                  >
+                <li key={href}>
+                  <Link href={href} className={cn("flex items-center gap-3 rounded-md px-3 py-3 text-sm font-bold transition-colors", isActive ? "bg-blue-600/15 text-blue-400" : "text-slate-400 hover:bg-slate-800 hover:text-white")} onClick={() => setMobileOpen(false)}>
                     <Icon className="size-4" />
                     {label}
                   </Link>
-                  
-                  {/* 手機版動態次級選單 */}
-                  {hasDynamicSubLinks && (
-                    <div className="pl-10 pr-3 pb-2 space-y-1 border-l-2 border-slate-800 ml-5">
-                      {activeSports.map((sport) => (
-                        <Link
-                          key={sport.value}
-                          href={`/team?sport=${sport.value.toLowerCase()}`}
-                          onClick={() => setMobileOpen(false)}
-                          className="block py-2 text-xs font-medium text-zinc-400 hover:text-white transition"
-                        >
-                          {sport.emoji} {sport.labelZh} ({sport.label})
-                        </Link>
-                      ))}
-                      <Link
-                        href="/team"
-                        onClick={() => setMobileOpen(false)}
-                        className="block py-2 text-xs font-black text-blue-400 transition"
-                      >
-                        查看所有球隊 →
-                      </Link>
-                    </div>
-                  )}
                 </li>
               );
             })}
-
             <div className="h-px bg-slate-800 my-4" />
-
             {user ? (
               <>
-                <li>
-                  <Link
-                    href="/profile"
-                    className={cn(
-                      "flex items-center gap-3 rounded-md px-3 py-3 text-sm font-bold transition-colors",
-                      pathname === "/profile" ? "text-blue-400" : "text-slate-400 hover:bg-slate-800 hover:text-white",
-                    )}
-                    onClick={() => setMobileOpen(false)}
-                  >
-                    {avatarUrl ? (
-                      <div className="size-6 rounded-full bg-cover bg-center border border-slate-600" style={{ backgroundImage: `url(${avatarUrl})` }} />
-                    ) : (
-                      <div className="size-6 rounded-full bg-slate-800 border border-slate-600 flex items-center justify-center">
-                        <User className="size-3 text-slate-400" />
-                      </div>
-                    )}
-                    個人檔案 / 管理
-                  </Link>
-                </li>
-                <li>
-                  <button
-                    onClick={() => { setMobileOpen(false); handleLogout(); }}
-                    className="flex w-full items-center gap-3 rounded-md px-3 py-3 text-sm font-bold text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
-                  >
-                    <LogOut className="size-4" /> 登出
-                  </button>
-                </li>
+                <li><Link href="/profile" className={cn("flex items-center gap-3 rounded-md px-3 py-3 text-sm font-bold transition-colors", pathname === "/profile" ? "text-blue-400" : "text-slate-400 hover:bg-slate-800 hover:text-white")} onClick={() => setMobileOpen(false)}><User className="size-4" /> 個人檔案 / 管理</Link></li>
+                <li><button onClick={() => { setMobileOpen(false); handleLogout(); }} className="flex w-full items-center gap-3 rounded-md px-3 py-3 text-sm font-bold text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"><LogOut className="size-4" /> 登出</button></li>
               </>
             ) : (
-              <li>
-                <Link href="/auth" className="flex items-center gap-2 rounded-md px-3 py-3 text-sm font-bold text-slate-400 hover:bg-slate-800 hover:text-white" onClick={() => setMobileOpen(false)}>
-                  登入
-                </Link>
-              </li>
+              <li><Link href="/auth" className="flex items-center gap-2 rounded-md px-3 py-3 text-sm font-bold text-slate-400 hover:bg-slate-800 hover:text-white" onClick={() => setMobileOpen(false)}>登入</Link></li>
             )}
           </ul>
         </div>
