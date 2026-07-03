@@ -64,7 +64,28 @@ interface CoachProfile { id: string; sport: string; rate: number | string; statu
 interface Sport { id: string; name: string; }
 interface UserSport { id: string; sport_id: string; metadata: { position?: string; [key: string]: any }; sports: { name: string } | null; }
 interface MediaItem { id: string; sportName: string; type: "image" | "video"; url: string; fileName?: string; createdAt: string; }
-type TabId = "dashboard" | "expertise" | "highlights" | "feed" | "coach" | "physio" | "friends";
+interface UserTeamRow {
+  role: string;
+  joined_at: string;
+  teams: {
+    id: string;
+    name_en: string;
+    name_zh: string | null;
+    sport_category: string;
+    recruitment_status: string;
+    logo_url: string | null;
+  } | null;
+}
+
+const TEAM_SPORT_EMOJI: Record<string, string> = {
+  volleyball: "🏐", basketball: "🏀", soccer: "⚽", tennis: "🎾",
+  badminton: "🏸", pickleball: "🏓", gym: "🏋️", running: "🏃",
+};
+const TEAM_SPORT_ZH: Record<string, string> = {
+  volleyball: "排球", basketball: "籃球", soccer: "足球", tennis: "網球",
+  badminton: "羽毛球", pickleball: "匹克球", gym: "健身", running: "路跑",
+};
+type TabId = "dashboard" | "expertise" | "highlights" | "feed" | "coach" | "physio" | "friends" | "teams";
 type FieldDef = { key: string; label: string; type: "select" | "text" | "number"; options?: string[]; placeholder?: string };
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -168,6 +189,7 @@ function ProfilePageContent() {
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
   const [galleryMedia, setGalleryMedia] = useState<MediaItem[]>([]);
   const [selectedPost, setSelectedPost] = useState<MediaItem | null>(null);
+  const [userTeams, setUserTeams] = useState<UserTeamRow[]>([]);
 
   // 重構 publicTabs，將後台管理的 Tab 移出
   const publicTabs = useMemo(() => {
@@ -192,12 +214,13 @@ function ProfilePageContent() {
 
   const loadProfileData = useCallback(async (userId: string) => {
     try {
-      const [{ data: prof }, { data: usData }, { data: sData }, { data: coachesData }, { data: locData }] = await Promise.all([
+      const [{ data: prof }, { data: usData }, { data: sData }, { data: coachesData }, { data: locData }, { data: teamsData }] = await Promise.all([
         supabase.from("profiles").select("*").eq("id", userId).single(),
         supabase.from("user_sports").select("id, sport_id, metadata, sports(name)").eq("user_id", userId),
         supabase.from("sports").select("*").order("name", { ascending: true }),
         supabase.from("coach_profiles").select("*").eq("user_id", userId).order("created_at", { ascending: true }),
-        supabase.from("locations").select("country, region")
+        supabase.from("locations").select("country, region"),
+        supabase.from("team_members").select("role, joined_at, teams(id, name_en, name_zh, sport_category, recruitment_status, logo_url)").eq("user_id", userId),
       ]);
       if (locData) {
         const locMap: Record<string, string[]> = {};
@@ -254,6 +277,7 @@ function ProfilePageContent() {
       if (usData) setUserSports(usData as unknown as UserSport[]);
       if (sData) setAllSports(sData);
       if (coachesData) setCoachProfiles(coachesData.map(c => ({ ...c, rate: c.rate === 0 ? "" : c.rate })));
+      if (teamsData) setUserTeams(teamsData as unknown as UserTeamRow[]);
       const { data: files } = await supabase.storage.from("highlights").list(`${userId}/`, { limit: 20, sortBy: { column: "created_at", order: "desc" } });
       if (files && files.length > 0) {
         setGalleryMedia(files.filter(f => f.name !== ".emptyFolderPlaceholder").map(file => { const { data: urlData } = supabase.storage.from("highlights").getPublicUrl(`${userId}/${file.name}`); return { id: file.id || file.name, sportName: "Highlight", type: "image" as const, url: urlData.publicUrl, fileName: file.name, createdAt: file.created_at ? new Date(file.created_at).toLocaleDateString() : "最近上傳" }; }));
@@ -530,6 +554,13 @@ function ProfilePageContent() {
                       <span className="flex items-center gap-3"><span className="text-lg">👥</span> 好友管理</span>
                       <span className="text-xs">→</span>
                     </button>
+                    <button
+                      onClick={() => handleTabSwitch("teams")}
+                      className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold transition ${activeTab === "teams" ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20" : "bg-slate-900/50 text-zinc-400 hover:bg-slate-800 hover:text-white"}`}
+                    >
+                      <span className="flex items-center gap-3"><span className="text-lg">🛡️</span> 我的球隊 / 群組</span>
+                      <span className="text-xs">→</span>
+                    </button>
                   </div>
                   
                 </div>
@@ -542,17 +573,17 @@ function ProfilePageContent() {
             
             {/* 判斷目前是否處於私密後台 Tab */}
             {(() => {
-              const isPrivateTab = ["dashboard", "friends"].includes(activeTab);
+              const isPrivateTab = ["dashboard", "friends", "teams"].includes(activeTab);
               
               if (isPrivateTab) {
                 return (
                   <div className="bg-slate-900 border border-slate-800 p-3 md:p-4 rounded-2xl flex items-center justify-between w-full mb-8 shadow-sm">                    <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-xl">
-                        {activeTab === "dashboard" ? "📊" : "👥"}
+                        {activeTab === "dashboard" ? "📊" : activeTab === "teams" ? "🛡️" : "👥"}
                       </div>
                       <div>
                         <h2 className="text-sm md:text-base font-black text-white leading-tight">
-                          {activeTab === "dashboard" ? "數據後台" : "好友管理"}
+                          {activeTab === "dashboard" ? "數據後台" : activeTab === "teams" ? "我的球隊 / 群組" : "好友管理"}
                         </h2>
                         <p className="text-[10px] text-zinc-400 font-bold tracking-wider mt-0.5">專屬私密空間</p>
                       </div>
@@ -647,6 +678,125 @@ function ProfilePageContent() {
                   onSaveGlobal={handleSaveProfile}
                 />
               )}
+
+              {activeTab === "teams" && (() => {
+                const managedTeams = userTeams.filter(t => t.role === "admin" && t.teams);
+                const joinedTeams  = userTeams.filter(t => t.role !== "admin" && t.teams);
+                const hasBoth = managedTeams.length > 0 || joinedTeams.length > 0;
+
+                return (
+                  <div className="animate-fadeIn space-y-8">
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <h2 className="text-lg md:text-xl font-black text-white">我的球隊 / 群組</h2>
+                        <p className="text-xs text-zinc-500 mt-1">管理你建立或加入的所有球隊與運動群組。</p>
+                      </div>
+                      <a
+                        href="/team/create"
+                        className="flex-shrink-0 flex items-center gap-1.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-black px-4 py-2.5 rounded-xl shadow-[0_0_10px_rgba(217,119,6,0.2)] transition-all active:scale-95"
+                      >
+                        ＋ 建立球隊
+                      </a>
+                    </div>
+
+                    {!hasBoth && (
+                      <div className="bg-slate-900/30 border border-dashed border-slate-700/50 rounded-3xl py-16 text-center px-6">
+                        <p className="text-4xl mb-4">🛡️</p>
+                        <p className="text-zinc-400 font-bold text-sm mb-2">你尚未加入或建立任何球隊 / 群組</p>
+                        <p className="text-zinc-600 text-xs mb-6">建立屬於你的隊伍，招募志同道合的夥伴！</p>
+                        <a
+                          href="/team/create"
+                          className="inline-flex items-center gap-2 bg-amber-600 hover:bg-amber-500 text-white text-sm font-black px-6 py-3 rounded-xl transition-all shadow-[0_0_15px_rgba(217,119,6,0.2)]"
+                        >
+                          ＋ Create Team / Group
+                        </a>
+                      </div>
+                    )}
+
+                    {managedTeams.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest mb-4 pl-1">我管理的球隊 (Admin)</p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {managedTeams.map(({ teams: t }) => {
+                            if (!t) return null;
+                            const emoji = TEAM_SPORT_EMOJI[t.sport_category] ?? "🏅";
+                            const zh    = TEAM_SPORT_ZH[t.sport_category] ?? t.sport_category;
+                            const name  = t.name_en || t.name_zh || "Unnamed";
+                            const statusMap: Record<string, string> = {
+                              open: "🟢 公開招募", invite_only: "🔵 邀請制", closed: "🔴 暫停招募",
+                            };
+                            return (
+                              <div key={t.id} className="bg-slate-900/50 border border-amber-500/20 rounded-2xl p-4 flex gap-4 items-start">
+                                <div
+                                  className="w-14 h-14 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-2xl font-black text-zinc-500 flex-shrink-0 overflow-hidden bg-cover bg-center"
+                                  style={t.logo_url ? { backgroundImage: `url(${t.logo_url})` } : undefined}
+                                >
+                                  {!t.logo_url && (name[0] || "T")}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-black text-white truncate">{name}</p>
+                                  <div className="flex flex-wrap gap-1.5 mt-1.5 mb-3">
+                                    <span className="text-[10px] font-black text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded-full">{emoji} {zh}</span>
+                                    <span className="text-[10px] font-bold text-zinc-400 bg-slate-800 border border-slate-700 px-2 py-0.5 rounded-full">{statusMap[t.recruitment_status] ?? t.recruitment_status}</span>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <a href={`/team/${t.id}`} className="flex-1 text-center text-xs font-bold py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-zinc-200 transition">查看頁面</a>
+                                    <a href={`/team/${t.id}/admin`} className="flex-1 text-center text-xs font-black py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white transition shadow-[0_0_10px_rgba(217,119,6,0.2)]">⚙️ 管理</a>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {joinedTeams.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-4 pl-1">我加入的球隊 / 群組</p>
+                        <div className="space-y-3">
+                          {joinedTeams.map(({ teams: t, role }) => {
+                            if (!t) return null;
+                            const emoji = TEAM_SPORT_EMOJI[t.sport_category] ?? "🏅";
+                            const zh    = TEAM_SPORT_ZH[t.sport_category] ?? t.sport_category;
+                            const name  = t.name_en || t.name_zh || "Unnamed";
+                            const roleBadgeCls: Record<string, string> = {
+                              captain: "text-purple-400 bg-purple-500/10 border-purple-500/20",
+                              coach:   "text-blue-400 bg-blue-500/10 border-blue-500/20",
+                              player:  "text-zinc-300 bg-slate-800 border-slate-700",
+                              pending: "text-amber-400 bg-amber-500/10 border-amber-500/20",
+                            };
+                            const roleLabel: Record<string, string> = {
+                              captain: "隊長", coach: "教練", player: "成員", pending: "⏳ 申請審核中",
+                            };
+                            return (
+                              <a
+                                key={t.id}
+                                href={`/team/${t.id}`}
+                                className="flex items-center gap-4 bg-slate-900/40 border border-slate-800 hover:border-slate-600 rounded-2xl p-4 transition group"
+                              >
+                                <div
+                                  className="w-11 h-11 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-xl font-black text-zinc-500 flex-shrink-0 overflow-hidden bg-cover bg-center"
+                                  style={t.logo_url ? { backgroundImage: `url(${t.logo_url})` } : undefined}
+                                >
+                                  {!t.logo_url && (name[0] || "T")}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-black text-white truncate group-hover:text-amber-400 transition">{name}</p>
+                                  <p className="text-xs text-zinc-500">{emoji} {zh}</p>
+                                </div>
+                                <span className={`text-[10px] font-black px-2.5 py-1 rounded-full border flex-shrink-0 ${roleBadgeCls[role] ?? "text-zinc-400 bg-slate-800 border-slate-700"}`}>
+                                  {roleLabel[role] ?? role}
+                                </span>
+                              </a>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </div>
