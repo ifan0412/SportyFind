@@ -60,7 +60,6 @@ interface Profile {
   physio_facebook_url: string | null;
   physio_threads_url: string | null;
 }
-interface CoachProfile { id: string; sport: string; rate: number | string; status: string; country: string; region: string; }
 interface Sport { id: string; name: string; }
 interface UserSport { id: string; sport_id: string; metadata: { position?: string; [key: string]: any }; sports: { name: string } | null; }
 interface MediaItem { id: string; sportName: string; type: "image" | "video"; url: string; fileName?: string; createdAt: string; }
@@ -160,7 +159,6 @@ function ProfilePageContent() {
 
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [coachProfiles, setCoachProfiles] = useState<CoachProfile[]>([]);
   const [userSports, setUserSports] = useState<UserSport[]>([]);
   const [allSports, setAllSports] = useState<Sport[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -190,7 +188,7 @@ function ProfilePageContent() {
   const [selectedPost, setSelectedPost] = useState<MediaItem | null>(null);
   const [userTeams, setUserTeams] = useState<UserTeamRow[]>([]);
 
-  // Automatically switch views if the URL contains ?tab=... or ?view=... (e.g. ?view=teams after deletion)
+  // Automatically switch views if the URL contains ?tab=... or ?view=...
   useEffect(() => {
     const tabParam = (searchParams?.get("tab") || searchParams?.get("view")) as TabId | null;
     if (tabParam && ["dashboard", "expertise", "highlights", "feed", "coach", "physio", "friends", "teams"].includes(tabParam)) {
@@ -198,7 +196,7 @@ function ProfilePageContent() {
     }
   }, [searchParams]);
 
-  // Public frontend tabs ONLY (no backend items like teams)
+  // Public frontend tabs ONLY
   const publicTabs = useMemo(() => {
     const base: { id: TabId; icon: string; label: string; en: string }[] = [
       { id: "expertise", icon: "📋", label: "技術特長", en: "Expertise" },
@@ -220,11 +218,10 @@ function ProfilePageContent() {
 
   const loadProfileData = useCallback(async (userId: string) => {
     try {
-      const [{ data: prof }, { data: usData }, { data: sData }, { data: coachesData }, { data: locData }, { data: teamsData }] = await Promise.all([
+      const [{ data: prof }, { data: usData }, { data: sData }, { data: locData }, { data: teamsData }] = await Promise.all([
         supabase.from("profiles").select("*").eq("id", userId).single(),
         supabase.from("user_sports").select("id, sport_id, metadata, sports(name)").eq("user_id", userId),
         supabase.from("sports").select("*").order("name", { ascending: true }),
-        supabase.from("coach_profiles").select("*").eq("user_id", userId).order("created_at", { ascending: true }),
         supabase.from("locations").select("country, region"),
         supabase.from("team_members").select("role, joined_at, teams(id, name_en, name_zh, sport_category, recruitment_status, logo_url)").eq("user_id", userId),
       ]);
@@ -280,7 +277,6 @@ function ProfilePageContent() {
       }
       if (usData) setUserSports(usData as unknown as UserSport[]);
       if (sData) setAllSports(sData);
-      if (coachesData) setCoachProfiles(coachesData.map(c => ({ ...c, rate: c.rate === 0 ? "" : c.rate })));
       if (teamsData) setUserTeams(teamsData as unknown as UserTeamRow[]);
       const { data: files } = await supabase.storage.from("highlights").list(`${userId}/`, { limit: 20, sortBy: { column: "created_at", order: "desc" } });
       if (files && files.length > 0) {
@@ -305,7 +301,7 @@ function ProfilePageContent() {
     return () => clearTimeout(timer);
   }, [editForm.handle, isEditing, user?.id, profile?.handle, supabase]);
 
-  const onAvatarFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onAvatarFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0]; const reader = new FileReader();
       reader.addEventListener("load", () => { setCropImageSrc(reader.result?.toString() || ""); setIsCropModalOpen(true); });
@@ -401,24 +397,6 @@ function ProfilePageContent() {
       alert("❌ 同步失敗，請開啟瀏覽器主控台 (F12 Console) 檢查錯誤詳情。");
     }
     setIsSaving(false);
-  };
-
-  const addCoachProfile = () => setCoachProfiles(prev => [...prev, { id: `new_${Date.now()}`, sport: "", rate: "", status: "hidden", country: "", region: "" }]);
-  const updateCoachProfile = (id: string, field: string, value: any) => setCoachProfiles(prev => prev.map(c => c.id === id ? { ...c, [field as keyof CoachProfile]: value } : c));
-  const saveCoachProfile = async (coach: CoachProfile) => {
-    if (!user || !coach.sport) return alert("請選擇專項");
-    const isNew = coach.id.startsWith("new_");
-    const payload = { user_id: user.id, sport: coach.sport, rate: Number(coach.rate) || 0, status: coach.status, country: coach.country, region: coach.region };
-    if (isNew) { const { error } = await supabase.from("coach_profiles").insert(payload); if (!error) loadProfileData(user.id); else alert("新增失敗"); }
-    else { const { error } = await supabase.from("coach_profiles").update(payload).eq("id", coach.id); if (!error) alert("更新成功"); else alert("更新失敗"); }
-    router.refresh();
-  };
-  const deleteCoachProfile = async (id: string) => {
-    if (!window.confirm("確定刪除此教練名片？")) return;
-    if (id.startsWith("new_")) { setCoachProfiles(prev => prev.filter(c => c.id !== id)); return; }
-    const { error } = await supabase.from("coach_profiles").delete().eq("id", id);
-    if (!error) setCoachProfiles(prev => prev.filter(c => c.id !== id));
-    router.refresh();
   };
 
   const toggleDisplaySport = (sportName: string) => {
@@ -522,18 +500,16 @@ function ProfilePageContent() {
                   <p className="text-sm text-zinc-300 leading-relaxed text-left bg-slate-900/30 p-4 rounded-2xl border border-slate-800/50 mb-6">{profile?.bio || "寫下一段關於你的歷程..."}</p>
                   <div className="flex flex-col gap-3">
                     <button onClick={() => setIsEditing(true)} className="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition flex items-center justify-center gap-2">✏️ 編輯基礎檔案與身份</button>
-                    {/* 🔥 新增：預覽與分享按鈕並列 */}
                     <div className="grid grid-cols-2 gap-2">
                       <button onClick={() => router.push(`/p/${user?.id}`)} className="w-full bg-blue-600/20 border border-blue-500/40 hover:bg-blue-600 hover:text-white text-blue-400 font-bold py-3 rounded-xl transition flex items-center justify-center gap-1.5 text-xs">👁️ 預覽公開名片</button>
                       <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/p/${user?.id}`); alert("名片網址已複製！"); }} className="w-full bg-transparent border border-slate-700 hover:border-slate-500 text-zinc-300 font-bold py-3 rounded-xl transition text-xs">分享連結 ↗</button>
                     </div>
                   </div>
                   
-                  {/* ─── Private Backend Section (Rearranged & Teams added conditionally) ─── */}
+                  {/* ─── Private Backend Section ─── */}
                   <div className="mt-6 pt-6 border-t border-slate-800/80 space-y-3">
                     <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider pl-1 text-left">專屬後台 (Backend)</p>
                     
-                    {/* Option 1: Friends Management */}
                     <button
                       onClick={() => handleTabSwitch("friends")}
                       className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold transition ${activeTab === "friends" ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20" : "bg-slate-900/50 text-zinc-400 hover:bg-slate-800 hover:text-white"}`}
@@ -542,7 +518,6 @@ function ProfilePageContent() {
                       <span className="text-xs">→</span>
                     </button>
 
-                    {/* Option 2: Teams Management (Only appears if user has teams) */}
                     {userTeams.length > 0 && (
                       <button
                         onClick={() => handleTabSwitch("teams")}
@@ -553,7 +528,6 @@ function ProfilePageContent() {
                       </button>
                     )}
 
-                    {/* Option 3: Analytics Dashboard (Moved to Bottom) */}
                     <button
                       onClick={() => handleTabSwitch("dashboard")}
                       className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold transition ${activeTab === "dashboard" ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20" : "bg-slate-900/50 text-zinc-400 hover:bg-slate-800 hover:text-white"}`}
@@ -571,7 +545,6 @@ function ProfilePageContent() {
           {/* ── Tab Area (Right/Main Column) ── */}
           <div className="lg:col-span-8 xl:col-span-9 flex flex-col" ref={contentRef}>
             
-            {/* Private Backend View Header */}
             {(() => {
               const isPrivateTab = ["dashboard", "friends", "teams"].includes(activeTab);
               
@@ -651,10 +624,8 @@ function ProfilePageContent() {
                 <CoachTab
                   allSports={allSports}
                   editForm={editForm}
-                  // 🔥 修正 1：直接使用 setEditForm 內聯更新，就不怕找不到函數名稱了！
-                  onFieldChange={(field, value) => setEditForm({ ...editForm, [field]: value })}
-                  // 🔥 修正 2：請注意這裡！如果你的存檔函數不叫 handleSave，請改成 saveProfile 或 updateProfile
-                  onSaveGlobal={handleSave} 
+                  onFieldChange={(field, value) => setEditForm((prev: any) => ({ ...prev, [field]: value }))}
+                  onSaveGlobal={handleSaveProfile}
                   isSaving={isSaving}
                 />
               )}
