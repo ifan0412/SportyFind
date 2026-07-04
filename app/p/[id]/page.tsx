@@ -5,30 +5,22 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { BackButton } from "@/components/BackButton";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Mail, Phone, MapPin, X, EyeOff, MessageSquare, Zap, Shield, Star } from "lucide-react"; 
+import { Mail, Phone, MapPin, X, EyeOff, MessageSquare, Zap, Star, AlertCircle } from "lucide-react"; 
 
 const FacebookIcon = ({ className }: { className?: string }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
-  </svg>
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" /></svg>
 );
 
 const InstagramIcon = ({ className }: { className?: string }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
-    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
-    <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
-  </svg>
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect width="20" height="20" x="2" y="2" rx="5" ry="5" /><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" /><line x1="17.5" x2="17.51" y1="6.5" y2="6.5" /></svg>
 );
 
 const ThreadsIcon = ({ className }: { className?: string }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <path d="M12 22C6.477 22 2 17.523 2 12S6.477 2 12 2s10 4.477 10 10-4.477 10-10 10zM12 10.5v3c0 .828-.672 1.5-1.5 1.5S9 14.328 9 13.5v-3c0-1.657 1.343-3 3-3s3 1.343 3 3v2.25c0 .414-.336.75-.75.75s-.75-.336-.75-.75V10.5" />
-  </svg>
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M12 22C6.477 22 2 17.523 2 12S6.477 2 12 2s10 4.477 10 10-4.477 10-10 10zM12 10.5v3c0 .828-.672 1.5-1.5 1.5S9 14.328 9 13.5v-3c0-1.657 1.343-3 3-3s3 1.343 3 3v2.25c0 .414-.336.75-.75.75s-.75-.336-.75-.75V10.5" /></svg>
 );
 
 interface Profile {
-  id: string; full_name: string | null; handle: string | null; headline: string | null; bio: string | null; location: string | null; avatar_url: string | null; status_tag: string | null; display_sports: string[] | null;
+  id: string; full_name: string | null; handle: string | null; headline: string | null; bio: string | null; coach_bio?: string | null; location: string | null; avatar_url: string | null; status_tag: string | null; display_sports: string[] | null;
   is_coach: boolean | null;
   is_physio: boolean | null; physio_rate: number | null; clinic_name: string | null; physio_status: string | null; physio_region: string | null;
   contact_email?: string | null; contact_phone?: string | null; city_region?: string | null; address?: string | null; is_address_public?: boolean; instagram_url?: string | null; facebook_url?: string | null; threads_url?: string | null;
@@ -36,7 +28,6 @@ interface Profile {
   physio_experience_years?: string | null; physio_qualifications?: string | null; physio_services_offered?: string | null;
 }
 
-interface CoachProfile { id: string; sport: string; rate: number; status: string; country: string; region: string; }
 interface UserSport { id: string; sports: { name: string } | null; metadata: Record<string, any>; }
 interface MediaItem { id: string; sportName: string; url: string; }
 
@@ -67,7 +58,6 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
 
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [coachProfiles, setCoachProfiles] = useState<CoachProfile[]>([]);
   const [coachServices, setCoachServices] = useState<any[]>([]);
   const [coachReviews, setCoachReviews] = useState<any[]>([]);
   const [userSports, setUserSports] = useState<UserSport[]>([]);
@@ -83,7 +73,6 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
   const [friendLoading, setFriendLoading] = useState(false);
   const [showUnfriendConfirm, setShowUnfriendConfirm] = useState(false);
 
-  // 🔥 點擊按鈕同步更新網址列 URL 的 ?tab=參數
   const handleTabChange = (role: TopRole) => {
     setActiveRole(role);
     if (role === "athlete") router.replace(`/p/${id}`, { scroll: false });
@@ -119,14 +108,12 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
         const [
           { data: prof, error: profErr },
           { data: usData },
-          { data: coachesData },
           { data: servicesData },
           { data: reviewsData },
           { data: { user } }
         ] = await Promise.all([
           supabase.from("profiles").select("*").eq("id", id).single(),
           supabase.from("user_sports").select("id, metadata, sports(name)").eq("user_id", id),
-          supabase.from("coach_profiles").select("*").eq("user_id", id).neq("status", "hidden"),
           supabase.from("coach_services").select("*").eq("coach_id", id).eq("is_active", true),
           supabase.from("coach_reviews").select("rating").eq("coach_id", id),
           supabase.auth.getUser(),
@@ -135,7 +122,6 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
         if (profErr || !prof) { setIsNotFound(true); return; }
         setProfile(prof as Profile);
         if (usData) setUserSports(usData as unknown as UserSport[]);
-        if (coachesData) setCoachProfiles(coachesData);
         if (servicesData) setCoachServices(servicesData);
         if (reviewsData) setCoachReviews(reviewsData);
   
@@ -265,7 +251,7 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
   if (isNotFound || !profile) return <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-center"><h1 className="text-4xl font-black text-white mb-2">404</h1><p className="text-zinc-500 mb-6">查無此名片或已關閉</p><Link href="/network" className="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold">返回列表</Link></div>;
 
   const avatarSrc = profile.avatar_url || "";
-  const hasPublicCoach = profile.is_coach && (coachProfiles.length > 0 || coachServices.length > 0);
+  const hasPublicCoach = profile.is_coach === true;
   const hasPublicPhysio = profile.is_physio && profile.physio_status !== "hidden";
 
   return (
@@ -301,6 +287,15 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
               </div>
 
               <FriendButton />
+
+              {hasPublicCoach && currentUserId !== id && (
+                <button
+                  onClick={() => setIsContactModalOpen(true)}
+                  className="w-full mt-2.5 py-3 px-6 rounded-full text-sm font-black bg-amber-600 hover:bg-amber-500 text-white transition-all duration-300 shadow-[0_0_15px_rgba(217,119,6,0.3)] cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <span>💬</span> 聯絡教練 / 立即洽詢
+                </button>
+              )}
             </div>
           </div>
 
@@ -378,175 +373,122 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
               )}
 
               {activeRole === "coach" && (
-                <div className="space-y-8 animate-fadeIn">
-                  
-                  {/* 🔥 教練 Bio 導讀與星等卡 */}
-                  <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-xl mt-4">
-                    <div className="space-y-2 max-w-2xl">
-                      <h3 className="text-sm font-black text-amber-400 uppercase tracking-wider flex items-center gap-2">
-                        <span>🎓</span> 專業教學導讀 (Bio)
-                      </h3>
-                      <p className="text-sm text-zinc-300 leading-relaxed">
-                        {profile.bio || "專注於運動員體能開發與技術精進，歡迎點擊下方課程卡片預約諮詢。"}
-                      </p>
+                <div className="space-y-6 animate-fadeIn">
+                  {!profile.is_coach ? (
+                    <div className="p-12 bg-slate-900/40 border border-slate-800 rounded-3xl text-center space-y-3">
+                      <AlertCircle className="w-10 h-10 text-zinc-500 mx-auto" />
+                      <div className="text-base font-bold text-zinc-300">🚫 此運動員目前未開啟或已暫停教練授課專區</div>
+                      <p className="text-xs text-zinc-500 max-w-md mx-auto">該使用者並未對外公開教練服務或正在調整教學內容中。</p>
                     </div>
+                  ) : (
+                    <>
+                      <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-xl mt-2">
+                        <div className="space-y-2 max-w-2xl">
+                          <h3 className="text-sm font-black text-amber-400 uppercase tracking-wider flex items-center gap-2">
+                            <span>🎓</span> 專業教學導讀 (Coach Bio)
+                          </h3>
+                          <p className="text-sm text-zinc-300 leading-relaxed">
+                            {profile.coach_bio || "目前尚未填寫專屬的專業教學導讀。"}
+                          </p>
+                        </div>
 
-                    <div className="bg-slate-950 px-6 py-4 rounded-2xl border border-slate-800/80 text-center shrink-0 w-full md:w-auto">
-                      <div className="text-xs font-bold text-zinc-500 mb-1">學員綜合總評</div>
-                      <div className="text-2xl font-black text-amber-400 flex items-center justify-center gap-1.5">
-                        <Star className="w-5 h-5 fill-amber-400 text-amber-400" />
-                        {coachReviews.length > 0 
-                          ? (coachReviews.reduce((acc, r) => acc + r.rating, 0) / coachReviews.length).toFixed(1)
-                          : "5.0"}
-                        <span className="text-xs text-zinc-500 font-normal">({coachReviews.length} 評價)</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {(profile.contact_email || profile.contact_phone || profile.city_region) && (
-                    <div className="bg-slate-900/40 border border-slate-800 rounded-3xl p-5 md:p-6 mb-8 mt-4">
-                      <h3 className="text-sm md:text-base font-black text-white mb-5 flex items-center gap-2">
-                        <MapPin className="w-4 h-4 text-amber-500" />
-                        聯絡與服務據點
-                      </h3>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {profile.contact_email && (
-                          <div className="flex items-start gap-3 p-3 bg-slate-950/50 rounded-2xl border border-slate-800/50">
-                            <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center shrink-0">
-                              <Mail className="w-4 h-4 text-blue-400" />
-                            </div>
-                            <div className="flex flex-col overflow-hidden">
-                              <span className="text-[10px] text-zinc-500 font-bold uppercase">Email</span>
-                              <a href={`mailto:${profile.contact_email}`} className="text-sm font-medium text-white hover:text-blue-400 transition-colors truncate">
-                                {profile.contact_email}
-                              </a>
-                            </div>
+                        <div className="bg-slate-950 px-6 py-4 rounded-2xl border border-slate-800/80 text-center shrink-0 w-full md:w-auto">
+                          <div className="text-xs font-bold text-zinc-500 mb-1">學員綜合總評</div>
+                          <div className="text-2xl font-black text-amber-400 flex items-center justify-center gap-1.5">
+                            <Star className="w-5 h-5 fill-amber-400 text-amber-400" />
+                            {coachReviews.length > 0 
+                              ? (coachReviews.reduce((acc, r) => acc + r.rating, 0) / coachReviews.length).toFixed(1)
+                              : "5.0"}
+                            <span className="text-xs text-zinc-500 font-normal">({coachReviews.length} 評價)</span>
                           </div>
-                        )}
-
-                        {profile.contact_phone && (
-                          <div className="flex items-start gap-3 p-3 bg-slate-950/50 rounded-2xl border border-slate-800/50">
-                            <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center shrink-0">
-                              <Phone className="w-4 h-4 text-emerald-400" />
-                            </div>
-                            <div className="flex flex-col overflow-hidden">
-                              <span className="text-[10px] text-zinc-500 font-bold uppercase">Phone</span>
-                              <a href={`tel:${profile.contact_phone}`} className="text-sm font-medium text-white hover:text-emerald-400 transition-colors truncate">
-                                {profile.contact_phone}
-                              </a>
-                            </div>
-                          </div>
-                        )}
-
-                        {profile.city_region && (
-                          <div className="flex items-start gap-3 p-3 bg-slate-950/50 rounded-2xl border border-slate-800/50 md:col-span-2">
-                            <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center shrink-0">
-                              <MapPin className="w-4 h-4 text-amber-400" />
-                            </div>
-                            <div className="flex flex-col">
-                              <span className="text-[10px] text-zinc-500 font-bold uppercase">Location</span>
-                              <span className="text-sm font-black text-white mt-0.5">
-                                {profile.city_region}
-                              </span>
-                              {profile.is_address_public && profile.address ? (
-                                <span className="text-xs font-medium text-slate-400 mt-1">
-                                  {profile.address}
-                                </span>
-                              ) : (
-                                <span className="text-xs font-medium text-slate-500 mt-1 flex items-center gap-1.5">
-                                  <EyeOff className="w-3 h-3" /> 詳細地址未公開，請私訊預約
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        )}
+                        </div>
                       </div>
-                    </div>
-                  )}
 
-                  {/* 🔥 獨立課程與專項服務卡片列表 */}
-                  <div>
-                    <h3 className="text-lg font-black text-white mb-4 flex items-center justify-between">
-                      <span>開放預約課程 / 訓練服務</span>
-                    </h3>
+                      {(profile.contact_email || profile.contact_phone || profile.city_region) && (
+                        <div className="flex flex-wrap items-center gap-2 bg-slate-900/40 p-3.5 rounded-2xl border border-slate-800/80 text-xs">
+                          <span className="font-black text-amber-400 flex items-center gap-1 shrink-0 mr-1">
+                            <MapPin className="w-3.5 h-3.5" /> 授課據點與聯絡：
+                          </span>
 
-                    {coachServices.length > 0 ? (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {coachServices.map((srv: any) => (
-                          <Link
-                            key={srv.id}
-                            href={`/coaches/services/${srv.id}`}
-                            className="bg-slate-900 border border-slate-800 hover:border-amber-500/50 rounded-3xl p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl flex flex-col justify-between group cursor-pointer"
-                          >
-                            <div className="space-y-3">
-                              <div className="flex items-center justify-between">
-                                <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                                  {srv.sport_category}
-                                </span>
-                                <span className="text-base font-black text-emerald-400">
-                                  HK$ {srv.hourly_rate} <span className="text-xs text-zinc-500 font-normal">/小時</span>
-                                </span>
-                              </div>
+                          {profile.city_region && (
+                            <span className="bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800 text-zinc-200 font-bold">
+                              📍 {profile.city_region}
+                              {profile.is_address_public && profile.address && ` (${profile.address})`}
+                            </span>
+                          )}
 
-                              <h4 className="text-lg font-black text-white group-hover:text-amber-400 transition line-clamp-1">
-                                {srv.title}
-                              </h4>
+                          {profile.contact_email && (
+                            <a href={`mailto:${profile.contact_email}`} className="bg-blue-950/40 text-blue-300 border border-blue-500/30 px-3 py-1.5 rounded-xl hover:bg-blue-900/50 transition">
+                              ✉️ {profile.contact_email}
+                            </a>
+                          )}
 
-                              <p className="text-xs text-zinc-400 line-clamp-2 leading-relaxed">
-                                {srv.description || "點擊查看完整課程內容與學員評價"}
-                              </p>
-                            </div>
+                          {profile.contact_phone && (
+                            <a href={`tel:${profile.contact_phone}`} className="bg-emerald-950/40 text-emerald-300 border border-emerald-500/30 px-3 py-1.5 rounded-xl hover:bg-emerald-900/50 transition">
+                              📞 {profile.contact_phone}
+                            </a>
+                          )}
+                        </div>
+                      )}
 
-                            <div className="pt-4 mt-5 border-t border-slate-800/80 flex items-center justify-between text-xs font-bold text-zinc-400">
-                              <span className="flex items-center gap-1 text-zinc-300 truncate">
-                                📍 {srv.location || profile.city_region || "場地可議"}
-                              </span>
-                              <span className="text-amber-400 group-hover:translate-x-1 transition-transform shrink-0">
-                                查看詳情與預約 →
-                              </span>
-                            </div>
-                          </Link>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {coachProfiles.map(coach => (
-                          <div key={coach.id} className="bg-amber-500/5 border border-amber-500/20 rounded-3xl p-6 md:p-8 flex flex-col justify-between items-center text-center">
-                            <div className="mb-6 w-full">
-                              <span className="text-amber-400 text-sm font-black block mb-3">{coach.sport} 指導</span>
-                              <div className="flex items-center gap-3 justify-center mb-4">
-                                <span className="text-4xl font-black text-white">HK$ {coach.rate} <span className="text-lg text-zinc-500 font-medium">/ hr</span></span>
-                              </div>
-                              <StatusBadge tag={coach.status} type="coach" />
-                              <p className="text-zinc-400 text-sm font-medium mt-5">📍 {coach.region ? `${coach.region}, ${coach.country}` : "地點未提供"}</p>
-                            </div>
-                            
-                            <button 
-                              onClick={() => setIsContactModalOpen(true)}
-                              className="w-full bg-amber-600 hover:bg-amber-500 text-white font-black py-3.5 px-6 rounded-2xl transition shadow-[0_0_15px_rgba(217,119,6,0.3)] active:scale-95 mt-auto cursor-pointer"
+                      <div className="pt-2">
+                        <h3 className="text-base md:text-lg font-black text-white mb-4 flex items-center justify-between">
+                          <span>開放預約課程 / 訓練服務 ({coachServices.length})</span>
+                        </h3>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                          {coachServices.map((srv: any) => (
+                            <div
+                              key={srv.id}
+                              className="bg-slate-900 border border-slate-800 hover:border-amber-500/50 rounded-3xl p-6 transition-all duration-300 flex flex-col justify-between group"
                             >
-                              立即洽詢預約
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                              <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                    {srv.sport_category}
+                                  </span>
+                                  <span className="text-base font-black text-emerald-400">
+                                    HK$ {srv.hourly_rate} <span className="text-xs text-zinc-500 font-normal">/小時</span>
+                                  </span>
+                                </div>
 
+                                <Link href={`/coaches/services/${srv.id}`} className="block">
+                                  <h4 className="text-lg font-black text-white group-hover:text-amber-400 transition line-clamp-1">
+                                    {srv.title}
+                                  </h4>
+                                </Link>
+
+                                <p className="text-xs text-zinc-400 line-clamp-2 leading-relaxed">
+                                  {srv.description || "點擊查看完整課程內容與學員評價"}
+                                </p>
+                              </div>
+
+                              {/* 🔥 卡片底部按鈕已改為查看課程詳情 */}
+                              <div className="pt-4 mt-5 border-t border-slate-800/80">
+                                <Link
+                                  href={`/coaches/services/${srv.id}`}
+                                  className="w-full bg-amber-600 hover:bg-amber-500 text-white font-black py-3 rounded-2xl transition shadow-[0_0_15px_rgba(217,119,6,0.3)] active:scale-95 flex items-center justify-center gap-1.5 text-sm"
+                                >
+                                  查看課程詳情 →
+                                </Link>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
 
               {activeRole === "physio" && (
                 <div className="space-y-8 animate-fadeIn">
-                  
                   {(profile.physio_contact_email || profile.physio_contact_phone || profile.physio_city_region) && (
                     <div className="bg-slate-900/40 border border-slate-800 rounded-3xl p-5 md:p-6 mb-8 mt-4">
                       <h3 className="text-sm md:text-base font-black text-white mb-5 flex items-center gap-2">
                         <MapPin className="w-4 h-4 text-emerald-500" />
                         聯絡與服務據點
                       </h3>
-                      
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {profile.physio_contact_email && (
                           <div className="flex items-start gap-3 p-3 bg-slate-950/50 rounded-2xl border border-slate-800/50">
@@ -662,7 +604,6 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
 
             return (
               <div className="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden relative animate-slideUp">
-                
                 <div className="p-5 border-b border-slate-800 flex justify-between items-center bg-slate-800/50">
                   <div>
                     <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">
@@ -676,17 +617,10 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
                 </div>
 
                 <div className="p-6 space-y-6">
-                  
                   <div className="space-y-3">
                     <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider pl-1">即時線上洽詢</p>
-                    
                     {whatsappUrl ? (
-                      <a
-                        href={whatsappUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="w-full flex items-center justify-between bg-emerald-600 hover:bg-emerald-500 text-white font-black p-4 rounded-2xl transition shadow-[0_0_15px_rgba(16,185,129,0.2)] group cursor-pointer"
-                      >
+                      <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="w-full flex items-center justify-between bg-emerald-600 hover:bg-emerald-500 text-white font-black p-4 rounded-2xl transition shadow-[0_0_15px_rgba(16,185,129,0.2)] group cursor-pointer">
                         <div className="flex items-center gap-3">
                           <span className="text-2xl">💬</span>
                           <div className="text-left">
@@ -697,15 +631,9 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
                         <span className="group-hover:translate-x-1 transition-transform">↗</span>
                       </a>
                     ) : (
-                      <div className="p-3 rounded-xl bg-slate-950/50 border border-slate-800 text-xs text-zinc-500 text-center font-bold">
-                        尚未設定 WhatsApp 聯絡電話
-                      </div>
+                      <div className="p-3 rounded-xl bg-slate-950/50 border border-slate-800 text-xs text-zinc-500 text-center font-bold">尚未設定 WhatsApp 聯絡電話</div>
                     )}
-
-                    <button
-                      onClick={() => router.push(`/inbox?to=${id}&role=${activeRole}`)}
-                      className="w-full flex items-center justify-between bg-blue-600 hover:bg-blue-500 text-white font-black p-4 rounded-2xl transition shadow-[0_0_15px_rgba(37,99,235,0.2)] group cursor-pointer"
-                    >
+                    <button onClick={() => router.push(`/inbox?to=${id}&role=${activeRole}`)} className="w-full flex items-center justify-between bg-blue-600 hover:bg-blue-500 text-white font-black p-4 rounded-2xl transition shadow-[0_0_15px_rgba(37,99,235,0.3)] group cursor-pointer">
                       <div className="flex items-center gap-3">
                         <Zap className="w-6 h-6 text-yellow-300" />
                         <div className="text-left">
@@ -719,7 +647,6 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
 
                   <div className="space-y-3 pt-4 border-t border-slate-800">
                     <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider pl-1">傳統聯絡方式</p>
-                    
                     {modalEmail && (
                       <a href={`mailto:${modalEmail}`} className="flex items-center gap-4 p-3 bg-slate-950 rounded-xl hover:bg-slate-800 transition border border-slate-800 cursor-pointer">
                         <div className="p-2 bg-blue-500/20 text-blue-400 rounded-lg"><Mail className="w-5 h-5" /></div>
@@ -738,32 +665,16 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
                         </div>
                       </a>
                     )}
-                    {!modalEmail && !modalPhone && (
-                      <div className="text-center text-xs text-zinc-500 py-3 font-bold border border-dashed border-slate-800 rounded-xl">
-                        無提供傳統聯絡管道，請利用上方站內訊息洽詢。
-                      </div>
-                    )}
+                    {!modalEmail && !modalPhone && <div className="text-center text-xs text-zinc-500 py-3 font-bold border border-dashed border-slate-800 rounded-xl">無提供傳統聯絡管道，請利用上方站內訊息洽詢。</div>}
                   </div>
 
                   {(modalIg || modalFb || modalThreads) && (
                     <div className="pt-4 border-t border-slate-800">
                       <p className="text-xs font-bold text-slate-400 mb-3 text-center">追蹤社群</p>
                       <div className="flex justify-center gap-4">
-                        {modalIg && (
-                          <a href={modalIg} target="_blank" rel="noreferrer" className="w-12 h-12 bg-slate-800 hover:bg-pink-600 hover:text-white text-slate-300 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg hover:scale-110 cursor-pointer">
-                            <InstagramIcon className="w-5 h-5" />
-                          </a>
-                        )}
-                        {modalFb && (
-                          <a href={modalFb} target="_blank" rel="noreferrer" className="w-12 h-12 bg-slate-800 hover:bg-blue-600 hover:text-white text-slate-300 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg hover:scale-110 cursor-pointer">
-                            <FacebookIcon className="w-5 h-5" />
-                          </a>
-                        )}
-                        {modalThreads && (
-                          <a href={modalThreads} target="_blank" rel="noreferrer" className="w-12 h-12 bg-slate-800 hover:bg-slate-50 hover:text-black text-slate-300 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg hover:scale-110 cursor-pointer">
-                            <ThreadsIcon className="w-5 h-5" />
-                          </a>
-                        )}
+                        {modalIg && <a href={modalIg} target="_blank" rel="noreferrer" className="w-12 h-12 bg-slate-800 hover:bg-pink-600 hover:text-white text-slate-300 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg hover:scale-110 cursor-pointer"><InstagramIcon className="w-5 h-5" /></a>}
+                        {modalFb && <a href={modalFb} target="_blank" rel="noreferrer" className="w-12 h-12 bg-slate-800 hover:bg-blue-600 hover:text-white text-slate-300 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg hover:scale-110 cursor-pointer"><FacebookIcon className="w-5 h-5" /></a>}
+                        {modalThreads && <a href={modalThreads} target="_blank" rel="noreferrer" className="w-12 h-12 bg-slate-800 hover:bg-slate-50 hover:text-black text-slate-300 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg hover:scale-110 cursor-pointer"><ThreadsIcon className="w-5 h-5" /></a>}
                       </div>
                     </div>
                   )}
@@ -773,7 +684,6 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
           })()}
         </div>
       )}
-
     </div>
   );
 }

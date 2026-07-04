@@ -174,7 +174,6 @@ export default function EventDetailPage() {
   const remainingSlots = event.max_capacity ? (event.max_capacity - currentFilledCount) : 9999;
   const isFull = remainingSlots <= 0;
 
-  // 🔥 核心修正：精確格式化詳細頁的 X / Y 人 或 X / Y 隊
   const unitLabel = event.registration_type === "individual" ? "人" : "隊";
   const capacityDisplay = event.max_capacity 
     ? `${currentFilledCount} / ${event.max_capacity} ${unitLabel}` 
@@ -441,11 +440,14 @@ export default function EventDetailPage() {
   const organizerName = event.organizer_team
     ? (event.organizer_team.name_zh || event.organizer_team.name_en || "未命名球隊")
     : (event.creator_profile?.full_name || "個人主辦");
+
+  // 🔥 核心修復 404：將原本的 /network/ 修正為正確的 /p/
   const organizerHref = event.organizer_team
     ? `/team/${event.organizer_team.id}`
     : event.creator_profile?.id
-      ? `/network/${event.creator_profile.id}`
+      ? `/p/${event.creator_profile.id}`
       : null;
+
   const organizerAvatarUrl = event.organizer_team?.logo_url || event.creator_profile?.avatar_url || null;
 
   return (
@@ -517,7 +519,6 @@ export default function EventDetailPage() {
             <div className="flex items-center gap-3"><Calendar className="w-5 h-5 text-blue-400 shrink-0" /><div><div className="text-xs text-zinc-500 font-bold">活動時間</div><div className="font-extrabold text-white">{formatEventPeriod(event.start_time, event.end_time)}</div></div></div>
             <div className="flex items-center gap-3"><MapPin className="w-5 h-5 text-amber-400 shrink-0" /><div><div className="text-xs text-zinc-500 font-bold">舉辦場地</div><div className="font-extrabold text-white">{event.location_name}</div>{event.location_address && <div className="text-xs text-zinc-400">{event.location_address}</div>}</div></div>
             
-            {/* 🔥 核心修正：清楚標示 X / Y 人 或 X / Y 隊 */}
             <div className="flex items-center gap-3">
               <Users className="w-5 h-5 text-emerald-400 shrink-0" />
               <div>
