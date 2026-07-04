@@ -6,7 +6,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { BackButton } from "@/components/BackButton";
 import { SportFilterModal } from "@/components/SportFilterModal";
 import { LocationFilterModal } from "@/components/LocationFilterModal";
-import { MapPin, DollarSign, User as UserIcon } from "lucide-react";
+import { MapPin, User as UserIcon } from "lucide-react";
 
 interface CoachServiceRow {
   id: string;
@@ -41,7 +41,6 @@ export default function CoachesPage() {
       const { data: { user } } = await supabase.auth.getUser();
       const currentUserId = user?.id || null;
 
-      // 🔥 核心改版：直接讀取 active 的 coach_services 課程，並關聯教練 profiles
       let query = supabase
         .from("coach_services")
         .select(`
@@ -61,10 +60,8 @@ export default function CoachesPage() {
     fetchCourses();
   }, [supabase]);
 
-  // 動態取出目前所有課程擁有的專項與區域
   const uniqueSports = Array.from(new Set(services.map(c => c.sport_category).filter(Boolean))) as string[];
   
-  // 提供與後台下拉完美吻合的標準區域
   const standardLocations = [
     "港島區 (Hong Kong Island)",
     "九龍區 (Kowloon)",
@@ -95,7 +92,7 @@ export default function CoachesPage() {
           <p className="text-zinc-400 text-sm md:text-base font-medium">嚴選各項目的專業導師與獨立訓練課程，突破你的競技天花板。</p>
         </div>
 
-        {/* ── 篩選器 ── */}
+        {/* ── Filter Bar ── */}
         <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-800 p-4 md:p-5 rounded-3xl mb-8 shadow-lg flex flex-col md:flex-row gap-4 items-center">
           <div className="relative w-full md:flex-1">
             <span className="absolute left-3.5 top-3.5 text-zinc-500">🔍</span>
@@ -133,7 +130,7 @@ export default function CoachesPage() {
           </button>
         </div>
 
-        {/* ── 課程列表展示 ── */}
+        {/* ── Services Grid Display ── */}
         <div>
           <div className="mb-4 px-1 flex justify-between items-center">
             <span className="text-sm font-bold text-zinc-500">
@@ -155,9 +152,9 @@ export default function CoachesPage() {
                   className="bg-slate-900/60 border border-slate-800 hover:border-amber-500/50 rounded-3xl p-6 flex flex-col justify-between transition duration-300 group hover:-translate-y-1 shadow-md hover:shadow-2xl relative overflow-hidden"
                 >
                   <div className="space-y-4">
-                    {/* 上方：專項與報價標籤 */}
+                    {/* Top Row: Enlarged Sports Tag & Hourly Rate */}
                     <div className="flex items-center justify-between">
-                      <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                      <span className="px-3.5 py-1.5 rounded-full text-xs font-black uppercase bg-amber-500/15 text-amber-400 border border-amber-500/30 tracking-wider shadow-sm">
                         {srv.sport_category}
                       </span>
                       <span className="text-lg font-black text-emerald-400 flex items-center">
@@ -165,47 +162,58 @@ export default function CoachesPage() {
                       </span>
                     </div>
 
-                    {/* 課程標題與簡述 */}
-                    <div>
+                    {/* Right Below Tag: Coach Avatar & Name Header */}
+                    <Link
+                      href={`/p/${srv.coach_id}?tab=coach`}
+                      className="flex items-center gap-2.5 p-2.5 rounded-2xl bg-slate-950/80 border border-slate-800/80 hover:border-slate-700 transition group/coach"
+                    >
+                      <div
+                        className="w-9 h-9 rounded-full bg-slate-800 bg-cover bg-center shrink-0 border border-slate-700 flex items-center justify-center overflow-hidden shadow-inner"
+                        style={srv.profiles?.avatar_url ? { backgroundImage: `url(${srv.profiles.avatar_url})` } : undefined}
+                      >
+                        {!srv.profiles?.avatar_url && <UserIcon className="w-4.5 h-4.5 text-zinc-500" />}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[10px] text-zinc-500 uppercase font-extrabold leading-none mb-1">授課導師</div>
+                        <div className="text-sm font-black text-white group-hover/coach:text-amber-400 transition truncate">
+                          {srv.profiles?.full_name || "專業教練"}
+                        </div>
+                      </div>
+                    </Link>
+
+                    {/* Course Title & Description */}
+                    <div className="pt-1">
                       <Link href={`/coaches/services/${srv.id}`} className="block">
                         <h3 className="text-lg font-black text-white tracking-tight group-hover:text-amber-400 transition line-clamp-1">
                           {srv.title}
                         </h3>
                       </Link>
-                      <p className="text-xs text-zinc-400 font-medium mt-1 line-clamp-2 h-8 leading-snug">
+                      <p className="text-xs text-zinc-400 font-medium mt-1.5 line-clamp-2 h-8 leading-snug">
                         {srv.description || "點擊查看完整授課大綱與學員評價。"}
                       </p>
                     </div>
 
-                    {/* 授課區域徽章 */}
+                    {/* Location Badge */}
                     <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-300 bg-slate-950/60 p-2.5 rounded-xl border border-slate-800">
                       <MapPin className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                       <span className="truncate">{srv.location || "港九新界 / 地點可商議"}</span>
                     </div>
                   </div>
 
-                  {/* 底部：教練檔案連結與預約 CTA */}
-                  <div className="pt-4 mt-5 border-t border-slate-800/80 flex items-center justify-between gap-3">
+                  {/* Bottom Actions: Two High-Intent Buttons */}
+                  <div className="pt-4 mt-5 border-t border-slate-800/80 grid grid-cols-2 gap-2.5">
                     <Link
                       href={`/p/${srv.coach_id}?tab=coach`}
-                      className="flex items-center gap-2 group/coach min-w-0"
+                      className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-zinc-200 hover:text-white font-bold text-xs text-center transition shadow-sm active:scale-95"
                     >
-                      <div
-                        className="w-8 h-8 rounded-full bg-slate-800 bg-cover bg-center shrink-0 border border-slate-700 flex items-center justify-center"
-                        style={srv.profiles?.avatar_url ? { backgroundImage: `url(${srv.profiles.avatar_url})` } : undefined}
-                      >
-                        {!srv.profiles?.avatar_url && <UserIcon className="w-4 h-4 text-zinc-500" />}
-                      </div>
-                      <span className="text-xs font-bold text-zinc-300 group-hover/coach:text-white truncate">
-                        {srv.profiles?.full_name || "專業教練"}
-                      </span>
+                      了解教練
                     </Link>
 
                     <Link
                       href={`/coaches/services/${srv.id}`}
-                      className="px-4 py-2.5 bg-amber-600 hover:bg-amber-500 text-white font-black text-xs rounded-xl transition shadow-md shrink-0 active:scale-95"
+                      className="w-full py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-black text-xs text-center transition shadow-md active:scale-95 flex items-center justify-center gap-1"
                     >
-                      預約 / 詳情 →
+                      <span>課程詳情</span> →
                     </Link>
                   </div>
                 </div>
