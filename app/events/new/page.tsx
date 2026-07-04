@@ -13,6 +13,7 @@ interface TeamOption {
   id: string;
   name: string;
   role: string;
+  sport_category: string;
 }
 
 // --- 客製化極簡日曆元件 ---
@@ -67,7 +68,7 @@ function CustomDatePicker({ value, onChange }: { value: string; onChange: (dateS
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-xl px-4 py-3 text-sm text-left font-bold flex items-center justify-between text-white transition shadow-inner"
+        className="w-full bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-xl px-4 py-3 text-sm text-left font-bold flex items-center justify-between text-white transition shadow-inner cursor-pointer"
       >
         <span className="flex items-center gap-2.5">
           <CalendarIcon className="w-4 h-4 text-blue-400" />
@@ -78,13 +79,13 @@ function CustomDatePicker({ value, onChange }: { value: string; onChange: (dateS
       {isOpen && (
         <div className="absolute left-0 top-full mt-2 w-72 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-4 z-50">
           <div className="flex items-center justify-between mb-3 border-b border-slate-800 pb-2">
-            <button type="button" onClick={handlePrevMonth} className="p-1 hover:bg-slate-800 rounded-lg text-zinc-400 hover:text-white">
+            <button type="button" onClick={handlePrevMonth} className="p-1 hover:bg-slate-800 rounded-lg text-zinc-400 hover:text-white cursor-pointer">
               <ChevronLeft className="w-4 h-4" />
             </button>
             <span className="text-xs font-black text-white">
               {viewYear}年 {viewMonth + 1}月
             </span>
-            <button type="button" onClick={handleNextMonth} className="p-1 hover:bg-slate-800 rounded-lg text-zinc-400 hover:text-white">
+            <button type="button" onClick={handleNextMonth} className="p-1 hover:bg-slate-800 rounded-lg text-zinc-400 hover:text-white cursor-pointer">
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
@@ -108,7 +109,7 @@ function CustomDatePicker({ value, onChange }: { value: string; onChange: (dateS
                   key={day}
                   type="button"
                   onClick={() => handleSelectDay(day)}
-                  className={`h-8 rounded-lg text-xs font-bold transition flex items-center justify-center ${
+                  className={`h-8 rounded-lg text-xs font-bold transition flex items-center justify-center cursor-pointer ${
                     isSelected ? "bg-blue-600 text-white shadow-md" : "hover:bg-slate-800 text-zinc-300"
                   }`}
                 >
@@ -128,7 +129,6 @@ function TimeScroller({ label, value, onChange }: { label: string; value: string
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // 解析 24 小時制的字串值 (如 "19:00") 轉換為 AM/PM 顯示
   const [rawH = "19", mStr = "00"] = value.split(":");
   const h24 = parseInt(rawH, 10);
   const period: "AM" | "PM" = h24 >= 12 ? "PM" : "AM";
@@ -139,7 +139,6 @@ function TimeScroller({ label, value, onChange }: { label: string; value: string
   const minutes = ["00", "15", "30", "45"];
   const periods: ("AM" | "PM")[] = ["AM", "PM"];
 
-  // 更新時自動換算回標準 24 小時格式寫入 State
   const updateTime = (newH12: string, newM: string, newP: "AM" | "PM") => {
     let h = parseInt(newH12, 10);
     if (newP === "AM" && h === 12) h = 0;
@@ -164,7 +163,7 @@ function TimeScroller({ label, value, onChange }: { label: string; value: string
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-xl px-4 py-3 text-sm text-left font-bold flex items-center justify-between text-white transition shadow-inner"
+        className="w-full bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-xl px-4 py-3 text-sm text-left font-bold flex items-center justify-between text-white transition shadow-inner cursor-pointer"
       >
         <span className="flex items-center gap-2.5">
           <Clock className="w-4 h-4 text-blue-400" />
@@ -174,7 +173,6 @@ function TimeScroller({ label, value, onChange }: { label: string; value: string
 
       {isOpen && (
         <div className="absolute left-0 top-full mt-2 w-56 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-3 z-50 flex gap-1.5">
-          {/* 小時滑輪 (1~12) */}
           <div className="flex-1 max-h-48 overflow-y-auto pr-1 space-y-1">
             <div className="text-[10px] font-black text-zinc-500 text-center sticky top-0 bg-slate-900 pb-1">時</div>
             {hours12.map(h => (
@@ -182,7 +180,7 @@ function TimeScroller({ label, value, onChange }: { label: string; value: string
                 key={h}
                 type="button"
                 onClick={() => updateTime(h, mStr, period)}
-                className={`w-full py-1.5 rounded-lg text-xs font-bold transition text-center ${
+                className={`w-full py-1.5 rounded-lg text-xs font-bold transition text-center cursor-pointer ${
                   h12Str === h ? "bg-blue-600 text-white" : "hover:bg-slate-800 text-zinc-400 hover:text-white"
                 }`}
               >
@@ -193,7 +191,6 @@ function TimeScroller({ label, value, onChange }: { label: string; value: string
 
           <div className="w-px bg-slate-800 my-1" />
 
-          {/* 分鐘滑輪 (00, 15, 30, 45) */}
           <div className="flex-1 max-h-48 overflow-y-auto px-1 space-y-1">
             <div className="text-[10px] font-black text-zinc-500 text-center sticky top-0 bg-slate-900 pb-1">分</div>
             {minutes.map(m => (
@@ -201,7 +198,7 @@ function TimeScroller({ label, value, onChange }: { label: string; value: string
                 key={m}
                 type="button"
                 onClick={() => updateTime(h12Str, m, period)}
-                className={`w-full py-1.5 rounded-lg text-xs font-bold transition text-center ${
+                className={`w-full py-1.5 rounded-lg text-xs font-bold transition text-center cursor-pointer ${
                   mStr === m ? "bg-blue-600 text-white" : "hover:bg-slate-800 text-zinc-400 hover:text-white"
                 }`}
               >
@@ -212,7 +209,6 @@ function TimeScroller({ label, value, onChange }: { label: string; value: string
 
           <div className="w-px bg-slate-800 my-1" />
 
-          {/* AM / PM 切換 */}
           <div className="flex-1 space-y-1">
             <div className="text-[10px] font-black text-zinc-500 text-center sticky top-0 bg-slate-900 pb-1">時段</div>
             {periods.map(p => (
@@ -223,7 +219,7 @@ function TimeScroller({ label, value, onChange }: { label: string; value: string
                   updateTime(h12Str, mStr, p);
                   setIsOpen(false);
                 }}
-                className={`w-full py-2 rounded-lg text-xs font-bold transition text-center ${
+                className={`w-full py-2 rounded-lg text-xs font-bold transition text-center cursor-pointer ${
                   period === p ? "bg-amber-600 text-white" : "hover:bg-slate-800 text-zinc-400 hover:text-white"
                 }`}
               >
@@ -249,7 +245,7 @@ export default function CreateEventPage() {
   const [errorMsg, setErrorMsg] = useState("");
   const [myTeams, setMyTeams] = useState<TeamOption[]>([]);
 
-  // 表單資料狀態
+  // 表單狀態
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [eventType, setEventType] = useState("practice");
@@ -262,7 +258,6 @@ export default function CreateEventPage() {
   const [fee, setFee] = useState<string>("0");
   const [lateHours, setLateHours] = useState<string>("24");
 
-  // 極簡分離式日期與時間選取狀態 (內部保存 24 小時格式，渲染 12 小時 AM/PM)
   const [dateStr, setDateStr] = useState("");
   const [startTimeStr, setStartTimeStr] = useState("19:00");
   const [endTimeStr, setEndTimeStr] = useState("21:00");
@@ -275,9 +270,10 @@ export default function CreateEventPage() {
         return;
       }
 
+      // 🔥 修正：一併撈取 teams 表的 sport_category 欄位
       const { data: teamMembers } = await supabase
         .from("team_members")
-        .select("role, team_id, teams (id, name_zh, name_en)")
+        .select("role, team_id, teams (id, name_zh, name_en, sport_category)")
         .eq("user_id", user.id)
         .in("role", ["admin", "coach"]);
 
@@ -286,13 +282,13 @@ export default function CreateEventPage() {
           .filter((tm: any) => tm.teams)
           .map((tm: any) => ({
             id: tm.teams.id,
-            name: tm.teams.name,
+            name: tm.teams.name_zh || tm.teams.name_en || "未命名球隊",
             role: tm.role,
+            sport_category: tm.teams.sport_category || "volleyball",
           }));
         setMyTeams(teams);
       }
 
-      // 預設日期設為明天
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
       const yyyy = tomorrow.getFullYear();
@@ -304,6 +300,19 @@ export default function CreateEventPage() {
 
     init();
   }, [supabase, router]);
+
+  // 🔥 嚴格篩選：依據當前選擇的運動項目（排球/網球...）過濾可主辦的隊伍
+  const filteredTeams = myTeams.filter(t => t.sport_category === sportCategory);
+
+  // 當切換運動類別時，如果舊選取的球隊不符合新類別，自動清空選取
+  useEffect(() => {
+    if (organizerTeamId) {
+      const selected = myTeams.find(t => t.id === organizerTeamId);
+      if (selected && selected.sport_category !== sportCategory) {
+        setOrganizerTeamId("");
+      }
+    }
+  }, [sportCategory, organizerTeamId, myTeams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -336,7 +345,7 @@ export default function CreateEventPage() {
       const payload = {
         creator_id: user.id,
         organizer_team_id: organizerTeamId || null,
-        sport_category: sportCategory, // 🔥 新增這一行！
+        sport_category: sportCategory,
         title: title.trim(),
         description: description.trim() || null,
         event_type: eventType,
@@ -350,8 +359,6 @@ export default function CreateEventPage() {
         late_cancellation_hours: parseInt(lateHours || "24", 10),
         status: "published",
       };
-
-      console.log("正在送出 Payload:", payload); // 🔥 加入這一行
 
       const { data, error } = await supabase
         .from("events")
@@ -373,11 +380,7 @@ export default function CreateEventPage() {
       alert("🎉 活動發佈成功！");
       router.push(`/events/${data.id}`);
     } catch (err: any) {
-      // 🔥 展開印出完整的 Supabase 錯誤資訊
       console.error("發佈失敗詳細錯誤:", JSON.stringify(err, null, 2));
-      console.error("錯誤代碼 (Code):", err?.code);
-      console.error("錯誤細節 (Details):", err?.details || err?.message);
-
       const realMessage = err?.message || err?.details || "發佈時發生未知錯誤";
       setErrorMsg(`發佈失敗 (${err?.code || 'ERROR'}): ${realMessage}`);
     } finally {
@@ -398,10 +401,10 @@ export default function CreateEventPage() {
     <div className="bg-slate-950 min-h-screen py-10 px-4 sm:px-6 lg:px-8 text-white">
       <div className="max-w-3xl mx-auto">
         <Link
-          href="/profile"
-          className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors mb-6 font-bold"
+          href="/events"
+          className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors mb-6 font-bold cursor-pointer"
         >
-          <ArrowLeft className="w-4 h-4" /> 返回管理主頁
+          <ArrowLeft className="w-4 h-4" /> 返回約戰大廳
         </Link>
 
         <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl">
@@ -410,7 +413,7 @@ export default function CreateEventPage() {
               <Trophy className="w-8 h-8 text-amber-500" /> 發起運動賽事或聚會
             </h1>
             <p className="text-xs sm:text-sm text-zinc-400 mt-1">
-              設定報名規則、人數限制以及紅旗退賽預警，打造高品質的運動社群活動。
+              設定報名規則、人數限制以及紅旗退賽預警，系統會自動依據運動類別嚴格隔離球隊。
             </p>
           </div>
 
@@ -431,7 +434,7 @@ export default function CreateEventPage() {
                 <button
                   type="button"
                   onClick={() => setRegistrationType("individual")}
-                  className={`p-4 rounded-xl border text-left transition-all ${
+                  className={`p-4 rounded-xl border text-left transition-all cursor-pointer ${
                     registrationType === "individual"
                       ? "bg-blue-600/20 border-blue-500 text-white shadow-lg"
                       : "bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700"
@@ -448,7 +451,7 @@ export default function CreateEventPage() {
                 <button
                   type="button"
                   onClick={() => setRegistrationType("team")}
-                  className={`p-4 rounded-xl border text-left transition-all ${
+                  className={`p-4 rounded-xl border text-left transition-all cursor-pointer ${
                     registrationType === "team"
                       ? "bg-amber-600/20 border-amber-500 text-white shadow-lg"
                       : "bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700"
@@ -464,47 +467,14 @@ export default function CreateEventPage() {
               </div>
             </div>
 
-            {/* 2. 代表球隊選擇 */}
-            {myTeams.length > 0 && (
+            {/* 2. 運動項目與性質 */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-black text-zinc-300 mb-2">
-                  代表主辦球隊（選填，若無則為個人名義主辦）
-                </label>
-                <select
-                  value={organizerTeamId}
-                  onChange={(e) => setOrganizerTeamId(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500 transition"
-                >
-                  <option value="">個人獨立主辦 (無歸屬球隊)</option>
-                  {myTeams.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name} ({t.role === "admin" ? "管理員" : "教練"})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {/* 3. 活動標題與性質 */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="sm:col-span-2">
-                <label className="block text-xs font-black text-zinc-300 mb-2">活動標題 *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="例：週六維港夜間排球攻防訓練 / 週末網球單打交流"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500 transition"
-                />
-              </div>
-            {/* 🔥 新增：運動項目選擇 */}
-            <div>
                 <label className="block text-xs font-black text-blue-400 mb-2">運動項目 *</label>
                 <select
                   value={sportCategory}
                   onChange={(e) => setSportCategory(e.target.value)}
-                  className="w-full bg-slate-950 border border-blue-500/50 rounded-xl px-3 py-3 text-sm text-white font-bold focus:outline-none focus:border-blue-500 transition"
+                  className="w-full bg-slate-950 border border-blue-500/50 rounded-xl px-4 py-3 text-sm text-white font-bold focus:outline-none focus:border-blue-500 transition cursor-pointer"
                 >
                   <option value="volleyball">🏐 排球 (Volleyball)</option>
                   <option value="tennis">🎾 網球 (Tennis)</option>
@@ -513,14 +483,14 @@ export default function CreateEventPage() {
                   <option value="football">⚽ 足球 (Football)</option>
                   <option value="table_tennis">🏓 乒乓球 (Table Tennis)</option>
                 </select>
-            </div>
+              </div>
 
               <div>
                 <label className="block text-xs font-black text-zinc-300 mb-2">活動性質</label>
                 <select
                   value={eventType}
                   onChange={(e) => setEventType(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500 transition"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500 transition cursor-pointer"
                 >
                   <option value="practice">訓練 / 團練</option>
                   <option value="match">友誼賽 / 對戰</option>
@@ -530,7 +500,45 @@ export default function CreateEventPage() {
               </div>
             </div>
 
-            {/* 4. 極簡淨化版：日曆選取 + AM/PM 12 小時制滾輪 */}
+            {/* 3. 代表球隊選擇（嚴格依照選定之運動項目隔離顯示） */}
+            <div>
+              <label className="block text-xs font-black text-zinc-300 mb-2">
+                代表主辦團隊（僅顯示與「{sportCategory}」類別相符的球隊）
+              </label>
+              {filteredTeams.length > 0 ? (
+                <select
+                  value={organizerTeamId}
+                  onChange={(e) => setOrganizerTeamId(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500 transition cursor-pointer"
+                >
+                  <option value="">個人獨立主辦 (無歸屬球隊)</option>
+                  {filteredTeams.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      🛡️ {t.name} ({t.role === "admin" ? "管理員" : "教練"})
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <div className="p-3.5 bg-slate-950 border border-dashed border-slate-800 rounded-xl text-xs text-zinc-500">
+                  您目前沒有管理任何「{sportCategory}」類別的球隊，將以個人名義發起此活動。
+                </div>
+              )}
+            </div>
+
+            {/* 4. 活動標題 */}
+            <div>
+              <label className="block text-xs font-black text-zinc-300 mb-2">活動標題 *</label>
+              <input
+                type="text"
+                required
+                placeholder="例：週六維港夜間排球攻防訓練 / 週末網球單打交流"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500 transition"
+              />
+            </div>
+
+            {/* 5. 日期與時間排程 */}
             <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800/80 space-y-4">
               <label className="text-xs font-black text-blue-400 uppercase tracking-wider block">
                 活動日期與時間排程 *
@@ -547,7 +555,7 @@ export default function CreateEventPage() {
               </div>
             </div>
 
-            {/* 5. 地點資訊 */}
+            {/* 6. 地點資訊 */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-black text-zinc-300 mb-2 flex items-center gap-1.5">
@@ -567,7 +575,7 @@ export default function CreateEventPage() {
                 <label className="block text-xs font-black text-zinc-300 mb-2">詳細地址 / 補充地標</label>
                 <input
                   type="text"
-                  placeholder="例：銅鑼灣興發街 1 號 (天后站 A2 出口)"
+                  placeholder="例：天后興發街 1 號 (天后站 A2 出口)"
                   value={locationAddress}
                   onChange={(e) => setLocationAddress(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500 transition"
@@ -575,7 +583,7 @@ export default function CreateEventPage() {
               </div>
             </div>
 
-            {/* 6. 名額、費用與紅旗規則 */}
+            {/* 7. 名額、費用與紅旗規則 */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 bg-slate-950 border border-slate-800/80 rounded-2xl">
               <div>
                 <label className="block text-xs font-black text-zinc-300 mb-2">
@@ -618,7 +626,7 @@ export default function CreateEventPage() {
               </div>
             </div>
 
-            {/* 7. 活動備註/介紹 */}
+            {/* 8. 活動備註/介紹 */}
             <div>
               <label className="block text-xs font-black text-zinc-300 mb-2">活動介紹與報名須知</label>
               <textarea
@@ -633,15 +641,15 @@ export default function CreateEventPage() {
             {/* 送出按鈕 */}
             <div className="pt-4 border-t border-slate-800 flex justify-end gap-3">
               <Link
-                href="/profile"
-                className="px-6 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-zinc-300 font-bold text-sm transition"
+                href="/events"
+                className="px-6 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-zinc-300 font-bold text-sm transition cursor-pointer"
               >
                 取消
               </Link>
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="px-8 py-3 rounded-xl bg-amber-600 hover:bg-amber-500 disabled:bg-slate-800 text-white font-black text-sm transition shadow-lg active:scale-95 flex items-center gap-2"
+                className="px-8 py-3 rounded-xl bg-amber-600 hover:bg-amber-500 disabled:bg-slate-800 text-white font-black text-sm transition shadow-lg active:scale-95 flex items-center gap-2 cursor-pointer"
               >
                 {isSubmitting ? (
                   <>
