@@ -170,7 +170,7 @@ function TeamPageContent() {
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none">🔍</span>
             <input
               type="text"
-              placeholder="搜尋球隊名稱或簡介..."
+              placeholder="搜尋團隊名稱或簡介..."
               value={searchTerm}
               onChange={(e) => { setHasInteracted(true); setSearchTerm(e.target.value); }}
               className="w-full bg-slate-900/80 border border-slate-800 rounded-2xl py-3 pl-10 pr-4 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-blue-500 transition"
@@ -251,10 +251,10 @@ function TeamPageContent() {
           {isLoading ? (
             <div className="py-20 text-center text-zinc-500 font-mono text-sm">搜尋各方戰力中...</div>
           ) : isInitialState ? (
-            <div className="py-12 md:py-20 text-center animate-fadeIn">
+            <div className="py-12 md:py-5 text-center animate-fadeIn">
               <div className="w-20 h-20 bg-slate-900 border border-slate-800 rounded-full flex items-center justify-center text-3xl mx-auto mb-6">🎯</div>
-              <h2 className="text-2xl md:text-3xl font-black text-white mb-3">你要尋找哪個項目的球隊？</h2>
-              <p className="text-zinc-400 mb-10 max-w-md mx-auto">選擇你想參與或約戰的體育項目，系統將為你列出所有登錄的隊伍。</p>
+              <h2 className="text-2xl md:text-3xl font-black text-white mb-3">你要尋找哪個項目的團隊？</h2>
+              <p className="text-zinc-400 mb-10 max-w-md mx-auto">選擇你想參與或約戰的體育項目</p>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-3xl mx-auto">
                 {SPORT_OPTIONS.map((sport) => (
                   <button
@@ -271,7 +271,7 @@ function TeamPageContent() {
             </div>
           ) : filteredTeams.length === 0 ? (
             <div className="bg-slate-900/40 border border-dashed border-slate-700/50 rounded-3xl py-20 text-center px-4">
-              <p className="text-zinc-400 font-bold text-sm">沒有符合條件的球隊。</p>
+              <p className="text-zinc-400 font-bold text-sm">沒有符合條件的團隊。</p>
               <button
                 onClick={() => { setSearchTerm(""); setFilterSports([]); setFilterStatuses([]); }}
                 className="mt-4 text-sm text-blue-400 hover:text-blue-300 font-bold px-4 py-2 bg-blue-500/10 rounded-lg"
@@ -334,7 +334,7 @@ function TeamPageContent() {
                           href={`/team/${t.id}`}
                           className="block w-full bg-slate-800 hover:bg-amber-600 text-white text-sm font-black py-3 rounded-xl transition duration-300"
                         >
-                          查看球隊專頁
+                          查看團隊專頁
                         </Link>
                       </div>
                     </div>

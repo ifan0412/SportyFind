@@ -213,8 +213,8 @@ export default function TeamDetailPage() {
   if (!team) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center gap-4">
-        <p className="text-zinc-400 font-bold">找不到此球隊 / 群組</p>
-        <Link href="/team" className="text-sm text-blue-400 hover:underline">← 返回球隊列表</Link>
+        <p className="text-zinc-400 font-bold">找不到團隊</p>
+        <Link href="/team" className="text-sm text-blue-400 hover:underline">← 返回團隊列表</Link>
       </div>
     );
   }
@@ -244,7 +244,7 @@ export default function TeamDetailPage() {
             href="/team"
             className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-950/60 hover:bg-slate-900 border border-slate-800/80 text-sm font-black text-amber-400 hover:text-amber-300 backdrop-blur-md transition shadow-lg"
           >
-            ← 返回球隊列表
+            ← 返回團隊列表
           </Link>
         </div>
 
@@ -288,7 +288,7 @@ export default function TeamDetailPage() {
                   href={`/team/${id}/admin`}
                   className="block text-center sm:inline-block bg-amber-600 hover:bg-amber-500 text-white text-sm font-black px-6 py-3.5 rounded-xl transition-all shadow-[0_0_15px_rgba(217,119,6,0.3)] active:scale-95"
                 >
-                  ⚙️ 管理球隊 / 群組
+                  ⚙️ 管理團隊
                 </Link>
               ) : isMember ? (
                 <span className="block text-center sm:inline-block bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm font-black px-5 py-3.5 rounded-xl">

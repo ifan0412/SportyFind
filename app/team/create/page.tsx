@@ -185,7 +185,7 @@ export default function CreateTeamPage() {
     setIsSaving(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setError("請先登入才能建立球隊。"); setIsSaving(false); return; }
+      if (!user) { setError("請先登入才能建立團隊。"); setIsSaving(false); return; }
 
       let finalLogoUrl: string | null = null;
       let finalCoverUrl: string | null = null;
@@ -390,7 +390,7 @@ export default function CreateTeamPage() {
               <p className="text-[10px] font-bold text-amber-400 uppercase tracking-wider pl-1">🖼️ 團隊視覺檔案上傳 <span className="normal-case font-normal text-zinc-600">(支援 PNG/JPG，皆為選填)</span></p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div className="space-y-2">
-                  <label className={labelCls}>球隊 / 群組 Logo 徽章檔案</label>
+                  <label className={labelCls}>團隊 Logo 徽章檔案</label>
                   <label className="flex flex-col items-center justify-center border-2 border-dashed border-slate-800 hover:border-amber-500/50 bg-slate-950/60 rounded-2xl p-4 cursor-pointer transition group">
                     <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, "logo")} className="hidden" />
                     {logoPreview ? (
@@ -436,7 +436,7 @@ export default function CreateTeamPage() {
             </div>
 
             <div>
-              <label className={labelCls}>球隊簡介 Bio <span className="normal-case font-normal text-zinc-600">(選填)</span></label>
+              <label className={labelCls}>團隊簡介 Bio <span className="normal-case font-normal text-zinc-600">(選填)</span></label>
               <textarea className={`${inputCls} resize-none h-28`} placeholder="介紹你們的隊伍風格、目標、招募期望..." value={formData.bio} onChange={(e) => set("bio", e.target.value)} />
             </div>
 
@@ -484,7 +484,7 @@ export default function CreateTeamPage() {
             </button>
           ) : (
             <button onClick={handleSubmit} disabled={isSaving} className="flex-1 bg-amber-600 hover:bg-amber-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-black py-3 rounded-xl transition-all shadow-[0_0_15px_rgba(217,119,6,0.3)] active:scale-[.98]">
-              {isSaving ? "處理中並建立後台..." : "🚀 建立球隊 / 群組"}
+              {isSaving ? "處理中並建立後台..." : "🚀 建立團隊"}
             </button>
           )}
         </div>

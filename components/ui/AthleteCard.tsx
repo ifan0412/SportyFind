@@ -19,7 +19,7 @@ export interface AthleteCardData {
 const STATUS_BADGE: Record<string, ReactElement> = {
   open_to_team: (
     <span className="bg-emerald-500/10 text-emerald-400 text-xs px-3 py-1 rounded-full font-black">
-      🟢 尋找球隊
+      🟢 尋找團隊
     </span>
   ),
   looking_for_sub: (

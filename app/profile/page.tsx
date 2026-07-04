@@ -548,7 +548,7 @@ function ProfilePageContent() {
                         onClick={() => handleTabSwitch("teams")}
                         className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold transition ${activeTab === "teams" ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20" : "bg-slate-900/50 text-zinc-400 hover:bg-slate-800 hover:text-white"}`}
                       >
-                        <span className="flex items-center gap-3"><span className="text-lg">🛡️</span> 我的球隊 / 群組</span>
+                        <span className="flex items-center gap-3"><span className="text-lg">🛡️</span> 我的團隊</span>
                         <span className="text-xs">→</span>
                       </button>
                     )}
@@ -584,7 +584,7 @@ function ProfilePageContent() {
                       </div>
                       <div>
                         <h2 className="text-sm md:text-base font-black text-white leading-tight">
-                          {activeTab === "dashboard" ? "數據後台" : activeTab === "teams" ? "我的球隊 / 群組" : "好友管理"}
+                          {activeTab === "dashboard" ? "數據後台" : activeTab === "teams" ? "我的團隊" : "好友管理"}
                         </h2>
                         <p className="text-[10px] text-zinc-400 font-bold tracking-wider mt-0.5">專屬私密空間</p>
                       </div>
@@ -684,21 +684,21 @@ function ProfilePageContent() {
                   <div className="animate-fadeIn space-y-8">
                     <div className="flex items-center justify-between mb-2">
                       <div>
-                        <h2 className="text-lg md:text-xl font-black text-white">我的球隊 / 群組</h2>
-                        <p className="text-xs text-zinc-500 mt-1">管理你建立或加入的所有球隊與運動群組。</p>
+                        <h2 className="text-lg md:text-xl font-black text-white">我的團隊</h2>
+                        <p className="text-xs text-zinc-500 mt-1">管理你建立或加入的所有團隊。</p>
                       </div>
                       <a
                         href="/team/create"
                         className="flex-shrink-0 flex items-center gap-1.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-black px-4 py-2.5 rounded-xl shadow-[0_0_10px_rgba(217,119,6,0.2)] transition-all active:scale-95"
                       >
-                        ＋ 建立球隊
+                        ＋ 建立團隊
                       </a>
                     </div>
 
                     {!hasBoth && (
                       <div className="bg-slate-900/30 border border-dashed border-slate-700/50 rounded-3xl py-16 text-center px-6">
                         <p className="text-4xl mb-4">🛡️</p>
-                        <p className="text-zinc-400 font-bold text-sm mb-2">你尚未加入或建立任何球隊 / 群組</p>
+                        <p className="text-zinc-400 font-bold text-sm mb-2">你尚未加入或建立任何團隊</p>
                         <p className="text-zinc-600 text-xs mb-6">建立屬於你的隊伍，招募志同道合的夥伴！</p>
                         <a
                           href="/team/create"
@@ -711,7 +711,7 @@ function ProfilePageContent() {
 
                     {managedTeams.length > 0 && (
                       <div>
-                        <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest mb-4 pl-1">我管理的球隊 (Admin)</p>
+                        <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest mb-4 pl-1">我管理的團隊 (Admin)</p>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           {managedTeams.map(({ teams: t }) => {
                             if (!t) return null;
@@ -749,7 +749,7 @@ function ProfilePageContent() {
 
                     {joinedTeams.length > 0 && (
                       <div>
-                        <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-4 pl-1">我加入的球隊 / 群組</p>
+                        <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-4 pl-1">我加入的團隊</p>
                         <div className="space-y-3">
                           {joinedTeams.map(({ teams: t, role }) => {
                             if (!t) return null;

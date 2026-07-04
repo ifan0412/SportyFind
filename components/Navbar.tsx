@@ -17,14 +17,13 @@ const navLinks = [
   { href: "/physio",  label: "Physio",  icon: Activity },
 ];
 
-// 🔥 修改點 1: 更新介面，確保包含 team_id
 export interface Notification {
   id: string;
   type: "friend_request" | "friend_accepted" | "team_join_request" | "team_request_accepted" | "team_request_rejected";
   is_read: boolean;
   created_at: string;
   friendship_id: string | null;
-  team_id: string | null; // 新增欄位
+  team_id: string | null;
   sender: {
     id: string;
     full_name: string | null;
@@ -56,20 +55,14 @@ function NotificationBell({
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
-  // 🔥 修改點 2: 處理動態導航邏輯
   const handleNotifClick = (notif: Notification) => {
     setOpen(false);
     
-    // 如果是球隊加入請求，導向管理頁面
     if (notif.type === "team_join_request" && notif.team_id) {
       router.push(`/team/${notif.team_id}/admin`);
-    } 
-    // 如果是加入結果通知，導向球隊詳情頁
-    else if ((notif.type === "team_request_accepted" || notif.type === "team_request_rejected") && notif.team_id) {
+    } else if ((notif.type === "team_request_accepted" || notif.type === "team_request_rejected") && notif.team_id) {
       router.push(`/team/${notif.team_id}`);
-    } 
-    // 預設導向好友頁面
-    else {
+    } else {
       router.push("/profile?tab=friends");
     }
   };
@@ -217,13 +210,24 @@ export function Navbar() {
   const startProcessing = (id: string) => { processingIds.current.add(id); setProcessingSet(new Set(processingIds.current)); };
   const stopProcessing  = (id: string) => { processingIds.current.delete(id); setProcessingSet(new Set(processingIds.current)); };
 
+  // 鎖定背景滾動功能保持不變
+  useEffect(() => {
+    if (mobileOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+    }
+    return () => {
+      document.body.style.overflow = "unset";
+    };
+  }, [mobileOpen]);
+
   const supabase = useMemo(() => createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
   ), []);
 
   const fetchNotifications = useCallback(async (uid: string) => {
-    // 🔥 修改點 3: 撈取資料時加入 team_id
     const { data } = await supabase
       .from("notifications")
       .select(
@@ -254,7 +258,6 @@ export function Navbar() {
     return () => subscription.unsubscribe();
   }, [supabase, router, fetchNotifications]);
 
-  // ── Realtime 監聽 ────────────────────────────────
   useEffect(() => {
     let channel: ReturnType<typeof supabase.channel> | null = null;
     let isMounted = true;
@@ -270,7 +273,6 @@ export function Navbar() {
           "postgres_changes",
           { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${uid}` },
           async (payload) => {
-            // 🔥 修改點 4: 即時撈取新資料時確保包含 team_id
             const { data: newNotif } = await supabase
               .from("notifications")
               .select(`id, type, is_read, created_at, friendship_id, team_id, sender:sender_id (id, full_name, avatar_url)`)
@@ -305,7 +307,6 @@ export function Navbar() {
     };
   }, [supabase, fetchNotifications]);
 
-  // ... (handleMarkAllRead, handleAccept, handleReject, handleDismiss 保持不變)
   const handleMarkAllRead = useCallback(async () => {
     if (!user?.id) return;
     setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
@@ -373,6 +374,7 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-50 border-b border-slate-800 bg-slate-950/90 backdrop-blur-md shadow-sm">
       <nav className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6 lg:px-8">
+
         <Link href="/" className="flex items-center gap-2 transition-opacity hover:opacity-80" onClick={() => setMobileOpen(false)}>
           <span className="flex size-8 items-center justify-center rounded-md bg-blue-600 text-white">
             <Zap className="size-4" aria-hidden="true" />
@@ -381,6 +383,7 @@ export function Navbar() {
             SPORTY<span className="text-blue-400">FIND</span>
           </span>
         </Link>
+
         <ul className="hidden items-center gap-1 md:flex">
           {navLinks.map(({ href, label, icon: Icon }) => {
             const isActive = pathname === href || pathname.startsWith(`${href}/`);
@@ -399,54 +402,119 @@ export function Navbar() {
               </li>
             );
           })}
+
           {user ? (
             <li className="flex items-center gap-4 ml-4 pl-4 border-l border-slate-800">
               <NotificationBell {...bellProps} /> 
-              <Link href="/inbox" className="text-slate-400 hover:text-white transition-colors p-2 rounded-md hover:bg-slate-800 flex items-center justify-center" title="收件匣">
+              <Link 
+                href="/inbox" 
+                className="text-slate-400 hover:text-white transition-colors p-2 rounded-md hover:bg-slate-800 flex items-center justify-center" 
+                title="收件匣"
+              >
                 <MessageSquare className="w-5 h-5" />
               </Link>
-              <Link href="/profile" className={cn("relative flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 transition-all duration-200 bg-slate-900", pathname === "/profile" ? "border-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.3)] text-blue-400" : "border-slate-700 text-slate-400 hover:border-slate-400 hover:text-white")} title="個人檔案">
+              <Link
+                href="/profile"
+                className={cn(
+                  "relative flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 transition-all duration-200 bg-slate-900",
+                  pathname === "/profile" 
+                    ? "border-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.3)] text-blue-400" 
+                    : "border-slate-700 text-slate-400 hover:border-slate-400 hover:text-white"
+                )}
+                title="個人檔案"
+              >
                 <User className="size-4" />
               </Link>
-              <button onClick={handleLogout} className="flex items-center justify-center p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-colors" title="登出">
+              <button
+                onClick={handleLogout}
+                className="flex items-center justify-center p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-colors"
+                title="登出"
+              >
                 <LogOut className="w-5 h-5" />
               </button>
             </li>
           ) : (
             <li>
-              <Link href="/auth" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-slate-400 hover:bg-slate-800 hover:text-white transition-colors">登入</Link>
+              <Link 
+                href="/auth" 
+                className="flex items-center justify-center gap-2 rounded-xl px-5 py-1 text-sm font-black bg-amber-600 hover:bg-amber-500 text-white transition-all shadow-lg active:scale-95"
+              >
+                Login / Register
+              </Link>
             </li>
           )}
         </ul>
+
         <div className="flex items-center gap-2 md:hidden">
           {user && <NotificationBell {...bellProps} />}
-          <button type="button" className="inline-flex size-9 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-slate-800 hover:text-white" onClick={() => setMobileOpen((o) => !o)}>
+          <button
+            type="button"
+            className="inline-flex size-9 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
+            onClick={() => setMobileOpen((o) => !o)}
+          >
             {mobileOpen ? <X className="size-5" /> : <Menu className="size-5" />}
           </button>
         </div>
       </nav>
+
+      {/* 🔥 核心修復：改為 absolute top-full 懸掛在 56px 導航列正下方，向下延伸填滿畫面，不衝突 CSS 模糊屬性 */}
       {mobileOpen && (
-        <div className="border-t border-slate-800 bg-slate-950 md:hidden absolute w-full max-h-[85vh] overflow-y-auto shadow-2xl">
-          <ul className="mx-auto max-w-6xl space-y-2 px-4 py-4 sm:px-6">
+        <div className="absolute top-full left-0 w-full h-[calc(100vh-3.5rem)] bg-slate-950 md:hidden overflow-y-auto border-t border-slate-800 shadow-2xl">
+          <ul className="mx-auto w-full max-w-6xl space-y-2 px-4 py-6 sm:px-6">
             {navLinks.map(({ href, label, icon: Icon }) => {
               const isActive = pathname === href || pathname.startsWith(`${href}/`);
               return (
                 <li key={href}>
-                  <Link href={href} className={cn("flex items-center gap-3 rounded-md px-3 py-3 text-sm font-bold transition-colors", isActive ? "bg-blue-600/15 text-blue-400" : "text-slate-400 hover:bg-slate-800 hover:text-white")} onClick={() => setMobileOpen(false)}>
+                  <Link
+                    href={href}
+                    className={cn(
+                      "flex items-center gap-3 rounded-md px-3 py-3 text-sm font-bold transition-colors",
+                      isActive ? "bg-blue-600/15 text-blue-400" : "text-slate-400 hover:bg-slate-800 hover:text-white",
+                    )}
+                    onClick={() => setMobileOpen(false)}
+                  >
                     <Icon className="size-4" />
                     {label}
                   </Link>
                 </li>
               );
             })}
+
             <div className="h-px bg-slate-800 my-4" />
+
             {user ? (
               <>
-                <li><Link href="/profile" className={cn("flex items-center gap-3 rounded-md px-3 py-3 text-sm font-bold transition-colors", pathname === "/profile" ? "text-blue-400" : "text-slate-400 hover:bg-slate-800 hover:text-white")} onClick={() => setMobileOpen(false)}><User className="size-4" /> 個人檔案 / 管理</Link></li>
-                <li><button onClick={() => { setMobileOpen(false); handleLogout(); }} className="flex w-full items-center gap-3 rounded-md px-3 py-3 text-sm font-bold text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"><LogOut className="size-4" /> 登出</button></li>
+                <li>
+                  <Link
+                    href="/profile"
+                    className={cn(
+                      "flex items-center gap-3 rounded-md px-3 py-3 text-sm font-bold transition-colors",
+                      pathname === "/profile" ? "text-blue-400" : "text-slate-400 hover:bg-slate-800 hover:text-white",
+                    )}
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    <User className="size-4" /> 個人檔案 / 管理
+                  </Link>
+                </li>
+                <li>
+                  <button
+                    onClick={() => { setMobileOpen(false); handleLogout(); }}
+                    className="flex w-full items-center gap-3 rounded-md px-3 py-3 text-sm font-bold text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+                  >
+                    <LogOut className="size-4" /> 登出
+                  </button>
+                </li>
               </>
             ) : (
-              <li><Link href="/auth" className="flex items-center gap-2 rounded-md px-3 py-3 text-sm font-bold text-slate-400 hover:bg-slate-800 hover:text-white" onClick={() => setMobileOpen(false)}>登入</Link></li>
+              <li>
+                <Link 
+                  href="/auth" 
+                  className="flex items-center justify-center gap-2 rounded-md px-3 py-3 text-sm font-bold text-white bg-amber-600 hover:bg-amber-500 transition-colors shadow-lg active:scale-95" 
+                  onClick={() => setMobileOpen(false)}
+                >
+                  Login / Register
+                </Link>
+              </li>
             )}
           </ul>
         </div>

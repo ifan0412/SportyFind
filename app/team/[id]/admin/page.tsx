@@ -235,7 +235,7 @@ export default function TeamAdminDashboard() {
 
   // ✅ 解散與刪除球隊邏輯 (升級修正版)
   const handleDeleteTeam = async () => {
-    const promptMatch = prompt(`⚠️ 極度危險操作！解散後所有成員紀錄將被清除且無法復原。\n請輸入球隊英文名稱「${team.name_en}」確認刪除：`);
+    const promptMatch = prompt(`⚠️ 極度危險操作！解散後所有成員紀錄將被清除且無法復原。\n請輸入團隊英文名稱「${team.name_en}」確認刪除：`);
     if (promptMatch !== team.name_en) {
       if (promptMatch !== null) alert("輸入名稱不吻合，已取消操作。");
       return;
@@ -298,7 +298,7 @@ export default function TeamAdminDashboard() {
         
         <div className="flex items-center justify-between mb-8">
           <Link href={`/team/${id}`} className="text-sm font-black text-amber-500 hover:text-amber-400 transition relative z-30">
-            ← 前往球隊公開頁面查看預覽
+            ← 前往團隊公開頁面查看預覽
           </Link>
           <span className="bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-black px-3 py-1 rounded-full uppercase tracking-widest">後台中央管理層</span>
         </div>
