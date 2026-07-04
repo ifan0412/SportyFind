@@ -649,9 +649,7 @@ function ProfilePageContent() {
 
               {activeTab === "coach" && (
                 <CoachTab
-                  coachProfiles={coachProfiles}
                   allSports={allSports}
-                  locationData={locationData}
                   editForm={editForm}
                   onFieldChange={(field, value) => setEditForm((prev: any) => ({ ...prev, [field]: value }))}
                   onSaveGlobal={handleSaveProfile}
