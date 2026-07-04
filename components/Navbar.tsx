@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import {
-  Menu, Users, GraduationCap, Zap, X, LogOut, Shield, Activity, Bell, User, MessageSquare
+  Menu, Users, GraduationCap, Zap, X, LogOut, Shield, Activity, Bell, User, MessageSquare, Trophy, Calendar
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createBrowserClient } from "@supabase/ssr";
@@ -14,16 +14,18 @@ const navLinks = [
   { href: "/network", label: "Players", icon: Users },
   { href: "/coaches", label: "Coaches", icon: GraduationCap },
   { href: "/team",    label: "Teams",   icon: Shield },
+  { href: "/events",  label: "Events",  icon: Trophy },
   { href: "/physio",  label: "Physio",  icon: Activity },
 ];
 
 export interface Notification {
   id: string;
-  type: "friend_request" | "friend_accepted" | "team_join_request" | "team_request_accepted" | "team_request_rejected";
+  type: "friend_request" | "friend_accepted" | "team_join_request" | "team_request_accepted" | "team_request_rejected" | "event_registration" | "event_kicked";
   is_read: boolean;
   created_at: string;
   friendship_id: string | null;
   team_id: string | null;
+  event_id: string | null;
   sender: {
     id: string;
     full_name: string | null;
@@ -57,11 +59,15 @@ function NotificationBell({
 
   const handleNotifClick = (notif: Notification) => {
     setOpen(false);
-    
+
     if (notif.type === "team_join_request" && notif.team_id) {
       router.push(`/team/${notif.team_id}/admin`);
     } else if ((notif.type === "team_request_accepted" || notif.type === "team_request_rejected") && notif.team_id) {
       router.push(`/team/${notif.team_id}`);
+    } else if (notif.type === "event_registration" && notif.event_id) {
+      router.push(`/events/${notif.event_id}`);
+    } else if (notif.type === "event_kicked" && notif.event_id) {
+      router.push(`/events/${notif.event_id}`);
     } else {
       router.push("/profile?tab=friends");
     }
@@ -156,6 +162,12 @@ function NotificationBell({
                         {notif.type === "team_request_rejected" && (
                           <><span className="text-white">系統通知</span>：您的加入申請已被拒絕</>
                         )}
+                        {notif.type === "event_registration" && (
+                          <><span className="text-white">{notif.sender?.full_name ?? "某人"}</span> 報名了您主辦的活動</>
+                        )}
+                        {notif.type === "event_kicked" && (
+                          <><span className="text-white">系統通知</span>：您已被主辦方移除出某活動的參賽名單</>
+                        )}
                       </p>
                       <span className="text-[10px] text-zinc-500">
                         {new Date(notif.created_at).toLocaleString("zh-HK", {
@@ -210,7 +222,6 @@ export function Navbar() {
   const startProcessing = (id: string) => { processingIds.current.add(id); setProcessingSet(new Set(processingIds.current)); };
   const stopProcessing  = (id: string) => { processingIds.current.delete(id); setProcessingSet(new Set(processingIds.current)); };
 
-  // 鎖定背景滾動功能保持不變
   useEffect(() => {
     if (mobileOpen) {
       document.body.style.overflow = "hidden";
@@ -231,7 +242,7 @@ export function Navbar() {
     const { data } = await supabase
       .from("notifications")
       .select(
-        `id, type, is_read, created_at, friendship_id, team_id,
+        `id, type, is_read, created_at, friendship_id, team_id, event_id,
          sender:sender_id (id, full_name, avatar_url)`
       )
       .eq("user_id", uid)
@@ -275,7 +286,7 @@ export function Navbar() {
           async (payload) => {
             const { data: newNotif } = await supabase
               .from("notifications")
-              .select(`id, type, is_read, created_at, friendship_id, team_id, sender:sender_id (id, full_name, avatar_url)`)
+              .select(`id, type, is_read, created_at, friendship_id, team_id, event_id, sender:sender_id (id, full_name, avatar_url)`)
               .eq("id", payload.new.id)
               .single();
 
@@ -413,6 +424,19 @@ export function Navbar() {
               >
                 <MessageSquare className="w-5 h-5" />
               </Link>
+              {/* 我的賽事中心捷徑 */}
+              <Link 
+                href="/events/my" 
+                className={cn(
+                  "relative flex size-8 shrink-0 items-center justify-center rounded-full border transition-all duration-200 bg-slate-900",
+                  pathname === "/events/my" 
+                    ? "border-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.3)] text-amber-400" 
+                    : "border-slate-700 text-slate-400 hover:border-slate-400 hover:text-white"
+                )}
+                title="我的賽事中心"
+              >
+                <Calendar className="size-4" />
+              </Link>
               <Link
                 href="/profile"
                 className={cn(
@@ -457,7 +481,6 @@ export function Navbar() {
         </div>
       </nav>
 
-      {/* 🔥 核心修復：改為 absolute top-full 懸掛在 56px 導航列正下方，向下延伸填滿畫面，不衝突 CSS 模糊屬性 */}
       {mobileOpen && (
         <div className="absolute top-full left-0 w-full h-[calc(100vh-3.5rem)] bg-slate-950 md:hidden overflow-y-auto border-t border-slate-800 shadow-2xl">
           <ul className="mx-auto w-full max-w-6xl space-y-2 px-4 py-6 sm:px-6">
@@ -484,6 +507,18 @@ export function Navbar() {
 
             {user ? (
               <>
+                <li>
+                  <Link
+                    href="/events/my"
+                    className={cn(
+                      "flex items-center gap-3 rounded-md px-3 py-3 text-sm font-bold transition-colors",
+                      pathname === "/events/my" ? "text-amber-400" : "text-slate-400 hover:bg-slate-800 hover:text-white",
+                    )}
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    <Calendar className="size-4" /> 我的賽事 / 行程中心
+                  </Link>
+                </li>
                 <li>
                   <Link
                     href="/profile"
