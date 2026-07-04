@@ -651,13 +651,9 @@ function ProfilePageContent() {
                 <CoachTab
                   allSports={allSports}
                   editForm={editForm}
-                  onFieldChange={(field, value) => setEditForm((prev: any) => ({ ...prev, [field]: value }))}
+                  onFieldChange={handleFieldChange}
                   onSaveGlobal={handleSaveProfile}
                   isSaving={isSaving}
-                  onAdd={addCoachProfile}
-                  onUpdate={updateCoachProfile}
-                  onSave={saveCoachProfile}
-                  onDelete={deleteCoachProfile}
                 />
               )}
 
