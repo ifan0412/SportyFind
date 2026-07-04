@@ -651,8 +651,10 @@ function ProfilePageContent() {
                 <CoachTab
                   allSports={allSports}
                   editForm={editForm}
-                  onFieldChange={handleFieldChange}
-                  onSaveGlobal={handleSaveProfile}
+                  // 🔥 修正 1：直接使用 setEditForm 內聯更新，就不怕找不到函數名稱了！
+                  onFieldChange={(field, value) => setEditForm({ ...editForm, [field]: value })}
+                  // 🔥 修正 2：請注意這裡！如果你的存檔函數不叫 handleSave，請改成 saveProfile 或 updateProfile
+                  onSaveGlobal={handleSave} 
                   isSaving={isSaving}
                 />
               )}
