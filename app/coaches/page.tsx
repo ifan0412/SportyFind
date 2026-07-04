@@ -39,17 +39,14 @@ export default function CoachesPage() {
 
   useEffect(() => {
     const fetchCoaches = async () => {
-      // 💡 步驟 1：獲取當前登入者 ID
       const { data: { user } } = await supabase.auth.getUser();
       const currentUserId = user?.id || null;
 
-      // 💡 步驟 2：建立 Query
       let query = supabase
         .from("coach_profiles")
         .select("id, user_id, sport, rate, status, region, profiles(full_name, headline, avatar_url)")
         .neq("status", "hidden");
 
-      // 🔥 核心修正：排除自己
       if (currentUserId) {
         query = query.neq("user_id", currentUserId);
       }
@@ -91,18 +88,18 @@ export default function CoachesPage() {
             <input type="text" placeholder="搜尋教練名稱..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-xl py-3 pl-10 pr-4 text-sm text-white focus:outline-none focus:border-amber-500 transition" />
           </div>
           
-          <button onClick={() => setIsSportModalOpen(true)} className={`w-full md:w-auto flex items-center justify-between gap-3 px-5 py-3 rounded-xl border text-sm font-bold transition flex-shrink-0 ${selectedSports.length > 0 ? "bg-amber-600/10 border-amber-500 text-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.2)]" : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"}`}>
+          <button onClick={() => setIsSportModalOpen(true)} className={`w-full md:w-auto flex items-center justify-between gap-3 px-5 py-3 rounded-xl border text-sm font-bold transition flex-shrink-0 cursor-pointer ${selectedSports.length > 0 ? "bg-amber-600/10 border-amber-500 text-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.2)]" : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"}`}>
             <span>專項 {selectedSports.length > 0 ? `(${selectedSports.length})` : "(全部)"}</span><span className="text-[10px]">▼</span>
           </button>
 
-          <button onClick={() => setIsLocationModalOpen(true)} className={`w-full md:w-auto flex items-center justify-between gap-3 px-5 py-3 rounded-xl border text-sm font-bold transition flex-shrink-0 ${selectedLocations.length > 0 ? "bg-amber-600/10 border-amber-500 text-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.2)]" : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"}`}>
+          <button onClick={() => setIsLocationModalOpen(true)} className={`w-full md:w-auto flex items-center justify-between gap-3 px-5 py-3 rounded-xl border text-sm font-bold transition flex-shrink-0 cursor-pointer ${selectedLocations.length > 0 ? "bg-amber-600/10 border-amber-500 text-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.2)]" : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"}`}>
             <span>地區 {selectedLocations.length > 0 ? `(${selectedLocations.length})` : "(全區)"}</span><span className="text-[10px]">▼</span>
           </button>
 
           <div className="flex items-center gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden w-full md:w-auto">
-            <button onClick={() => setFilterStatus("")} className={`whitespace-nowrap px-4 py-2.5 rounded-xl text-xs font-bold border transition ${!filterStatus ? "bg-slate-100 border-slate-200 text-black shadow-[0_0_10px_rgba(255,255,255,0.2)]" : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"}`}>全部狀態</button>
-            <button onClick={() => setFilterStatus("recruiting")} className={`whitespace-nowrap px-4 py-2.5 rounded-xl text-xs font-bold border transition ${filterStatus === "recruiting" ? "bg-slate-100 border-slate-200 text-black shadow-[0_0_10px_rgba(255,255,255,0.2)]" : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"}`}>🟢 招生中</button>
-            <button onClick={() => setFilterStatus("full")} className={`whitespace-nowrap px-4 py-2.5 rounded-xl text-xs font-bold border transition ${filterStatus === "full" ? "bg-slate-100 border-slate-200 text-black shadow-[0_0_10px_rgba(255,255,255,0.2)]" : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"}`}>🔴 滿員</button>
+            <button onClick={() => setFilterStatus("")} className={`whitespace-nowrap px-4 py-2.5 rounded-xl text-xs font-bold border transition cursor-pointer ${!filterStatus ? "bg-slate-100 border-slate-200 text-black shadow-[0_0_10px_rgba(255,255,255,0.2)]" : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"}`}>全部狀態</button>
+            <button onClick={() => setFilterStatus("recruiting")} className={`whitespace-nowrap px-4 py-2.5 rounded-xl text-xs font-bold border transition cursor-pointer ${filterStatus === "recruiting" ? "bg-slate-100 border-slate-200 text-black shadow-[0_0_10px_rgba(255,255,255,0.2)]" : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"}`}>🟢 招生中</button>
+            <button onClick={() => setFilterStatus("full")} className={`whitespace-nowrap px-4 py-2.5 rounded-xl text-xs font-bold border transition cursor-pointer ${filterStatus === "full" ? "bg-slate-100 border-slate-200 text-black shadow-[0_0_10px_rgba(255,255,255,0.2)]" : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"}`}>🔴 滿員</button>
           </div>
         </div>
 
@@ -130,7 +127,10 @@ export default function CoachesPage() {
                     <div className="bg-amber-500/10 text-amber-400 border border-amber-500/20 text-xs font-black px-3 py-1.5 rounded-lg truncate">HK$ {c.rate} / hr</div>
                   </div>
                   <div className="mt-auto w-full pt-4 border-t border-slate-800/80">
-                    <Link href={`/p/${c.user_id}`} className="block w-full bg-slate-800 hover:bg-amber-600 text-white text-sm font-black py-3 rounded-xl transition duration-300">查看教練專頁</Link>
+                    {/* 🔥 核心變更：加上 ?tab=coach 讓用戶點擊後直接進入教練檔案分頁 */}
+                    <Link href={`/p/${c.user_id}?tab=coach`} className="block w-full bg-slate-800 hover:bg-amber-600 text-white text-sm font-black py-3 rounded-xl transition duration-300">
+                      查看教練專頁
+                    </Link>
                   </div>
                 </div>
               ))}

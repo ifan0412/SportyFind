@@ -64,7 +64,7 @@ export default function HomePage() {
         {/* 精確修正：一站式運動約戰與社群網絡 Tagline */}
         <div className="mb-10 space-y-2">
           <p className="text-xl md:text-2xl text-slate-100 font-extrabold tracking-wide">
-            一站式全能運動約戰與社群網絡
+            一站式全能運動社群網絡
           </p>
           <p className="text-sm md:text-base text-slate-400 font-medium">
             The one-stop networking & matchmaking platform for the sports community.
@@ -95,7 +95,7 @@ export default function HomePage() {
                   </span>
                 </div>
                 <p className="text-xs md:text-sm font-medium text-slate-300">
-                  報名散客零打、組隊友誼對抗，或發起專屬的球類運動賽事
+                  報名 & 組隊友誼對抗 | 發起專屬的運動賽事
                 </p>
               </div>
             </div>

@@ -1,4 +1,4 @@
-// 1. 所有的 import 集中在最上方 (可以把 Metadata 和 Viewport 寫在一起)
+// 1. 所有的 import 集中在最上方
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Navbar } from "@/components/Navbar"; 
@@ -11,18 +11,25 @@ import { GlobalChat } from "@/components/GlobalChat";
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
-// 3. 視角設定 (防止手機端自動放大)
+// 3. 視角設定 (合併了 PWA 主題深色背灰 #020617 與防止 iOS 表單輸入時自動縮放畫面)
 export const viewport: Viewport = {
+  themeColor: "#020617",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
 };
 
-// 4. Metadata 設定
+// 4. Metadata 設定 (整合 SportyFind 品牌與完整 PWA 支援參數)
 export const metadata: Metadata = {
-  title: "Pro Sports Network | 專業體育社群網路",
-  description: "全港首創、專為運動員與教練打造的專業 LinkedIn 社交平台。",
+  title: "SportyFind | 一站式全能運動約戰與社群網絡",
+  description: "The one-stop networking & matchmaking platform for the sports community.",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "SportyFind",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

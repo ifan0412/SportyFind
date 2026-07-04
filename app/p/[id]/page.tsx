@@ -5,9 +5,8 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { BackButton } from "@/components/BackButton";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Mail, Phone, MapPin, X, EyeOff, MessageSquare, Zap } from "lucide-react"; 
+import { Mail, Phone, MapPin, X, EyeOff, MessageSquare, Zap, Shield, Star } from "lucide-react"; 
 
-// ── 自訂社群圖示 (SVG) ──
 const FacebookIcon = ({ className }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
     <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
@@ -27,34 +26,14 @@ const ThreadsIcon = ({ className }: { className?: string }) => (
     <path d="M12 22C6.477 22 2 17.523 2 12S6.477 2 12 2s10 4.477 10 10-4.477 10-10 10zM12 10.5v3c0 .828-.672 1.5-1.5 1.5S9 14.328 9 13.5v-3c0-1.657 1.343-3 3-3s3 1.343 3 3v2.25c0 .414-.336.75-.75.75s-.75-.336-.75-.75V10.5" />
   </svg>
 );
-// ────────────────────────
 
 interface Profile {
   id: string; full_name: string | null; handle: string | null; headline: string | null; bio: string | null; location: string | null; avatar_url: string | null; status_tag: string | null; display_sports: string[] | null;
   is_coach: boolean | null;
   is_physio: boolean | null; physio_rate: number | null; clinic_name: string | null; physio_status: string | null; physio_region: string | null;
-  
-  contact_email?: string | null;
-  contact_phone?: string | null;
-  city_region?: string | null;
-  address?: string | null;
-  is_address_public?: boolean;
-  instagram_url?: string | null;
-  facebook_url?: string | null;
-  threads_url?: string | null;
-
-  physio_contact_email?: string | null;
-  physio_contact_phone?: string | null;
-  physio_city_region?: string | null;
-  physio_address?: string | null;
-  physio_is_address_public?: boolean;
-  physio_instagram_url?: string | null;
-  physio_facebook_url?: string | null;
-  physio_threads_url?: string | null;
-
-  physio_experience_years?: string | null;
-  physio_qualifications?: string | null;
-  physio_services_offered?: string | null;
+  contact_email?: string | null; contact_phone?: string | null; city_region?: string | null; address?: string | null; is_address_public?: boolean; instagram_url?: string | null; facebook_url?: string | null; threads_url?: string | null;
+  physio_contact_email?: string | null; physio_contact_phone?: string | null; physio_city_region?: string | null; physio_address?: string | null; physio_is_address_public?: boolean; physio_instagram_url?: string | null; physio_facebook_url?: string | null; physio_threads_url?: string | null;
+  physio_experience_years?: string | null; physio_qualifications?: string | null; physio_services_offered?: string | null;
 }
 
 interface CoachProfile { id: string; sport: string; rate: number; status: string; country: string; region: string; }
@@ -89,6 +68,8 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [coachProfiles, setCoachProfiles] = useState<CoachProfile[]>([]);
+  const [coachServices, setCoachServices] = useState<any[]>([]);
+  const [coachReviews, setCoachReviews] = useState<any[]>([]);
   const [userSports, setUserSports] = useState<UserSport[]>([]);
   const [galleryMedia, setGalleryMedia] = useState<MediaItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -101,6 +82,13 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
   const [friendshipId, setFriendshipId] = useState<string | null>(null);
   const [friendLoading, setFriendLoading] = useState(false);
   const [showUnfriendConfirm, setShowUnfriendConfirm] = useState(false);
+
+  // 🔥 點擊按鈕同步更新網址列 URL 的 ?tab=參數
+  const handleTabChange = (role: TopRole) => {
+    setActiveRole(role);
+    if (role === "athlete") router.replace(`/p/${id}`, { scroll: false });
+    else router.replace(`/p/${id}?tab=${role}`, { scroll: false });
+  };
 
   const refetchFriendshipStatus = useCallback(async (uid: string) => {
     const { data: friendData } = await supabase
@@ -122,15 +110,25 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
   useEffect(() => {
     const fetchData = async () => {
       try {
+        if (typeof window !== "undefined") {
+          const urlParams = new URLSearchParams(window.location.search);
+          if (urlParams.get("tab") === "coach") setActiveRole("coach");
+          if (urlParams.get("tab") === "physio") setActiveRole("physio");
+        }
+
         const [
           { data: prof, error: profErr },
           { data: usData },
           { data: coachesData },
+          { data: servicesData },
+          { data: reviewsData },
           { data: { user } }
         ] = await Promise.all([
           supabase.from("profiles").select("*").eq("id", id).single(),
           supabase.from("user_sports").select("id, metadata, sports(name)").eq("user_id", id),
           supabase.from("coach_profiles").select("*").eq("user_id", id).neq("status", "hidden"),
+          supabase.from("coach_services").select("*").eq("coach_id", id).eq("is_active", true),
+          supabase.from("coach_reviews").select("rating").eq("coach_id", id),
           supabase.auth.getUser(),
         ]);
   
@@ -138,6 +136,8 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
         setProfile(prof as Profile);
         if (usData) setUserSports(usData as unknown as UserSport[]);
         if (coachesData) setCoachProfiles(coachesData);
+        if (servicesData) setCoachServices(servicesData);
+        if (reviewsData) setCoachReviews(reviewsData);
   
         if (user) {
           const uid = user.id;
@@ -156,26 +156,20 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
       } catch (err) { setIsNotFound(true); } finally { setIsLoading(false); }
     };
     fetchData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, supabase]);
+  }, [id, supabase, refetchFriendshipStatus]);
   
   useEffect(() => {
     if (!currentUserId || !id || currentUserId === id) return;
-  
     const channel = supabase
       .channel(`profile-friendship-${currentUserId}-${id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "friendships" }, async (payload) => {
         const row = (payload.new || payload.old) as any; 
-        
         if (row && ((row.sender_id === currentUserId && row.receiver_id === id) || (row.sender_id === id && row.receiver_id === currentUserId))) {
           await refetchFriendshipStatus(currentUserId);
         }
-      }
-    ).subscribe();
-  
+      }).subscribe();
     return () => { supabase.removeChannel(channel); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUserId, id, supabase]);
+  }, [currentUserId, id, supabase, refetchFriendshipStatus]);
 
   const handleSendRequest = async () => {
     if (!currentUserId) return;
@@ -188,7 +182,7 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
       router.refresh();
     } catch (err: any) {
       if (err.code === '23505') await refetchFriendshipStatus(currentUserId); 
-      else alert(`發送失敗: ${err.inbox || "發生未知錯誤"}`);
+      else alert(`發送失敗: ${err.message || "發生未知錯誤"}`);
     } finally { setFriendLoading(false); }
   };
 
@@ -202,7 +196,7 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
       await refetchFriendshipStatus(currentUserId);
       window.dispatchEvent(new CustomEvent("sync-friendship")); 
       router.refresh();
-    } catch (err: any) { alert(`解除失敗: ${err.inbox || "發生未知錯誤"}`);
+    } catch (err: any) { alert(`解除失敗: ${err.message || "發生未知錯誤"}`);
     } finally { setFriendLoading(false); }
   };
 
@@ -215,7 +209,7 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
       await refetchFriendshipStatus(currentUserId);
       window.dispatchEvent(new CustomEvent("sync-friendship")); 
       router.refresh();
-    } catch (err: any) { alert(`接受失敗: ${err.inbox || "發生未知錯誤"}`);
+    } catch (err: any) { alert(`接受失敗: ${err.message || "發生未知錯誤"}`);
     } finally { setFriendLoading(false); }
   };
 
@@ -228,51 +222,50 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
       await refetchFriendshipStatus(currentUserId);
       window.dispatchEvent(new CustomEvent("sync-friendship"));
       router.refresh();
-    } catch (err: any) { alert(`拒絕失敗: ${err.inbox || "發生未知錯誤"}`);
+    } catch (err: any) { alert(`拒絕失敗: ${err.message || "發生未知錯誤"}`);
     } finally { setFriendLoading(false); }
   };
 
   const FriendButton = () => {
     if (!currentUserId || currentUserId === id) return null;
-
     if (friendshipStatus === "accepted") {
       if (showUnfriendConfirm) {
         return (
           <div className="mt-4 bg-slate-900 border border-slate-700 rounded-2xl p-4 shadow-xl text-center animate-fadeIn">
             <p className="text-sm text-zinc-300 font-bold mb-4">確定要解除好友關係？</p>
             <div className="flex gap-2">
-              <button onClick={handleCancelOrUnfriend} disabled={friendLoading} className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-black transition shadow-[0_0_10px_rgba(220,38,38,0.2)]">
+              <button onClick={handleCancelOrUnfriend} disabled={friendLoading} className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-black transition cursor-pointer">
                 {friendLoading ? "處理中..." : "解除好友"}
               </button>
-              <button onClick={() => setShowUnfriendConfirm(false)} className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-zinc-300 text-xs font-black transition">
+              <button onClick={() => setShowUnfriendConfirm(false)} className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-zinc-300 text-xs font-black transition cursor-pointer">
                 取消
               </button>
             </div>
           </div>
         );
       }
-      return <button onClick={() => setShowUnfriendConfirm(true)} className="w-full mt-4 py-2.5 px-6 rounded-full text-sm font-black bg-blue-600/20 border border-blue-500/30 text-blue-400 hover:bg-red-500/20 hover:border-red-500/30 hover:text-red-400 transition-all duration-300">✓ 已加好友</button>;
+      return <button onClick={() => setShowUnfriendConfirm(true)} className="w-full mt-4 py-2.5 px-6 rounded-full text-sm font-black bg-blue-600/20 border border-blue-500/30 text-blue-400 hover:bg-red-500/20 hover:border-red-500/30 hover:text-red-400 transition-all duration-300 cursor-pointer">✓ 已加好友</button>;
     }
-    if (friendshipStatus === "pending_sent") return <button onClick={handleCancelOrUnfriend} disabled={friendLoading} className="w-full mt-4 py-2.5 px-6 rounded-full text-sm font-black bg-slate-800 border border-slate-700 text-zinc-400 hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-400 transition-all duration-300">{friendLoading ? "處理中..." : "⏳ 已發送請求（點擊取消）"}</button>;
+    if (friendshipStatus === "pending_sent") return <button onClick={handleCancelOrUnfriend} disabled={friendLoading} className="w-full mt-4 py-2.5 px-6 rounded-full text-sm font-black bg-slate-800 border border-slate-700 text-zinc-400 hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-400 transition-all duration-300 cursor-pointer">{friendLoading ? "處理中..." : "⏳ 已發送請求（點擊取消）"}</button>;
     if (friendshipStatus === "pending_received") {
       return (
         <div className="mt-4 space-y-2">
           <p className="text-xs text-zinc-500 font-bold text-center">對方向你發送了好友請求</p>
           <div className="flex gap-2">
-            <button onClick={handleAcceptRequest} disabled={friendLoading} className="flex-1 py-2.5 rounded-full text-sm font-black bg-blue-600 hover:bg-blue-500 text-white transition-all duration-300 shadow-[0_0_15px_rgba(37,99,235,0.3)]">{friendLoading ? "處理中..." : "✓ 接受"}</button>
-            <button onClick={handleRejectRequest} disabled={friendLoading} className="flex-1 py-2.5 rounded-full text-sm font-black bg-slate-800 border border-slate-700 text-zinc-400 hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-400 transition-all duration-300">{friendLoading ? "處理中..." : "✕ 拒絕"}</button>
+            <button onClick={handleAcceptRequest} disabled={friendLoading} className="flex-1 py-2.5 rounded-full text-sm font-black bg-blue-600 hover:bg-blue-500 text-white transition-all duration-300 shadow-[0_0_15px_rgba(37,99,235,0.3)] cursor-pointer">{friendLoading ? "處理中..." : "✓ 接受"}</button>
+            <button onClick={handleRejectRequest} disabled={friendLoading} className="flex-1 py-2.5 rounded-full text-sm font-black bg-slate-800 border border-slate-700 text-zinc-400 hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-400 transition-all duration-300 cursor-pointer">{friendLoading ? "處理中..." : "✕ 拒絕"}</button>
           </div>
         </div>
       );
     }
-    return <button onClick={handleSendRequest} disabled={friendLoading} className="w-full mt-4 py-2.5 px-6 rounded-full text-sm font-black bg-blue-600 hover:bg-blue-500 text-white transition-all duration-300 shadow-[0_0_15px_rgba(37,99,235,0.3)]">{friendLoading ? "處理中..." : "+ 加好友"}</button>;
+    return <button onClick={handleSendRequest} disabled={friendLoading} className="w-full mt-4 py-2.5 px-6 rounded-full text-sm font-black bg-blue-600 hover:bg-blue-500 text-white transition-all duration-300 shadow-[0_0_15px_rgba(37,99,235,0.3)] cursor-pointer">{friendLoading ? "處理中..." : "+ 加好友"}</button>;
   };
 
   if (isLoading) return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-zinc-500 font-mono">載入名片中...</div>;
   if (isNotFound || !profile) return <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-center"><h1 className="text-4xl font-black text-white mb-2">404</h1><p className="text-zinc-500 mb-6">查無此名片或已關閉</p><Link href="/network" className="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold">返回列表</Link></div>;
 
   const avatarSrc = profile.avatar_url || "";
-  const hasPublicCoach = profile.is_coach && coachProfiles.length > 0;
+  const hasPublicCoach = profile.is_coach && (coachProfiles.length > 0 || coachServices.length > 0);
   const hasPublicPhysio = profile.is_physio && profile.physio_status !== "hidden";
 
   return (
@@ -307,19 +300,18 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
                 <span>📍 {profile.location || "地點未公開"}</span>
               </div>
 
-              {/* Friend Button */}
               <FriendButton />
             </div>
           </div>
 
           <div className="lg:col-span-8 xl:col-span-9 flex flex-col">
             <div className="bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 p-1 rounded-2xl flex w-full sticky top-16 z-30 mb-8 shadow-sm overflow-x-auto [&::-webkit-scrollbar]:hidden">
-              <button onClick={() => setActiveRole("athlete")} className={`flex-1 flex flex-col items-center justify-center py-2 px-3 rounded-xl transition-all duration-300 min-w-[100px] ${activeRole === "athlete" ? "bg-slate-50 text-black shadow-lg scale-[1.02]" : "text-zinc-500 hover:text-white hover:bg-slate-800/50"}`}><span className="text-lg md:text-xl mb-0.5">👤</span><span className="text-[10px] md:text-xs font-black leading-tight">運動員簡歷</span></button>
+              <button onClick={() => handleTabChange("athlete")} className={`flex-1 flex flex-col items-center justify-center py-2 px-3 rounded-xl transition-all duration-300 min-w-[100px] cursor-pointer ${activeRole === "athlete" ? "bg-slate-50 text-black shadow-lg scale-[1.02]" : "text-zinc-500 hover:text-white hover:bg-slate-800/50"}`}><span className="text-lg md:text-xl mb-0.5">👤</span><span className="text-[10px] md:text-xs font-black leading-tight">運動員簡歷</span></button>
               {hasPublicCoach && (
-                <button onClick={() => setActiveRole("coach")} className={`flex-1 flex flex-col items-center justify-center py-2 px-3 rounded-xl transition-all duration-300 min-w-[100px] ${activeRole === "coach" ? "bg-amber-500 text-black shadow-lg scale-[1.02]" : "text-zinc-500 hover:text-amber-400 hover:bg-slate-800/50"}`}><span className="text-lg md:text-xl mb-0.5">🎓</span><span className="text-[10px] md:text-xs font-black leading-tight">教練專區</span></button>
+                <button onClick={() => handleTabChange("coach")} className={`flex-1 flex flex-col items-center justify-center py-2 px-3 rounded-xl transition-all duration-300 min-w-[100px] cursor-pointer ${activeRole === "coach" ? "bg-amber-500 text-black shadow-lg scale-[1.02]" : "text-zinc-500 hover:text-amber-400 hover:bg-slate-800/50"}`}><span className="text-lg md:text-xl mb-0.5">🎓</span><span className="text-[10px] md:text-xs font-black leading-tight">教練專區</span></button>
               )}
               {hasPublicPhysio && (
-                <button onClick={() => setActiveRole("physio")} className={`flex-1 flex flex-col items-center justify-center py-2 px-3 rounded-xl transition-all duration-300 min-w-[100px] ${activeRole === "physio" ? "bg-emerald-500 text-black shadow-lg scale-[1.02]" : "text-zinc-500 hover:text-emerald-400 hover:bg-slate-800/50"}`}><span className="text-lg md:text-xl mb-0.5">⚕️</span><span className="text-[10px] md:text-xs font-black leading-tight">運動/物理治療</span></button>
+                <button onClick={() => handleTabChange("physio")} className={`flex-1 flex flex-col items-center justify-center py-2 px-3 rounded-xl transition-all duration-300 min-w-[100px] cursor-pointer ${activeRole === "physio" ? "bg-emerald-500 text-black shadow-lg scale-[1.02]" : "text-zinc-500 hover:text-emerald-400 hover:bg-slate-800/50"}`}><span className="text-lg md:text-xl mb-0.5">⚕️</span><span className="text-[10px] md:text-xs font-black leading-tight">運動/物理治療</span></button>
               )}
             </div>
 
@@ -327,9 +319,9 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
               {activeRole === "athlete" && (
                 <div className="space-y-6">
                   <div className="flex gap-4 border-b border-slate-800 pb-2 px-2">
-                    <button onClick={() => setActiveAthleteTab("expertise")} className={`text-sm font-black transition ${activeAthleteTab === "expertise" ? "text-white border-b-2 border-blue-500 pb-2 -mb-[9px]" : "text-zinc-500 hover:text-zinc-300"}`}>技術特長</button>
-                    <button onClick={() => setActiveAthleteTab("highlights")} className={`text-sm font-black transition ${activeAthleteTab === "highlights" ? "text-white border-b-2 border-blue-500 pb-2 -mb-[9px]" : "text-zinc-500 hover:text-zinc-300"}`}>賽場圖庫</button>
-                    <button onClick={() => setActiveAthleteTab("feed")} className={`text-sm font-black transition ${activeAthleteTab === "feed" ? "text-white border-b-2 border-blue-500 pb-2 -mb-[9px]" : "text-zinc-500 hover:text-zinc-300"}`}>個人動態</button>
+                    <button onClick={() => setActiveAthleteTab("expertise")} className={`text-sm font-black transition cursor-pointer ${activeAthleteTab === "expertise" ? "text-white border-b-2 border-blue-500 pb-2 -mb-[9px]" : "text-zinc-500 hover:text-zinc-300"}`}>技術特長</button>
+                    <button onClick={() => setActiveAthleteTab("highlights")} className={`text-sm font-black transition cursor-pointer ${activeAthleteTab === "highlights" ? "text-white border-b-2 border-blue-500 pb-2 -mb-[9px]" : "text-zinc-500 hover:text-zinc-300"}`}>賽場圖庫</button>
+                    <button onClick={() => setActiveAthleteTab("feed")} className={`text-sm font-black transition cursor-pointer ${activeAthleteTab === "feed" ? "text-white border-b-2 border-blue-500 pb-2 -mb-[9px]" : "text-zinc-500 hover:text-zinc-300"}`}>個人動態</button>
                   </div>
 
                   {activeAthleteTab === "expertise" && (
@@ -388,6 +380,29 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
               {activeRole === "coach" && (
                 <div className="space-y-8 animate-fadeIn">
                   
+                  {/* 🔥 教練 Bio 導讀與星等卡 */}
+                  <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-xl mt-4">
+                    <div className="space-y-2 max-w-2xl">
+                      <h3 className="text-sm font-black text-amber-400 uppercase tracking-wider flex items-center gap-2">
+                        <span>🎓</span> 專業教學導讀 (Bio)
+                      </h3>
+                      <p className="text-sm text-zinc-300 leading-relaxed">
+                        {profile.bio || "專注於運動員體能開發與技術精進，歡迎點擊下方課程卡片預約諮詢。"}
+                      </p>
+                    </div>
+
+                    <div className="bg-slate-950 px-6 py-4 rounded-2xl border border-slate-800/80 text-center shrink-0 w-full md:w-auto">
+                      <div className="text-xs font-bold text-zinc-500 mb-1">學員綜合總評</div>
+                      <div className="text-2xl font-black text-amber-400 flex items-center justify-center gap-1.5">
+                        <Star className="w-5 h-5 fill-amber-400 text-amber-400" />
+                        {coachReviews.length > 0 
+                          ? (coachReviews.reduce((acc, r) => acc + r.rating, 0) / coachReviews.length).toFixed(1)
+                          : "5.0"}
+                        <span className="text-xs text-zinc-500 font-normal">({coachReviews.length} 評價)</span>
+                      </div>
+                    </div>
+                  </div>
+
                   {(profile.contact_email || profile.contact_phone || profile.city_region) && (
                     <div className="bg-slate-900/40 border border-slate-800 rounded-3xl p-5 md:p-6 mb-8 mt-4">
                       <h3 className="text-sm md:text-base font-black text-white mb-5 flex items-center gap-2">
@@ -450,26 +465,73 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
                     </div>
                   )}
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {coachProfiles.map(coach => (
-                      <div key={coach.id} className="bg-amber-500/5 border border-amber-500/20 rounded-3xl p-6 md:p-8 flex flex-col justify-between items-center text-center">
-                        <div className="mb-6 w-full">
-                          <span className="text-amber-400 text-sm font-black block mb-3">{coach.sport} 指導</span>
-                          <div className="flex items-center gap-3 justify-center mb-4">
-                            <span className="text-4xl font-black text-white">HK$ {coach.rate} <span className="text-lg text-zinc-500 font-medium">/ hr</span></span>
-                          </div>
-                          <StatusBadge tag={coach.status} type="coach" />
-                          <p className="text-zinc-400 text-sm font-medium mt-5">📍 {coach.region ? `${coach.region}, ${coach.country}` : "地點未提供"}</p>
-                        </div>
-                        
-                        <button 
-                          onClick={() => setIsContactModalOpen(true)}
-                          className="w-full bg-amber-600 hover:bg-amber-500 text-white font-black py-3.5 px-6 rounded-2xl transition shadow-[0_0_15px_rgba(217,119,6,0.3)] active:scale-95 mt-auto"
-                        >
-                          聯繫方式
-                        </button>
+                  {/* 🔥 獨立課程與專項服務卡片列表 */}
+                  <div>
+                    <h3 className="text-lg font-black text-white mb-4 flex items-center justify-between">
+                      <span>開放預約課程 / 訓練服務</span>
+                    </h3>
+
+                    {coachServices.length > 0 ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {coachServices.map((srv: any) => (
+                          <Link
+                            key={srv.id}
+                            href={`/coaches/services/${srv.id}`}
+                            className="bg-slate-900 border border-slate-800 hover:border-amber-500/50 rounded-3xl p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl flex flex-col justify-between group cursor-pointer"
+                          >
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between">
+                                <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                  {srv.sport_category}
+                                </span>
+                                <span className="text-base font-black text-emerald-400">
+                                  HK$ {srv.hourly_rate} <span className="text-xs text-zinc-500 font-normal">/小時</span>
+                                </span>
+                              </div>
+
+                              <h4 className="text-lg font-black text-white group-hover:text-amber-400 transition line-clamp-1">
+                                {srv.title}
+                              </h4>
+
+                              <p className="text-xs text-zinc-400 line-clamp-2 leading-relaxed">
+                                {srv.description || "點擊查看完整課程內容與學員評價"}
+                              </p>
+                            </div>
+
+                            <div className="pt-4 mt-5 border-t border-slate-800/80 flex items-center justify-between text-xs font-bold text-zinc-400">
+                              <span className="flex items-center gap-1 text-zinc-300 truncate">
+                                📍 {srv.location || profile.city_region || "場地可議"}
+                              </span>
+                              <span className="text-amber-400 group-hover:translate-x-1 transition-transform shrink-0">
+                                查看詳情與預約 →
+                              </span>
+                            </div>
+                          </Link>
+                        ))}
                       </div>
-                    ))}
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {coachProfiles.map(coach => (
+                          <div key={coach.id} className="bg-amber-500/5 border border-amber-500/20 rounded-3xl p-6 md:p-8 flex flex-col justify-between items-center text-center">
+                            <div className="mb-6 w-full">
+                              <span className="text-amber-400 text-sm font-black block mb-3">{coach.sport} 指導</span>
+                              <div className="flex items-center gap-3 justify-center mb-4">
+                                <span className="text-4xl font-black text-white">HK$ {coach.rate} <span className="text-lg text-zinc-500 font-medium">/ hr</span></span>
+                              </div>
+                              <StatusBadge tag={coach.status} type="coach" />
+                              <p className="text-zinc-400 text-sm font-medium mt-5">📍 {coach.region ? `${coach.region}, ${coach.country}` : "地點未提供"}</p>
+                            </div>
+                            
+                            <button 
+                              onClick={() => setIsContactModalOpen(true)}
+                              className="w-full bg-amber-600 hover:bg-amber-500 text-white font-black py-3.5 px-6 rounded-2xl transition shadow-[0_0_15px_rgba(217,119,6,0.3)] active:scale-95 mt-auto cursor-pointer"
+                            >
+                              立即洽詢預約
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                 </div>
@@ -539,7 +601,7 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
                       <div className="bg-slate-900/40 border border-slate-800 rounded-3xl p-5 flex flex-col justify-center items-center text-center">
                         <button 
                           onClick={() => setIsContactModalOpen(true)}
-                          className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-3.5 px-6 rounded-2xl transition shadow-[0_0_15px_rgba(16,185,129,0.3)] active:scale-95"
+                          className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-3.5 px-6 rounded-2xl transition shadow-[0_0_15px_rgba(16,185,129,0.3)] active:scale-95 cursor-pointer"
                         >
                           聯繫方式
                         </button>
@@ -584,7 +646,6 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
         </div>
       </div>
 
-      {/* 📩 聯絡資訊與即時通訊彈出視窗 (Modal) */}
       {isContactModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fadeIn">
           {(() => {
@@ -594,7 +655,6 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
             const modalFb = activeRole === "physio" ? profile.physio_facebook_url : profile.facebook_url;
             const modalThreads = activeRole === "physio" ? profile.physio_threads_url : profile.threads_url;
             
-            // 生成 WhatsApp URL (自動移除空格與符號)
             const cleanPhone = modalPhone ? modalPhone.replace(/\D/g, "") : null;
             const roleTitle = activeRole === "coach" ? "教練" : "物理治療";
             const greeting = encodeURIComponent(`您好 ${profile.full_name || ""}！我在 SportyFind 上看到您的${roleTitle}檔案，希望能向您諮詢或預約。`);
@@ -610,24 +670,22 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
                     </span>
                     <h3 className="text-lg font-black text-white mt-1">聯絡 {profile.full_name}</h3>
                   </div>
-                  <button onClick={() => setIsContactModalOpen(false)} className="text-slate-400 hover:text-white transition">
+                  <button onClick={() => setIsContactModalOpen(false)} className="text-slate-400 hover:text-white transition cursor-pointer">
                     <X className="w-6 h-6" />
                   </button>
                 </div>
 
                 <div className="p-6 space-y-6">
                   
-                  {/* ⚡ 即時通訊區塊 (Instant Messaging) */}
                   <div className="space-y-3">
                     <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider pl-1">即時線上洽詢</p>
                     
-                    {/* 1. WhatsApp Button */}
                     {whatsappUrl ? (
                       <a
                         href={whatsappUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="w-full flex items-center justify-between bg-emerald-600 hover:bg-emerald-500 text-white font-black p-4 rounded-2xl transition shadow-[0_0_15px_rgba(16,185,129,0.2)] group"
+                        className="w-full flex items-center justify-between bg-emerald-600 hover:bg-emerald-500 text-white font-black p-4 rounded-2xl transition shadow-[0_0_15px_rgba(16,185,129,0.2)] group cursor-pointer"
                       >
                         <div className="flex items-center gap-3">
                           <span className="text-2xl">💬</span>
@@ -644,10 +702,9 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
                       </div>
                     )}
 
-                    {/* 2. Internal Direct inbox Button */}
                     <button
                       onClick={() => router.push(`/inbox?to=${id}&role=${activeRole}`)}
-                      className="w-full flex items-center justify-between bg-blue-600 hover:bg-blue-500 text-white font-black p-4 rounded-2xl transition shadow-[0_0_15px_rgba(37,99,235,0.2)] group"
+                      className="w-full flex items-center justify-between bg-blue-600 hover:bg-blue-500 text-white font-black p-4 rounded-2xl transition shadow-[0_0_15px_rgba(37,99,235,0.2)] group cursor-pointer"
                     >
                       <div className="flex items-center gap-3">
                         <Zap className="w-6 h-6 text-yellow-300" />
@@ -660,12 +717,11 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
                     </button>
                   </div>
 
-                  {/* 📞 傳統聯絡資訊區塊 */}
                   <div className="space-y-3 pt-4 border-t border-slate-800">
                     <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider pl-1">傳統聯絡方式</p>
                     
                     {modalEmail && (
-                      <a href={`mailto:${modalEmail}`} className="flex items-center gap-4 p-3 bg-slate-950 rounded-xl hover:bg-slate-800 transition border border-slate-800">
+                      <a href={`mailto:${modalEmail}`} className="flex items-center gap-4 p-3 bg-slate-950 rounded-xl hover:bg-slate-800 transition border border-slate-800 cursor-pointer">
                         <div className="p-2 bg-blue-500/20 text-blue-400 rounded-lg"><Mail className="w-5 h-5" /></div>
                         <div className="flex-1 overflow-hidden">
                           <p className="text-[10px] text-slate-500 font-bold uppercase">Email</p>
@@ -674,7 +730,7 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
                       </a>
                     )}
                     {modalPhone && (
-                      <a href={`tel:${modalPhone}`} className="flex items-center gap-4 p-3 bg-slate-950 rounded-xl hover:bg-slate-800 transition border border-slate-800">
+                      <a href={`tel:${modalPhone}`} className="flex items-center gap-4 p-3 bg-slate-950 rounded-xl hover:bg-slate-800 transition border border-slate-800 cursor-pointer">
                         <div className="p-2 bg-emerald-500/20 text-emerald-400 rounded-lg"><Phone className="w-5 h-5" /></div>
                         <div className="flex-1 overflow-hidden">
                           <p className="text-[10px] text-slate-500 font-bold uppercase">Phone</p>
@@ -689,23 +745,22 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
                     )}
                   </div>
 
-                  {/* 🌐 社群帳號追蹤 */}
                   {(modalIg || modalFb || modalThreads) && (
                     <div className="pt-4 border-t border-slate-800">
                       <p className="text-xs font-bold text-slate-400 mb-3 text-center">追蹤社群</p>
                       <div className="flex justify-center gap-4">
                         {modalIg && (
-                          <a href={modalIg} target="_blank" rel="noreferrer" className="w-12 h-12 bg-slate-800 hover:bg-pink-600 hover:text-white text-slate-300 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg hover:scale-110">
+                          <a href={modalIg} target="_blank" rel="noreferrer" className="w-12 h-12 bg-slate-800 hover:bg-pink-600 hover:text-white text-slate-300 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg hover:scale-110 cursor-pointer">
                             <InstagramIcon className="w-5 h-5" />
                           </a>
                         )}
                         {modalFb && (
-                          <a href={modalFb} target="_blank" rel="noreferrer" className="w-12 h-12 bg-slate-800 hover:bg-blue-600 hover:text-white text-slate-300 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg hover:scale-110">
+                          <a href={modalFb} target="_blank" rel="noreferrer" className="w-12 h-12 bg-slate-800 hover:bg-blue-600 hover:text-white text-slate-300 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg hover:scale-110 cursor-pointer">
                             <FacebookIcon className="w-5 h-5" />
                           </a>
                         )}
                         {modalThreads && (
-                          <a href={modalThreads} target="_blank" rel="noreferrer" className="w-12 h-12 bg-slate-800 hover:bg-slate-50 hover:text-black text-slate-300 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg hover:scale-110">
+                          <a href={modalThreads} target="_blank" rel="noreferrer" className="w-12 h-12 bg-slate-800 hover:bg-slate-50 hover:text-black text-slate-300 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg hover:scale-110 cursor-pointer">
                             <ThreadsIcon className="w-5 h-5" />
                           </a>
                         )}

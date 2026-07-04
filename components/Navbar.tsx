@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import {
@@ -386,10 +387,16 @@ export function Navbar() {
     <header className="sticky top-0 z-50 border-b border-slate-800 bg-slate-950/90 backdrop-blur-md shadow-sm">
       <nav className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6 lg:px-8">
 
-        <Link href="/" className="flex items-center gap-2 transition-opacity hover:opacity-80" onClick={() => setMobileOpen(false)}>
-          <span className="flex size-8 items-center justify-center rounded-md bg-blue-600 text-white">
-            <Zap className="size-4" aria-hidden="true" />
-          </span>
+        {/* 💡 替換為圖片 Logo ＋ 品牌字樣 (情境 B)，電腦與手機版一併更新 */}
+        <Link href="/" className="flex items-center gap-2.5 transition-opacity hover:opacity-80" onClick={() => setMobileOpen(false)}>
+          <Image
+            src="/icon-512.png"
+            alt="SportyFind Logo"
+            width={32}
+            height={32}
+            className="size-8 rounded-md object-contain"
+            priority
+          />
           <span className="text-sm font-black tracking-tight text-white sm:text-base">
             SPORTY<span className="text-blue-400">FIND</span>
           </span>
@@ -424,7 +431,6 @@ export function Navbar() {
               >
                 <MessageSquare className="w-5 h-5" />
               </Link>
-              {/* 我的賽事中心捷徑 */}
               <Link 
                 href="/events/my" 
                 className={cn(
