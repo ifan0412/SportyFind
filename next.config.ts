@@ -13,17 +13,3 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
-
-/** @type {import('next').NextConfig} */
-const nextConfig = {
-  images: {
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'hpqgbscdyzpqtpgvizim.supabase.co', // 這是你報錯訊息中的 hostname
-        pathname: '/storage/v1/object/public/**',
-      },
-    ],
-  },
-}
-module.exports = nextConfig
