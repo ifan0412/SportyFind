@@ -13,6 +13,7 @@ import { ExpertiseTab } from "@/components/profile/ExpertiseTab";
 import { HighlightsTab } from "@/components/profile/HighlightsTab";
 import { CoachTab } from "@/components/profile/CoachTab";
 import { PhysioTab } from "@/components/profile/PhysioTab";
+import { PRO_SPORT_SCHEMA } from "@/constants/sportsSchema";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Profile {
@@ -29,6 +30,11 @@ interface Profile {
   avatar_url: string | null;
   status_tag: string | null;
   display_sports: string[] | null;
+
+  // 🔥 新增：運動員身高體重與公開展示開關
+  height_cm: number | null;
+  weight_kg: number | null;
+  show_physical_stats: boolean | null;
 
   // Coach global fields
   is_coach: boolean | null;
@@ -85,18 +91,14 @@ const TEAM_SPORT_ZH: Record<string, string> = {
   badminton: "羽毛球", pickleball: "匹克球", gym: "健身", running: "路跑",
 };
 type TabId = "dashboard" | "expertise" | "highlights" | "feed" | "coach" | "physio" | "friends" | "teams";
-type FieldDef = { key: string; label: string; type: "select" | "text" | "number"; options?: string[]; placeholder?: string };
-
-// ─── Constants ────────────────────────────────────────────────────────────────
-const SPORT_SCHEMA: Record<string, FieldDef[]> = {
-  "Basketball": [{ key: "position", label: "場上定位", type: "select", options: ["PG 控球後衛", "SG 得分後衛", "SF 小前鋒", "PF 大前鋒", "C 中鋒"] }, { key: "dominant_hand", label: "慣用手", type: "select", options: ["右手", "左手", "雙手皆可"] }],
-  "Tennis": [{ key: "level", label: "NTRP 級別", type: "select", options: ["3.0", "3.5", "4.0", "4.5", "5.0", "5.5+"] }, { key: "dominant_hand", label: "持拍手", type: "select", options: ["右手 (單反)", "右手 (雙反)", "左手 (單反)", "左手 (雙反)"] }, { key: "preference", label: "打法偏好", type: "select", options: ["底線防守", "底線攻擊", "發球上網", "全場型"] }],
-  "Volleyball": [{ key: "position", label: "場上定位", type: "select", options: ["主攻手 (OH)", "副攻手 (OPP)", "快攻手 (MB)", "舉球員 (S)", "自由球員 (L)"] }, { key: "reach_height", label: "最高打點 (cm)", type: "number", placeholder: "例如: 310" }],
-  "default": [{ key: "experience", label: "球齡或簡述", type: "text", placeholder: "例如: 5年經驗..." }]
-};
 
 const DEFAULT_FORM = {
   first_name: "", last_name: "", handle: "", full_name: "", headline: "", location: "", country: "", region: "", bio: "", avatar_url: "", status_tag: "committed", display_sports: [] as string[],
+  
+  // 🔥 新增預設值
+  height_cm: "",
+  weight_kg: "",
+  show_physical_stats: true,
 
   // Coach global fields
   is_coach: false,
@@ -246,6 +248,11 @@ function ProfilePageContent() {
           status_tag: prof.status_tag ?? "committed", 
           display_sports: prof.display_sports ?? [], 
           
+          // 🔥 身高體重讀取
+          height_cm: prof.height_cm ?? "",
+          weight_kg: prof.weight_kg ?? "",
+          show_physical_stats: prof.show_physical_stats ?? true,
+
           is_coach: prof.is_coach ?? false,
           contact_email: prof.contact_email ?? "",
           contact_phone: prof.contact_phone ?? "",
@@ -355,6 +362,11 @@ function ProfilePageContent() {
       status_tag: editForm.status_tag, 
       display_sports: editForm.display_sports, 
       
+      // 🔥 寫入身高體重
+      height_cm: editForm.height_cm ? Number(editForm.height_cm) : null,
+      weight_kg: editForm.weight_kg ? Number(editForm.weight_kg) : null,
+      show_physical_stats: editForm.show_physical_stats ?? true,
+
       is_coach: editForm.is_coach, 
       contact_email: editForm.contact_email || null,             
       contact_phone: editForm.contact_phone || null,             
@@ -465,6 +477,19 @@ function ProfilePageContent() {
                   </div>
                   <div className="space-y-1"><label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">Unique Handle</label><input className={`w-full bg-slate-950/50 border rounded-xl p-3 text-white text-sm ${handleStatus === "taken" ? "border-red-500" : "border-slate-800"}`} value={editForm.handle} onChange={e => setEditForm({ ...editForm, handle: e.target.value.replace(/[^a-zA-Z0-9_]/g, "") })} placeholder="ID 帳號" /></div>
                   <div className="space-y-1"><label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">Headline</label><input className="w-full bg-slate-950/50 border border-slate-800 rounded-xl p-3 text-white text-sm" value={editForm.headline} onChange={e => setEditForm({ ...editForm, headline: e.target.value })} placeholder="例如: 網球底線玩家" /></div>
+                  
+                  {/* 🔥 新增：編輯模式下的身高體重輸入 */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">身高 Height (cm)</label>
+                      <input type="number" className="w-full bg-slate-950/50 border border-slate-800 rounded-xl p-3 text-white text-sm" value={editForm.height_cm} onChange={e => setEditForm({ ...editForm, height_cm: e.target.value })} placeholder="例: 178" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">體重 Weight (kg)</label>
+                      <input type="number" className="w-full bg-slate-950/50 border border-slate-800 rounded-xl p-3 text-white text-sm" value={editForm.weight_kg} onChange={e => setEditForm({ ...editForm, weight_kg: e.target.value })} placeholder="例: 70" />
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1"><label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">國家</label><select className="w-full bg-slate-950/50 border border-slate-800 rounded-xl p-3 text-white text-sm" value={editForm.country} onChange={e => setEditForm({ ...editForm, country: e.target.value, region: "" })}><option value="">選擇國家</option>{Object.keys(locationData).map(c => <option key={c} value={c}>{c}</option>)}</select></div>
                     <div className="space-y-1"><label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">地區</label><select className="w-full bg-slate-950/50 border border-slate-800 rounded-xl p-3 text-white text-sm" value={editForm.region} onChange={e => setEditForm({ ...editForm, region: e.target.value })}><option value="">選擇區域</option>{editForm.country && locationData[editForm.country]?.map(r => <option key={r} value={r}>{r}</option>)}</select></div>
@@ -478,6 +503,7 @@ function ProfilePageContent() {
                       </select>
                     </div>
                     <div className="pt-3 border-t border-slate-800/80 space-y-3">
+                      <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={editForm.show_physical_stats} onChange={e => setEditForm((prev: any) => ({ ...prev, show_physical_stats: e.target.checked }))} className="rounded bg-slate-900 border-slate-700" /><span className="text-xs font-bold text-zinc-300">公開展示身高體重數據</span></label>
                       <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={editForm.is_coach} onChange={e => setEditForm((prev: any) => ({ ...prev, is_coach: e.target.checked }))} className="rounded bg-slate-900 border-slate-700" /><span className="text-xs font-bold text-amber-400">開啟教練管理功能</span></label>
                       <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={editForm.is_physio} onChange={e => setEditForm((prev: any) => ({ ...prev, is_physio: e.target.checked }))} className="rounded bg-slate-900 border-slate-700" /><span className="text-xs font-bold text-emerald-400">開啟運動/物理治療功能</span></label>
                     </div>
@@ -490,7 +516,16 @@ function ProfilePageContent() {
               ) : (
                 <div className="text-center animate-fadeIn mt-2">
                   <h1 className="text-3xl font-black text-white tracking-tight leading-none mb-1">{profile?.first_name} {profile?.last_name}</h1>
-                  <p className="text-sm font-mono text-blue-400 mb-4">@{profile?.handle || "ID_未設定"}</p>
+                  <p className="text-sm font-mono text-blue-400 mb-2">@{profile?.handle || "ID_未設定"}</p>
+                  
+                  {/* 🔥 新增：公開展示身高體重 */}
+                  {profile?.show_physical_stats && (profile?.height_cm || profile?.weight_kg) && (
+                    <div className="inline-flex items-center gap-3 px-3 py-1 rounded-full bg-slate-950 border border-slate-800 text-xs font-mono text-zinc-400 mb-4">
+                      {profile.height_cm && <span>📏 {profile.height_cm} cm</span>}
+                      {profile.weight_kg && <span>⚖️ {profile.weight_kg} kg</span>}
+                    </div>
+                  )}
+
                   <p className="text-sm font-bold text-zinc-400 mb-4">{profile?.headline || "設定你的場上宣言"}</p>
                   <div className="flex flex-wrap justify-center gap-2 mb-4">
                     <span className="bg-slate-800/80 text-zinc-300 text-[10px] font-black px-3 py-1 rounded-full border border-slate-700">👤 運動員</span>
@@ -778,15 +813,18 @@ function ProfilePageContent() {
         </div>
       )}
 
+      {/* 🔥 改用 PRO_SPORT_SCHEMA 渲染客製化表單 */}
       {isSportModalOpen && (
         <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fadeIn">
-          <div className="bg-slate-950 border border-slate-800 w-full max-w-sm rounded-3xl p-6 shadow-2xl">
+          <div className="bg-slate-950 border border-slate-800 w-full max-w-sm rounded-3xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-black text-white mb-6">{editingUserSportId ? "編輯技術特長" : "添入技術特長"}</h3>
             <form onSubmit={handleSaveSport} className="space-y-5 text-sm">
               <div><label className="block text-[10px] font-bold text-zinc-500 uppercase mb-2">選擇運動項目</label><select value={selectedSportId} onChange={e => { setSelectedSportId(e.target.value); setSportDynamicData({}); }} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3.5 text-white font-bold outline-none" required><option value="">-- 選擇項目 --</option>{allSports.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
-              {allSports.find(s => s.id === selectedSportId) && (SPORT_SCHEMA[allSports.find(s => s.id === selectedSportId)!.name] || SPORT_SCHEMA["default"]).map(field => (
+              {allSports.find(s => s.id === selectedSportId) && (PRO_SPORT_SCHEMA[allSports.find(s => s.id === selectedSportId)!.name] || PRO_SPORT_SCHEMA["default"]).map(field => (
                 <div key={field.key} className="animate-fadeIn">
-                  <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-2">{field.label}</label>
+                  <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-2">
+                    {field.label} {field.unit && `(${field.unit})`}
+                  </label>
                   {field.type === "select"
                     ? <select value={sportDynamicData[field.key] || ""} onChange={e => setSportDynamicData({ ...sportDynamicData, [field.key]: e.target.value })} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white font-bold outline-none" required><option value="">-- 請選擇 --</option>{field.options?.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select>
                     : <input type={field.type} value={sportDynamicData[field.key] || ""} onChange={e => setSportDynamicData({ ...sportDynamicData, [field.key]: e.target.value })} placeholder={field.placeholder} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white font-bold outline-none" required />

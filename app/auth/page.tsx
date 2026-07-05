@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -11,8 +11,47 @@ export default function AuthPage() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  // 💡 Phase 1 新增：註冊專用欄位
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState(""); 
+  const [handle, setHandle] = useState("");
+  const [handleStatus, setHandleStatus] = useState<"idle" | "checking" | "available" | "taken" | "invalid">("idle");
+
   const supabase = createSupabaseBrowserClient();
   const router = useRouter();
+
+  // 💡 驗證 Account ID 格式：只允許英數字、句號、底線，3-20字，且不以句號或底線開頭/結尾
+  const isValidHandle = (val: string): boolean => {
+    const handleRegex = /^[a-zA-Z0-9][a-zA-Z0-9._]{1,18}[a-zA-Z0-9]$/;
+    return handleRegex.test(val);
+  };
+
+  // 💡 即時檢查 Account ID 是否合法與是否重複
+  useEffect(() => {
+    if (!isSignUp || !handle) {
+      setHandleStatus("idle");
+      return;
+    }
+
+    // 格式錯誤或長度小於 3 直接阻擋
+    if (handle.length < 3 || !isValidHandle(handle)) {
+      setHandleStatus("invalid");
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setHandleStatus("checking");
+      const { data } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("handle", handle)
+        .maybeSingle();
+
+      setHandleStatus(data ? "taken" : "available");
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [handle, isSignUp, supabase]);
 
   // Email sign up / sign in
   const handleAuth = async (e: React.FormEvent) => {
@@ -26,7 +65,34 @@ export default function AuthPage() {
     setIsLoading(true);
 
     if (isSignUp) {
-      const { error } = await supabase.auth.signUp({ email, password });
+      // 驗證註冊必填與 ID 狀態
+      // 驗證名與姓都不能空白
+      if (!firstName.trim() || !lastName.trim()) {
+        toast.error("Please enter both your first and last name.");
+        setIsLoading(false);
+        return;
+      }
+      if (handleStatus !== "available") {
+        toast.error("Please choose a valid and available Account ID.");
+        setIsLoading(false);
+        return;
+      }
+
+      // 💡 將 fullName 與 handle 寫入 user_metadata，觸發器會自動寫入 profiles 表
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            first_name: firstName.trim(),
+            last_name: lastName.trim(),
+            // 同時組合出 full_name 傳給後端，確保舊的 Trigger 與 UI 100% 相容！
+            full_name: `${firstName.trim()} ${lastName.trim()}`.trim(),
+            handle: handle.trim(),
+          },
+        },
+      });
+
       if (error) {
         toast.error(error.message);
       } else {
@@ -42,7 +108,7 @@ export default function AuthPage() {
       } else {
         toast.success("Welcome back!");
         router.push("/profile");
-        router.refresh(); 
+        router.refresh();
       }
     }
 
@@ -53,15 +119,14 @@ export default function AuthPage() {
   const handleGoogleLogin = async () => {
     setIsLoading(true);
     const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
+      provider: "google",
       options: {
-        // 💡 刪除 ?next=/profile，讓它與 Supabase 後台 100% 完全吻合
-        redirectTo: `${window.location.origin}/auth/callback`, 
+        redirectTo: `${window.location.origin}/auth/callback`,
       },
     });
-  
+
     if (error) {
-      alert(error.message);
+      toast.error(error.message);
       setIsLoading(false);
     }
   };
@@ -69,21 +134,92 @@ export default function AuthPage() {
   return (
     <div className="min-h-screen bg-pro-slate-950 flex items-center justify-center p-4">
       <div className="w-full max-w-md bg-pro-slate-900 border border-pro-slate-800 p-8 rounded-2xl shadow-xl">
-
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-2xl font-black text-white">
             {isSignUp ? "Create Account" : "Welcome Back"}
           </h1>
           <p className="text-slate-400 text-sm mt-1">
-            {isSignUp
-              ? "Join the Pro Sports Network"
-              : "Sign in to your account"}
+            {isSignUp ? "Join the Pro Sports Network" : "Sign in to your account"}
           </p>
         </div>
 
-        {/* Email / Password Form */}
+        {/* Form */}
         <form onSubmit={handleAuth} className="space-y-4">
+          {/* 💡 當為註冊模式時，展開 Full Name 與 Account ID */}
+          {isSignUp && (
+            <div className="space-y-4 animate-fadeIn">
+<div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 mb-1.5 uppercase tracking-widest">
+                    First Name
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Alex"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    disabled={isLoading}
+                    required={isSignUp}
+                    className="w-full p-3 bg-pro-slate-800 border border-pro-slate-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm transition placeholder:text-slate-600 disabled:opacity-50"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 mb-1.5 uppercase tracking-widest">
+                    Last Name
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Takahashi"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    disabled={isLoading}
+                    required={isSignUp}
+                    className="w-full p-3 bg-pro-slate-800 border border-pro-slate-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm transition placeholder:text-slate-600 disabled:opacity-50"
+                  />
+                </div>
+              </div>              
+
+              <div>
+                <div className="flex justify-between items-center mb-1.5">
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest">
+                    Account ID (Handle)
+                  </label>
+                  {handle && (
+                    <span className="text-xs font-bold">
+                      {handleStatus === "checking" && <span className="text-slate-400">Checking...</span>}
+                      {handleStatus === "available" && <span className="text-emerald-400">✓ Available</span>}
+                      {handleStatus === "taken" && <span className="text-red-400">✕ Already Taken</span>}
+                      {handleStatus === "invalid" && <span className="text-red-400">✕ Invalid Format</span>}
+                    </span>
+                  )}
+                </div>
+                <div className="relative">
+                  <span className="absolute left-3 top-3 text-slate-500 font-mono text-sm">@</span>
+                  <input
+                    type="text"
+                    placeholder="alextennis_99"
+                    value={handle}
+                    onChange={(e) => setHandle(e.target.value)}
+                    disabled={isLoading}
+                    required={isSignUp}
+                    className={`w-full p-3 pl-8 bg-pro-slate-800 border rounded-lg text-white font-mono text-sm focus:ring-2 outline-none transition placeholder:text-slate-600 disabled:opacity-50 ${
+                      handleStatus === "taken" || handleStatus === "invalid"
+                        ? "border-red-500 focus:ring-red-500"
+                        : handleStatus === "available"
+                        ? "border-emerald-500 focus:ring-emerald-500"
+                        : "border-pro-slate-700 focus:ring-blue-500"
+                    }`}
+                  />
+                </div>
+                <p className="text-[10px] text-slate-500 mt-1">
+                  Only letters, numbers, dots (.) and underscores (_). 3-20 characters. No spaces.
+                </p>
+              </div>
+            </div>
+          )}
+
           <div>
             <label className="block text-xs font-bold text-slate-400 mb-1.5 uppercase tracking-widest">
               Email
@@ -116,14 +252,10 @@ export default function AuthPage() {
 
           <button
             type="submit"
-            disabled={isLoading}
+            disabled={isLoading || (isSignUp && handleStatus !== "available")}
             className="w-full py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-500 transition shadow-lg shadow-blue-900/20 disabled:bg-pro-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed"
           >
-            {isLoading
-              ? "Processing..."
-              : isSignUp
-              ? "Sign Up"
-              : "Sign In"}
+            {isLoading ? "Processing..." : isSignUp ? "Create Account" : "Sign In"}
           </button>
         </form>
 
@@ -143,6 +275,7 @@ export default function AuthPage() {
         <button
           onClick={handleGoogleLogin}
           disabled={isLoading}
+          type="button"
           className="w-full flex items-center justify-center gap-3 py-3 bg-pro-slate-800 hover:bg-pro-slate-700 border border-pro-slate-700 rounded-lg text-sm font-bold text-white transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
@@ -168,13 +301,15 @@ export default function AuthPage() {
 
         {/* Toggle Sign Up / Sign In */}
         <button
-          onClick={() => setIsSignUp(!isSignUp)}
+          type="button"
+          onClick={() => {
+            setIsSignUp(!isSignUp);
+            setHandleStatus("idle");
+          }}
           disabled={isLoading}
           className="mt-6 w-full text-center text-sm text-slate-400 hover:text-white underline transition disabled:opacity-50"
         >
-          {isSignUp
-            ? "Already have an account? Sign In"
-            : "Don't have an account? Sign Up"}
+          {isSignUp ? "Already have an account? Sign In" : "Don't have an account? Sign Up"}
         </button>
       </div>
     </div>

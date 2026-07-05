@@ -26,6 +26,8 @@ interface Profile {
   contact_email?: string | null; contact_phone?: string | null; city_region?: string | null; address?: string | null; is_address_public?: boolean; instagram_url?: string | null; facebook_url?: string | null; threads_url?: string | null;
   physio_contact_email?: string | null; physio_contact_phone?: string | null; physio_city_region?: string | null; physio_address?: string | null; physio_is_address_public?: boolean; physio_instagram_url?: string | null; physio_facebook_url?: string | null; physio_threads_url?: string | null;
   physio_experience_years?: string | null; physio_qualifications?: string | null; physio_services_offered?: string | null;
+  // 🔥 新增：身體數據欄位（若使用者選擇公開才顯示）
+  height_cm?: number | null; weight_kg?: number | null; show_physical_stats?: boolean | null;
 }
 
 interface UserSport { id: string; sports: { name: string } | null; metadata: Record<string, any>; }
@@ -253,6 +255,8 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
   const avatarSrc = profile.avatar_url || "";
   const hasPublicCoach = profile.is_coach === true;
   const hasPublicPhysio = profile.is_physio && profile.physio_status !== "hidden";
+  // 🔥 新增：是否顯示身體數據徽章（需使用者開啟公開，且至少填了一項數值）
+  const showPhysicalStats = profile.show_physical_stats && (profile.height_cm || profile.weight_kg);
 
   return (
     <div className="bg-slate-950 min-h-screen text-zinc-200 font-sans selection:bg-blue-500/30">
@@ -273,12 +277,23 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
               </div>
               <h1 className="text-3xl font-black text-white tracking-tight mb-1">{profile.full_name}</h1>
               <p className="text-blue-400 font-mono text-sm mb-4">@{profile.handle || id.slice(0, 8)}</p>
+
+              {/* 🔥 新增：身體數據徽章（僅在使用者開啟公開且至少有一項數值時顯示） */}
+              {showPhysicalStats && (
+                <div className="flex items-center justify-center gap-4 px-4 py-1.5 rounded-full bg-slate-950/60 border border-slate-800 text-xs font-mono text-zinc-400 mb-4 mx-auto w-fit shadow-inner">
+                  {profile.height_cm && <span>📏 {profile.height_cm} cm</span>}
+                  {profile.weight_kg && <span className={profile.height_cm ? "border-l border-slate-700 pl-4" : ""}>⚖️ {profile.weight_kg} kg</span>}
+                </div>
+              )}
+
               <p className="text-sm font-bold text-zinc-400 mb-4">{profile.headline || "專注於每一次場上表現。"}</p>
+              
               <div className="flex flex-wrap justify-center gap-2 mb-4">
                 <span className="bg-slate-800/80 text-zinc-300 text-[10px] font-black px-3 py-1 rounded-full border border-slate-700">👤 運動員</span>
                 {hasPublicCoach && <span className="bg-amber-500/10 text-amber-400 text-[10px] font-black px-3 py-1 rounded-full border border-amber-500/20">🎓 教練</span>}
                 {hasPublicPhysio && <span className="bg-emerald-500/10 text-emerald-400 text-[10px] font-black px-3 py-1 rounded-full border border-emerald-500/20">⚕️ 運動/物理治療</span>}
               </div>
+              
               <p className="text-sm text-zinc-300 leading-relaxed text-left bg-slate-900/30 p-4 rounded-2xl border border-slate-800/50 mb-6">
                 {profile.bio || "這位運動員很低調，還沒有留下詳細的自介。"}
               </p>
@@ -303,7 +318,8 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
             <div className="bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 p-1 rounded-2xl flex w-full sticky top-16 z-30 mb-8 shadow-sm overflow-x-auto [&::-webkit-scrollbar]:hidden">
               <button onClick={() => handleTabChange("athlete")} className={`flex-1 flex flex-col items-center justify-center py-2 px-3 rounded-xl transition-all duration-300 min-w-[100px] cursor-pointer ${activeRole === "athlete" ? "bg-slate-50 text-black shadow-lg scale-[1.02]" : "text-zinc-500 hover:text-white hover:bg-slate-800/50"}`}><span className="text-lg md:text-xl mb-0.5">👤</span><span className="text-[10px] md:text-xs font-black leading-tight">運動員簡歷</span></button>
               {hasPublicCoach && (
-                <button onClick={() => handleTabChange("coach")} className={`flex-1 flex flex-col items-center justify-center py-2 px-3 rounded-xl transition-all duration-300 min-w-[100px] cursor-pointer ${activeRole === "coach" ? "bg-amber-500 text-black shadow-lg scale-[1.02]" : "text-zinc-500 hover:text-amber-400 hover:bg-slate-800/50"}`}><span className="text-lg md:text-xl mb-0.5">🎓</span><span className="text-[10px] md:text-xs font-black leading-tight">教練專區</span></button>
+                // 🔥 修正重點：Tab 名稱改為「簡介與專業」，呼應內容新增了個人簡介區塊
+                <button onClick={() => handleTabChange("coach")} className={`flex-1 flex flex-col items-center justify-center py-2 px-3 rounded-xl transition-all duration-300 min-w-[100px] cursor-pointer ${activeRole === "coach" ? "bg-amber-500 text-black shadow-lg scale-[1.02]" : "text-zinc-500 hover:text-amber-400 hover:bg-slate-800/50"}`}><span className="text-lg md:text-xl mb-0.5">🎓</span><span className="text-[10px] md:text-xs font-black leading-tight">簡介與專業</span></button>
               )}
               {hasPublicPhysio && (
                 <button onClick={() => handleTabChange("physio")} className={`flex-1 flex flex-col items-center justify-center py-2 px-3 rounded-xl transition-all duration-300 min-w-[100px] cursor-pointer ${activeRole === "physio" ? "bg-emerald-500 text-black shadow-lg scale-[1.02]" : "text-zinc-500 hover:text-emerald-400 hover:bg-slate-800/50"}`}><span className="text-lg md:text-xl mb-0.5">⚕️</span><span className="text-[10px] md:text-xs font-black leading-tight">運動/物理治療</span></button>
@@ -382,6 +398,9 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
                     </div>
                   ) : (
                     <>
+                      {/* 註：個人簡介（profile.bio）已顯示於左側個人卡片，此處不重複顯示，
+                          避免同一段文字在頁面上出現兩次。以下維持原有的「專業教學導讀 (coach_bio)」，
+                          這是與 bio 不同、專屬教練身分的介紹欄位。 */}
                       <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-xl mt-2">
                         <div className="space-y-2 max-w-2xl">
                           <h3 className="text-sm font-black text-amber-400 uppercase tracking-wider flex items-center gap-2">
