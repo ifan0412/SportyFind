@@ -40,9 +40,22 @@ export async function GET(request: Request) {
     )
     
     // 交換 Session
-    const { error } = await supabase.auth.exchangeCodeForSession(code)
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code)
     
-    if (!error) {
+    if (!error && data.session?.user) {
+      // 🔥 新增：檢查該使用者是否已經確認過角色身分（Player / Coach / Physio）。
+      // 透過我們自己的表單註冊的使用者，在建立 profiles 時已經標記 roles_confirmed = true；
+      // 透過 Google OAuth 首次登入的使用者則會是 false，需要導向角色選擇畫面補齊資訊。
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('roles_confirmed')
+        .eq('id', data.session.user.id)
+        .single()
+
+      if (profile && profile.roles_confirmed === false) {
+        return NextResponse.redirect(`${origin}/onboarding/roles?next=${encodeURIComponent(next)}`)
+      }
+
       // 成功！跳轉到目的頁面
       return NextResponse.redirect(`${origin}${next}`)
     }

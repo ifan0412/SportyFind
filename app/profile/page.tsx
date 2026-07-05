@@ -15,7 +15,6 @@ import { CoachTab } from "@/components/profile/CoachTab";
 import { PhysioTab } from "@/components/profile/PhysioTab";
 import { PRO_SPORT_SCHEMA } from "@/constants/sportsSchema";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
 interface Profile {
   id: string;
   full_name: string | null;
@@ -30,14 +29,12 @@ interface Profile {
   avatar_url: string | null;
   status_tag: string | null;
   display_sports: string[] | null;
-
-  // 🔥 新增：運動員身高體重與公開展示開關
+  is_player: boolean | null;
+  is_coach: boolean | null;
+  is_physio: boolean | null;
   height_cm: number | null;
   weight_kg: number | null;
   show_physical_stats: boolean | null;
-
-  // Coach global fields
-  is_coach: boolean | null;
   contact_email: string | null;
   contact_phone: string | null;
   address: string | null;
@@ -46,9 +43,6 @@ interface Profile {
   instagram_url: string | null;
   facebook_url: string | null;
   threads_url: string | null;
-
-  // Physio global fields
-  is_physio: boolean | null;
   physio_rate: number | string;
   clinic_name: string | null;
   physio_status: string | null;
@@ -66,6 +60,7 @@ interface Profile {
   physio_facebook_url: string | null;
   physio_threads_url: string | null;
 }
+
 interface Sport { id: string; name: string; }
 interface UserSport { id: string; sport_id: string; metadata: { position?: string; [key: string]: any }; sports: { name: string } | null; }
 interface MediaItem { id: string; sportName: string; type: "image" | "video"; url: string; fileName?: string; createdAt: string; }
@@ -94,14 +89,12 @@ type TabId = "dashboard" | "expertise" | "highlights" | "feed" | "coach" | "phys
 
 const DEFAULT_FORM = {
   first_name: "", last_name: "", handle: "", full_name: "", headline: "", location: "", country: "", region: "", bio: "", avatar_url: "", status_tag: "committed", display_sports: [] as string[],
-  
-  // 🔥 新增預設值
+  is_player: true,
+  is_coach: false,
+  is_physio: false,
   height_cm: "",
   weight_kg: "",
   show_physical_stats: true,
-
-  // Coach global fields
-  is_coach: false,
   contact_email: "",
   contact_phone: "",
   address: "",
@@ -110,9 +103,6 @@ const DEFAULT_FORM = {
   instagram_url: "",
   facebook_url: "",
   threads_url: "",
-
-  // Physio global fields
-  is_physio: false,
   physio_rate: "" as number | string,
   clinic_name: "",
   physio_status: "hidden",
@@ -131,12 +121,10 @@ const DEFAULT_FORM = {
   physio_threads_url: "",
 };
 
-// ─── Utilities ────────────────────────────────────────────────────────────────
 const compressImage = (file: File | Blob): Promise<File | Blob> => new Promise((resolve) => { if (file.size <= 1.5 * 1024 * 1024) return resolve(file); const reader = new FileReader(); reader.onload = (e) => { const img = new Image(); img.onload = () => { const MAX = 1200; let w = img.width, h = img.height; if (w > h) { if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; } } else { if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; } } const canvas = document.createElement("canvas"); canvas.width = w; canvas.height = h; const ctx = canvas.getContext("2d"); if (!ctx) return resolve(file); ctx.drawImage(img, 0, 0, w, h); canvas.toBlob((blob) => resolve(blob ? new File([blob], file instanceof File ? file.name : "cropped.jpg", { type: "image/jpeg" }) : file), "image/jpeg", 0.8); }; img.src = e.target?.result as string; }; reader.readAsDataURL(file); });
 const createImage = (url: string): Promise<HTMLImageElement> => new Promise((resolve, reject) => { const image = new Image(); image.addEventListener("load", () => resolve(image)); image.addEventListener("error", (error) => reject(error)); image.src = url; });
 const getCroppedImg = async (imageSrc: string, pixelCrop: any): Promise<Blob | null> => { const image = await createImage(imageSrc); const canvas = document.createElement("canvas"); const ctx = canvas.getContext("2d"); if (!ctx) return null; canvas.width = pixelCrop.width; canvas.height = pixelCrop.height; ctx.drawImage(image, pixelCrop.x, pixelCrop.y, pixelCrop.width, pixelCrop.height, 0, 0, pixelCrop.width, pixelCrop.height); return new Promise((resolve) => { canvas.toBlob((file) => resolve(file), "image/jpeg"); }); };
 
-// ─── Status Badge ─────────────────────────────────────────────────────────────
 const StatusBadge = ({ tag }: { tag: string | null }) => {
   if (tag === "hidden" || tag === "draft") return <div className="inline-flex items-center gap-1.5 bg-slate-800 text-zinc-500 text-[10px] px-2.5 py-1 rounded-full font-black border border-slate-700">🔒 未發布 (隱藏中)</div>;
   if (tag === "recruiting") return <div className="inline-flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] px-2.5 py-1 rounded-full font-black tracking-widest"><div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> 招生/招募中</div>;
@@ -147,7 +135,6 @@ const StatusBadge = ({ tag }: { tag: string | null }) => {
   return <div className="inline-flex items-center gap-1.5 bg-slate-800/50 border border-slate-700/50 text-zinc-400 text-[10px] px-2.5 py-1 rounded-full font-black tracking-widest"><div className="w-1.5 h-1.5 rounded-full bg-slate-500" /> 穩定狀態</div>;
 };
 
-// ─── Main Component ───────────────────────────────────────────────────────────
 function ProfilePageContent() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const router = useRouter();
@@ -190,7 +177,6 @@ function ProfilePageContent() {
   const [selectedPost, setSelectedPost] = useState<MediaItem | null>(null);
   const [userTeams, setUserTeams] = useState<UserTeamRow[]>([]);
 
-  // Automatically switch views if the URL contains ?tab=... or ?view=...
   useEffect(() => {
     const tabParam = (searchParams?.get("tab") || searchParams?.get("view")) as TabId | null;
     if (tabParam && ["dashboard", "expertise", "highlights", "feed", "coach", "physio", "friends", "teams"].includes(tabParam)) {
@@ -198,17 +184,27 @@ function ProfilePageContent() {
     }
   }, [searchParams]);
 
-  // Public frontend tabs ONLY
+  // 🔥 乾淨整併的動態過濾 publicTabs
   const publicTabs = useMemo(() => {
-    const base: { id: TabId; icon: string; label: string; en: string }[] = [
-      { id: "expertise", icon: "📋", label: "技術特長", en: "Expertise" },
-      { id: "highlights", icon: "🎞️", label: "賽場圖庫", en: "Highlights" },
-      { id: "feed", icon: "📰", label: "個人動態", en: "Feed" },
-    ];
+    const base: { id: TabId; icon: string; label: string; en: string }[] = [];
+    if (profile?.is_player !== false || editForm.is_player) {
+      base.push({ id: "expertise", icon: "📋", label: "技術特長", en: "Expertise" });
+      base.push({ id: "highlights", icon: "🎞️", label: "賽場圖庫", en: "Highlights" });
+    }
+    base.push({ id: "feed", icon: "📰", label: "個人動態", en: "Feed" });
     if (profile?.is_coach || editForm.is_coach) base.push({ id: "coach", icon: "🎓", label: "教練設定", en: "Coach" });
     if (profile?.is_physio || editForm.is_physio) base.push({ id: "physio", icon: "⚕️", label: "治療設定", en: "Physio" });
     return base;
-  }, [profile?.is_coach, profile?.is_physio, editForm.is_coach, editForm.is_physio]);
+  }, [profile?.is_player, profile?.is_coach, profile?.is_physio, editForm.is_player, editForm.is_coach, editForm.is_physio]);
+
+  // 若使用者並非球員且當前停留於球員專有 Tab，自動切換至適當預設分頁
+  useEffect(() => {
+    if (profile && profile.is_player === false && (activeTab === "expertise" || activeTab === "highlights")) {
+      if (profile.is_coach) setActiveTab("coach");
+      else if (profile.is_physio) setActiveTab("physio");
+      else setActiveTab("feed");
+    }
+  }, [profile, activeTab]);
 
   const handleTabSwitch = useCallback((tab: TabId) => {
     setActiveTab(tab);
@@ -247,13 +243,12 @@ function ProfilePageContent() {
           avatar_url: prof.avatar_url ?? "", 
           status_tag: prof.status_tag ?? "committed", 
           display_sports: prof.display_sports ?? [], 
-          
-          // 🔥 身高體重讀取
+          is_player: prof.is_player ?? true,
+          is_coach: prof.is_coach ?? false,
+          is_physio: prof.is_physio ?? false,
           height_cm: prof.height_cm ?? "",
           weight_kg: prof.weight_kg ?? "",
           show_physical_stats: prof.show_physical_stats ?? true,
-
-          is_coach: prof.is_coach ?? false,
           contact_email: prof.contact_email ?? "",
           contact_phone: prof.contact_phone ?? "",
           address: prof.address ?? "",
@@ -262,8 +257,6 @@ function ProfilePageContent() {
           instagram_url: prof.instagram_url ?? "",
           facebook_url: prof.facebook_url ?? "",
           threads_url: prof.threads_url ?? "",
-
-          is_physio: prof.is_physio ?? false,
           physio_rate: prof.physio_rate === 0 ? "" : (prof.physio_rate ?? ""),
           clinic_name: prof.clinic_name ?? "",
           physio_status: prof.physio_status ?? "hidden",
@@ -349,6 +342,9 @@ function ProfilePageContent() {
 
     const { error } = await supabase.from("profiles").upsert({ 
       id: user.id, 
+      is_player: editForm.is_player,
+      is_coach: editForm.is_coach,
+      is_physio: editForm.is_physio,
       first_name: editForm.first_name, 
       last_name: editForm.last_name, 
       handle: editForm.handle, 
@@ -361,13 +357,9 @@ function ProfilePageContent() {
       avatar_url: finalAvatarUrl, 
       status_tag: editForm.status_tag, 
       display_sports: editForm.display_sports, 
-      
-      // 🔥 寫入身高體重
       height_cm: editForm.height_cm ? Number(editForm.height_cm) : null,
       weight_kg: editForm.weight_kg ? Number(editForm.weight_kg) : null,
       show_physical_stats: editForm.show_physical_stats ?? true,
-
-      is_coach: editForm.is_coach, 
       contact_email: editForm.contact_email || null,             
       contact_phone: editForm.contact_phone || null,             
       address: editForm.address || null,                         
@@ -376,8 +368,6 @@ function ProfilePageContent() {
       instagram_url: editForm.instagram_url || null,
       facebook_url: editForm.facebook_url || null,
       threads_url: editForm.threads_url || null,
-
-      is_physio: editForm.is_physio, 
       physio_rate: physioRateVal, 
       clinic_name: editForm.clinic_name || null, 
       physio_status: editForm.physio_status || "hidden", 
@@ -386,7 +376,6 @@ function ProfilePageContent() {
       physio_experience_years: editForm.physio_experience_years || null,
       physio_qualifications: editForm.physio_qualifications || null,
       physio_services_offered: editForm.physio_services_offered || null,
-
       physio_contact_email: editForm.physio_contact_email || null,
       physio_contact_phone: editForm.physio_contact_phone || null,
       physio_city_region: editForm.physio_city_region || null,
@@ -459,7 +448,6 @@ function ProfilePageContent() {
         <BackButton label="返回首頁" />
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mt-4">
 
-          {/* ── Sidebar ── */}
           <div className="lg:col-span-4 xl:col-span-3 space-y-6">
             <div className="bg-slate-900/40 backdrop-blur-xl border border-slate-800/60 rounded-3xl p-6 sticky top-20 shadow-2xl">
               <div className="relative w-32 h-32 mx-auto mb-6">
@@ -478,7 +466,6 @@ function ProfilePageContent() {
                   <div className="space-y-1"><label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">Unique Handle</label><input className={`w-full bg-slate-950/50 border rounded-xl p-3 text-white text-sm ${handleStatus === "taken" ? "border-red-500" : "border-slate-800"}`} value={editForm.handle} onChange={e => setEditForm({ ...editForm, handle: e.target.value.replace(/[^a-zA-Z0-9_]/g, "") })} placeholder="ID 帳號" /></div>
                   <div className="space-y-1"><label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">Headline</label><input className="w-full bg-slate-950/50 border border-slate-800 rounded-xl p-3 text-white text-sm" value={editForm.headline} onChange={e => setEditForm({ ...editForm, headline: e.target.value })} placeholder="例如: 網球底線玩家" /></div>
                   
-                  {/* 🔥 新增：編輯模式下的身高體重輸入 */}
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1">
                       <label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">身高 Height (cm)</label>
@@ -504,6 +491,7 @@ function ProfilePageContent() {
                     </div>
                     <div className="pt-3 border-t border-slate-800/80 space-y-3">
                       <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={editForm.show_physical_stats} onChange={e => setEditForm((prev: any) => ({ ...prev, show_physical_stats: e.target.checked }))} className="rounded bg-slate-900 border-slate-700" /><span className="text-xs font-bold text-zinc-300">公開展示身高體重數據</span></label>
+                      <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={editForm.is_player} onChange={e => setEditForm((prev: any) => ({ ...prev, is_player: e.target.checked }))} className="rounded bg-slate-900 border-slate-700" /><span className="text-xs font-bold text-blue-400">開啟運動員球員檔案</span></label>
                       <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={editForm.is_coach} onChange={e => setEditForm((prev: any) => ({ ...prev, is_coach: e.target.checked }))} className="rounded bg-slate-900 border-slate-700" /><span className="text-xs font-bold text-amber-400">開啟教練管理功能</span></label>
                       <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={editForm.is_physio} onChange={e => setEditForm((prev: any) => ({ ...prev, is_physio: e.target.checked }))} className="rounded bg-slate-900 border-slate-700" /><span className="text-xs font-bold text-emerald-400">開啟運動/物理治療功能</span></label>
                     </div>
@@ -518,17 +506,16 @@ function ProfilePageContent() {
                   <h1 className="text-3xl font-black text-white tracking-tight leading-none mb-1">{profile?.first_name} {profile?.last_name}</h1>
                   <p className="text-sm font-mono text-blue-400 mb-2">@{profile?.handle || "ID_未設定"}</p>
                   
-                  {/* 🔥 新增：公開展示身高體重 */}
-                  {profile?.show_physical_stats && (profile?.height_cm || profile?.weight_kg) && (
-                    <div className="inline-flex items-center gap-3 px-3 py-1 rounded-full bg-slate-950 border border-slate-800 text-xs font-mono text-zinc-400 mb-4">
+                  {profile?.is_player !== false && profile?.show_physical_stats && (profile?.height_cm || profile?.weight_kg) && (
+                    <div className="flex items-center justify-center gap-4 px-4 py-1.5 rounded-full bg-slate-900/60 border border-slate-800 text-xs font-mono text-zinc-400 mb-4 mx-auto w-fit shadow-inner">
                       {profile.height_cm && <span>📏 {profile.height_cm} cm</span>}
-                      {profile.weight_kg && <span>⚖️ {profile.weight_kg} kg</span>}
+                      {profile.weight_kg && <span className={profile.height_cm ? "border-l border-slate-700 pl-4" : ""}>⚖️ {profile.weight_kg} kg</span>}
                     </div>
                   )}
 
                   <p className="text-sm font-bold text-zinc-400 mb-4">{profile?.headline || "設定你的場上宣言"}</p>
                   <div className="flex flex-wrap justify-center gap-2 mb-4">
-                    <span className="bg-slate-800/80 text-zinc-300 text-[10px] font-black px-3 py-1 rounded-full border border-slate-700">👤 運動員</span>
+                    {profile?.is_player !== false && <span className="bg-blue-500/10 text-blue-400 text-[10px] font-black px-3 py-1 rounded-full border border-blue-500/20">👤 運動員</span>}
                     {profile?.is_coach && <span className="bg-amber-500/10 text-amber-400 text-[10px] font-black px-3 py-1 rounded-full border border-amber-500/20">🎓 教練</span>}
                     {profile?.is_physio && <span className="bg-emerald-500/10 text-emerald-400 text-[10px] font-black px-3 py-1 rounded-full border border-emerald-500/20">⚕️ 物理治療</span>}
                   </div>
@@ -541,80 +528,38 @@ function ProfilePageContent() {
                     </div>
                   </div>
                   
-                  {/* ─── Private Backend Section ─── */}
                   <div className="mt-6 pt-6 border-t border-slate-800/80 space-y-3">
                     <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider pl-1 text-left">專屬後台 (Backend)</p>
-                    
-                    <button
-                      onClick={() => handleTabSwitch("friends")}
-                      className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold transition ${activeTab === "friends" ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20" : "bg-slate-900/50 text-zinc-400 hover:bg-slate-800 hover:text-white"}`}
-                    >
-                      <span className="flex items-center gap-3"><span className="text-lg">👥</span> 好友管理</span>
-                      <span className="text-xs">→</span>
-                    </button>
-
-                    {userTeams.length > 0 && (
-                      <button
-                        onClick={() => handleTabSwitch("teams")}
-                        className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold transition ${activeTab === "teams" ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20" : "bg-slate-900/50 text-zinc-400 hover:bg-slate-800 hover:text-white"}`}
-                      >
-                        <span className="flex items-center gap-3"><span className="text-lg">🛡️</span> 我的團隊</span>
-                        <span className="text-xs">→</span>
-                      </button>
-                    )}
-
-                    <button
-                      onClick={() => handleTabSwitch("dashboard")}
-                      className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold transition ${activeTab === "dashboard" ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20" : "bg-slate-900/50 text-zinc-400 hover:bg-slate-800 hover:text-white"}`}
-                    >
-                      <span className="flex items-center gap-3"><span className="text-lg">📊</span> 數據後台</span>
-                      <span className="text-xs">→</span>
-                    </button>
+                    <button onClick={() => handleTabSwitch("friends")} className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold transition ${activeTab === "friends" ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20" : "bg-slate-900/50 text-zinc-400 hover:bg-slate-800 hover:text-white"}`}><span className="flex items-center gap-3"><span className="text-lg">👥</span> 好友管理</span><span className="text-xs">→</span></button>
+                    {userTeams.length > 0 && <button onClick={() => handleTabSwitch("teams")} className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold transition ${activeTab === "teams" ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20" : "bg-slate-900/50 text-zinc-400 hover:bg-slate-800 hover:text-white"}`}><span className="flex items-center gap-3"><span className="text-lg">🛡️</span> 我的團隊</span><span className="text-xs">→</span></button>}
+                    <button onClick={() => handleTabSwitch("dashboard")} className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold transition ${activeTab === "dashboard" ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20" : "bg-slate-900/50 text-zinc-400 hover:bg-slate-800 hover:text-white"}`}><span className="flex items-center gap-3"><span className="text-lg">📊</span> 數據後台</span><span className="text-xs">→</span></button>
                   </div>
-                  
                 </div>
               )}
             </div>
           </div>
 
-          {/* ── Tab Area (Right/Main Column) ── */}
           <div className="lg:col-span-8 xl:col-span-9 flex flex-col" ref={contentRef}>
-            
             {(() => {
               const isPrivateTab = ["dashboard", "friends", "teams"].includes(activeTab);
-              
               if (isPrivateTab) {
                 return (
                   <div className="bg-slate-900 border border-slate-800 p-3 md:p-4 rounded-2xl flex items-center justify-between w-full mb-8 shadow-sm">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-xl">
-                        {activeTab === "dashboard" ? "📊" : activeTab === "teams" ? "🛡️" : "👥"}
-                      </div>
+                      <div className="w-10 h-10 rounded-full bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-xl">{activeTab === "dashboard" ? "📊" : activeTab === "teams" ? "🛡️" : "👥"}</div>
                       <div>
-                        <h2 className="text-sm md:text-base font-black text-white leading-tight">
-                          {activeTab === "dashboard" ? "數據後台" : activeTab === "teams" ? "我的團隊" : "好友管理"}
-                        </h2>
+                        <h2 className="text-sm md:text-base font-black text-white leading-tight">{activeTab === "dashboard" ? "數據後台" : activeTab === "teams" ? "我的團隊" : "好友管理"}</h2>
                         <p className="text-[10px] text-zinc-400 font-bold tracking-wider mt-0.5">專屬私密空間</p>
                       </div>
                     </div>
-                    <button
-                      onClick={() => handleTabSwitch("expertise")}
-                      className="bg-slate-800 hover:bg-slate-700 border border-slate-600 text-zinc-300 hover:text-white text-xs md:text-sm font-bold px-3 py-2 md:px-4 md:py-2.5 rounded-xl transition flex items-center gap-1.5 shadow-sm"
-                    >
-                      <span className="hidden sm:inline">返回公開檔案</span>
-                      <span className="sm:hidden">返回</span> ↗
-                    </button>
+                    <button onClick={() => handleTabSwitch("expertise")} className="bg-slate-800 hover:bg-slate-700 border border-slate-600 text-zinc-300 hover:text-white text-xs md:text-sm font-bold px-3 py-2 md:px-4 md:py-2.5 rounded-xl transition flex items-center gap-1.5 shadow-sm"><span className="hidden sm:inline">返回公開檔案</span><span className="sm:hidden">返回</span> ↗</button>
                   </div>
                 );
               }
-
               return (
                 <div className="bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 p-1 rounded-2xl flex w-full sticky top-16 z-30 mb-8 shadow-sm overflow-x-auto [&::-webkit-scrollbar]:hidden">
                   {publicTabs.map((t) => (
-                    <button key={t.id} onClick={() => handleTabSwitch(t.id as TabId)} className={`flex-1 flex flex-col items-center justify-center py-2 px-3 rounded-xl transition-all duration-300 min-w-[70px] ${activeTab === t.id ? "bg-slate-50 text-black shadow-lg scale-[1.02]" : "text-zinc-500 hover:text-white hover:bg-slate-800/50"}`}>
-                      <span className="text-lg md:text-xl mb-0.5">{t.icon}</span>
-                      <span className="text-[10px] md:text-xs font-black leading-tight truncate w-full text-center">{t.label}</span>
-                    </button>
+                    <button key={t.id} onClick={() => handleTabSwitch(t.id as TabId)} className={`flex-1 flex flex-col items-center justify-center py-2 px-3 rounded-xl transition-all duration-300 min-w-[70px] ${activeTab === t.id ? "bg-slate-50 text-black shadow-lg scale-[1.02]" : "text-zinc-500 hover:text-white hover:bg-slate-800/50"}`}><span className="text-lg md:text-xl mb-0.5">{t.icon}</span><span className="text-[10px] md:text-xs font-black leading-tight truncate w-full text-center">{t.label}</span></button>
                   ))}
                 </div>
               );
@@ -622,176 +567,25 @@ function ProfilePageContent() {
 
             <div className="flex-1">
               {activeTab === "dashboard" && <DashboardTab profile={profile} avatarSrc={avatarSrc} />}
-
-              {activeTab === "expertise" && (
-                <ExpertiseTab
-                  userSports={userSports}
-                  editFormDisplaySports={editForm.display_sports}
-                  onToggleDisplaySport={toggleDisplaySport}
-                  onOpenSportModal={handleOpenSportModal}
-                  onRemoveSport={handleRemoveSport}
-                  onSaveDisplaySports={handleSaveProfile}
-                />
-              )}
-
-              {activeTab === "highlights" && (
-                <HighlightsTab
-                  galleryMedia={galleryMedia}
-                  userSports={userSports}
-                  onSelectPost={setSelectedPost}
-                  onOpenMediaModal={() => setIsMediaModalOpen(true)}
-                />
-              )}
-
+              {activeTab === "expertise" && <ExpertiseTab userSports={userSports} editFormDisplaySports={editForm.display_sports} onToggleDisplaySport={toggleDisplaySport} onOpenSportModal={handleOpenSportModal} onRemoveSport={handleRemoveSport} onSaveDisplaySports={handleSaveProfile} />}
+              {activeTab === "highlights" && <HighlightsTab galleryMedia={galleryMedia} userSports={userSports} onSelectPost={setSelectedPost} onOpenMediaModal={() => setIsMediaModalOpen(true)} />}
               {activeTab === "feed" && <FeedTab profile={profile} avatarSrc={avatarSrc} />}
-
-              {activeTab === "friends" && user && (
-                <div className="animate-fadeIn">
-                  <div className="mb-6 px-2">
-                    <h2 className="text-lg md:text-xl font-black text-white">好友管理</h2>
-                    <p className="text-xs text-zinc-500 mt-1">管理你的好友、待接受請求與已發送請求。</p>
-                  </div>
-                  <FriendsTab currentUserId={user.id} />
-                </div>
-              )}
-
-              {activeTab === "coach" && (
-                <CoachTab
-                  allSports={allSports}
-                  editForm={editForm}
-                  onFieldChange={(field, value) => setEditForm((prev: any) => ({ ...prev, [field]: value }))}
-                  onSaveGlobal={handleSaveProfile}
-                  isSaving={isSaving}
-                />
-              )}
-
-              {activeTab === "physio" && (
-                <PhysioTab
-                  editForm={editForm}
-                  locationData={locationData}
-                  isSaving={isSaving}
-                  avatarSrc={avatarSrc}
-                  profile={profile}
-                  onFieldChange={(field, value) => setEditForm((prev: any) => ({ ...prev, [field]: value }))}
-                  onSaveGlobal={handleSaveProfile}
-                />
-              )}
-
+              {activeTab === "friends" && user && <div className="animate-fadeIn"><div className="mb-6 px-2"><h2 className="text-lg md:text-xl font-black text-white">好友管理</h2><p className="text-xs text-zinc-500 mt-1">管理你的好友、待接受請求與已發送請求。</p></div><FriendsTab currentUserId={user.id} /></div>}
+              {activeTab === "coach" && <CoachTab allSports={allSports} editForm={editForm} onFieldChange={(field, value) => setEditForm((prev: any) => ({ ...prev, [field]: value }))} onSaveGlobal={handleSaveProfile} isSaving={isSaving} />}
+              {activeTab === "physio" && <PhysioTab editForm={editForm} locationData={locationData} isSaving={isSaving} avatarSrc={avatarSrc} profile={profile} onFieldChange={(field, value) => setEditForm((prev: any) => ({ ...prev, [field]: value }))} onSaveGlobal={handleSaveProfile} />}
               {activeTab === "teams" && (() => {
                 const managedTeams = userTeams.filter(t => t.role === "admin" && t.teams);
                 const joinedTeams  = userTeams.filter(t => t.role !== "admin" && t.teams);
                 const hasBoth = managedTeams.length > 0 || joinedTeams.length > 0;
-
                 return (
                   <div className="animate-fadeIn space-y-8">
                     <div className="flex items-center justify-between mb-2">
-                      <div>
-                        <h2 className="text-lg md:text-xl font-black text-white">我的團隊</h2>
-                        <p className="text-xs text-zinc-500 mt-1">管理你建立或加入的所有團隊。</p>
-                      </div>
-                      <a
-                        href="/team/create"
-                        className="flex-shrink-0 flex items-center gap-1.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-black px-4 py-2.5 rounded-xl shadow-[0_0_10px_rgba(217,119,6,0.2)] transition-all active:scale-95"
-                      >
-                        ＋ 建立團隊
-                      </a>
+                      <div><h2 className="text-lg md:text-xl font-black text-white">我的團隊</h2><p className="text-xs text-zinc-500 mt-1">管理你建立或加入的所有團隊。</p></div>
+                      <a href="/team/create" className="flex-shrink-0 flex items-center gap-1.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-black px-4 py-2.5 rounded-xl shadow-[0_0_10px_rgba(217,119,6,0.2)] transition-all active:scale-95">＋ 建立團隊</a>
                     </div>
-
-                    {!hasBoth && (
-                      <div className="bg-slate-900/30 border border-dashed border-slate-700/50 rounded-3xl py-16 text-center px-6">
-                        <p className="text-4xl mb-4">🛡️</p>
-                        <p className="text-zinc-400 font-bold text-sm mb-2">你尚未加入或建立任何團隊</p>
-                        <p className="text-zinc-600 text-xs mb-6">建立屬於你的隊伍，招募志同道合的夥伴！</p>
-                        <a
-                          href="/team/create"
-                          className="inline-flex items-center gap-2 bg-amber-600 hover:bg-amber-500 text-white text-sm font-black px-6 py-3 rounded-xl transition-all shadow-[0_0_15px_rgba(217,119,6,0.2)]"
-                        >
-                          ＋ Create Team / Group
-                        </a>
-                      </div>
-                    )}
-
-                    {managedTeams.length > 0 && (
-                      <div>
-                        <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest mb-4 pl-1">我管理的團隊 (Admin)</p>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {managedTeams.map(({ teams: t }) => {
-                            if (!t) return null;
-                            const emoji = TEAM_SPORT_EMOJI[t.sport_category] ?? "🏅";
-                            const zh    = TEAM_SPORT_ZH[t.sport_category] ?? t.sport_category;
-                            const name  = t.name_en || t.name_zh || "Unnamed";
-                            const statusMap: Record<string, string> = {
-                              open: "🟢 公開招募", invite_only: "🔵 邀請制", closed: "🔴 暫停招募",
-                            };
-                            return (
-                              <div key={t.id} className="bg-slate-900/50 border border-amber-500/20 rounded-2xl p-4 flex gap-4 items-start">
-                                <div
-                                  className="w-14 h-14 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-2xl font-black text-zinc-500 flex-shrink-0 overflow-hidden bg-cover bg-center"
-                                  style={t.logo_url ? { backgroundImage: `url(${t.logo_url})` } : undefined}
-                                >
-                                  {!t.logo_url && (name[0] || "T")}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-black text-white truncate">{name}</p>
-                                  <div className="flex flex-wrap gap-1.5 mt-1.5 mb-3">
-                                    <span className="text-[10px] font-black text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded-full">{emoji} {zh}</span>
-                                    <span className="text-[10px] font-bold text-zinc-400 bg-slate-800 border border-slate-700 px-2 py-0.5 rounded-full">{statusMap[t.recruitment_status] ?? t.recruitment_status}</span>
-                                  </div>
-                                  <div className="flex gap-2">
-                                    <a href={`/team/${t.id}`} className="flex-1 text-center text-xs font-bold py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-zinc-200 transition">查看頁面</a>
-                                    <a href={`/team/${t.id}/admin`} className="flex-1 text-center text-xs font-black py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white transition shadow-[0_0_10px_rgba(217,119,6,0.2)]">⚙️ 管理</a>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-
-                    {joinedTeams.length > 0 && (
-                      <div>
-                        <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-4 pl-1">我加入的團隊</p>
-                        <div className="space-y-3">
-                          {joinedTeams.map(({ teams: t, role }) => {
-                            if (!t) return null;
-                            const emoji = TEAM_SPORT_EMOJI[t.sport_category] ?? "🏅";
-                            const zh    = TEAM_SPORT_ZH[t.sport_category] ?? t.sport_category;
-                            const name  = t.name_en || t.name_zh || "Unnamed";
-                            const roleBadgeCls: Record<string, string> = {
-                              captain: "text-purple-400 bg-purple-500/10 border-purple-500/20",
-                              coach:   "text-blue-400 bg-blue-500/10 border-blue-500/20",
-                              player:  "text-zinc-300 bg-slate-800 border-slate-700",
-                              pending: "text-amber-400 bg-amber-500/10 border-amber-500/20",
-                            };
-                            const roleLabel: Record<string, string> = {
-                              captain: "隊長", coach: "教練", player: "成員", pending: "⏳ 申請審核中",
-                            };
-                            return (
-                              <a
-                                key={t.id}
-                                href={`/team/${t.id}`}
-                                className="flex items-center gap-4 bg-slate-900/40 border border-slate-800 hover:border-slate-600 rounded-2xl p-4 transition group"
-                              >
-                                <div
-                                  className="w-11 h-11 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-xl font-black text-zinc-500 flex-shrink-0 overflow-hidden bg-cover bg-center"
-                                  style={t.logo_url ? { backgroundImage: `url(${t.logo_url})` } : undefined}
-                                >
-                                  {!t.logo_url && (name[0] || "T")}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-black text-white truncate group-hover:text-amber-400 transition">{name}</p>
-                                  <p className="text-xs text-zinc-500">{emoji} {zh}</p>
-                                </div>
-                                <span className={`text-[10px] font-black px-2.5 py-1 rounded-full border flex-shrink-0 ${roleBadgeCls[role] ?? "text-zinc-400 bg-slate-800 border-slate-700"}`}>
-                                  {roleLabel[role] ?? role}
-                                </span>
-                              </a>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
+                    {!hasBoth && <div className="bg-slate-900/30 border border-dashed border-slate-700/50 rounded-3xl py-16 text-center px-6"><p className="text-4xl mb-4">🛡️</p><p className="text-zinc-400 font-bold text-sm mb-2">你尚未加入或建立任何團隊</p><a href="/team/create" className="inline-flex items-center gap-2 bg-amber-600 hover:bg-amber-500 text-white text-sm font-black px-6 py-3 rounded-xl transition-all shadow-[0_0_15px_rgba(217,119,6,0.2)]">＋ Create Team / Group</a></div>}
+                    {managedTeams.length > 0 && <div><p className="text-[10px] font-black text-amber-400 uppercase tracking-widest mb-4 pl-1">我管理的團隊 (Admin)</p><div className="grid grid-cols-1 md:grid-cols-2 gap-4">{managedTeams.map(({ teams: t }) => { if (!t) return null; const emoji = TEAM_SPORT_EMOJI[t.sport_category] ?? "🏅"; const zh = TEAM_SPORT_ZH[t.sport_category] ?? t.sport_category; const name = t.name_en || t.name_zh || "Unnamed"; return <div key={t.id} className="bg-slate-900/50 border border-amber-500/20 rounded-2xl p-4 flex gap-4 items-start"><div className="w-14 h-14 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-2xl font-black text-zinc-500 flex-shrink-0 overflow-hidden bg-cover bg-center" style={t.logo_url ? { backgroundImage: `url(${t.logo_url})` } : undefined}>{!t.logo_url && (name[0] || "T")}</div><div className="flex-1 min-w-0"><p className="text-sm font-black text-white truncate">{name}</p><div className="flex flex-wrap gap-1.5 mt-1.5 mb-3"><span className="text-[10px] font-black text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded-full">{emoji} {zh}</span></div><div className="flex gap-2"><a href={`/team/${t.id}`} className="flex-1 text-center text-xs font-bold py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-zinc-200 transition">查看頁面</a><a href={`/team/${t.id}/admin`} className="flex-1 text-center text-xs font-black py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white transition">⚙️ 管理</a></div></div></div>; })}</div></div>}
+                    {joinedTeams.length > 0 && <div><p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-4 pl-1">我加入的團隊</p><div className="space-y-3">{joinedTeams.map(({ teams: t, role }) => { if (!t) return null; const emoji = TEAM_SPORT_EMOJI[t.sport_category] ?? "🏅"; const zh = TEAM_SPORT_ZH[t.sport_category] ?? t.sport_category; const name = t.name_en || t.name_zh || "Unnamed"; return <a key={t.id} href={`/team/${t.id}`} className="flex items-center gap-4 bg-slate-900/40 border border-slate-800 hover:border-slate-600 rounded-2xl p-4 transition group"><div className="w-11 h-11 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-xl font-black text-zinc-500 flex-shrink-0 overflow-hidden bg-cover bg-center" style={t.logo_url ? { backgroundImage: `url(${t.logo_url})` } : undefined}>{!t.logo_url && (name[0] || "T")}</div><div className="flex-1 min-w-0"><p className="text-sm font-black text-white truncate group-hover:text-amber-400 transition">{name}</p><p className="text-xs text-zinc-500">{emoji} {zh}</p></div></a>; })}</div></div>}
                   </div>
                 );
               })()}
@@ -800,20 +594,13 @@ function ProfilePageContent() {
         </div>
       </div>
 
-      {/* ── Modals ── */}
       {isCropModalOpen && cropImageSrc && (
         <div className="fixed inset-0 bg-black/95 z-50 flex flex-col items-center justify-center p-4">
-          <div className="relative w-full max-w-md h-[400px] bg-slate-900 rounded-3xl overflow-hidden shadow-2xl mb-6">
-            <Cropper image={cropImageSrc} crop={crop} zoom={zoom} aspect={1} cropShape="round" showGrid={false} onCropChange={setCrop} onCropComplete={(_, px) => setCroppedAreaPixels(px as any)} onZoomChange={setZoom} />
-          </div>
-          <div className="w-full max-w-md flex gap-4">
-            <button onClick={() => { setIsCropModalOpen(false); setCropImageSrc(null); }} className="flex-1 bg-slate-800 text-white font-bold py-3 rounded-xl">取消</button>
-            <button onClick={handleConfirmCrop} className="flex-1 bg-blue-600 text-white font-bold py-3 rounded-xl">確認裁切</button>
-          </div>
+          <div className="relative w-full max-w-md h-[400px] bg-slate-900 rounded-3xl overflow-hidden shadow-2xl mb-6"><Cropper image={cropImageSrc} crop={crop} zoom={zoom} aspect={1} cropShape="round" showGrid={false} onCropChange={setCrop} onCropComplete={(_, px) => setCroppedAreaPixels(px as any)} onZoomChange={setZoom} /></div>
+          <div className="w-full max-w-md flex gap-4"><button onClick={() => { setIsCropModalOpen(false); setCropImageSrc(null); }} className="flex-1 bg-slate-800 text-white font-bold py-3 rounded-xl">取消</button><button onClick={handleConfirmCrop} className="flex-1 bg-blue-600 text-white font-bold py-3 rounded-xl">確認裁切</button></div>
         </div>
       )}
 
-      {/* 🔥 改用 PRO_SPORT_SCHEMA 渲染客製化表單 */}
       {isSportModalOpen && (
         <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fadeIn">
           <div className="bg-slate-950 border border-slate-800 w-full max-w-sm rounded-3xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
@@ -822,19 +609,11 @@ function ProfilePageContent() {
               <div><label className="block text-[10px] font-bold text-zinc-500 uppercase mb-2">選擇運動項目</label><select value={selectedSportId} onChange={e => { setSelectedSportId(e.target.value); setSportDynamicData({}); }} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3.5 text-white font-bold outline-none" required><option value="">-- 選擇項目 --</option>{allSports.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
               {allSports.find(s => s.id === selectedSportId) && (PRO_SPORT_SCHEMA[allSports.find(s => s.id === selectedSportId)!.name] || PRO_SPORT_SCHEMA["default"]).map(field => (
                 <div key={field.key} className="animate-fadeIn">
-                  <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-2">
-                    {field.label} {field.unit && `(${field.unit})`}
-                  </label>
-                  {field.type === "select"
-                    ? <select value={sportDynamicData[field.key] || ""} onChange={e => setSportDynamicData({ ...sportDynamicData, [field.key]: e.target.value })} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white font-bold outline-none" required><option value="">-- 請選擇 --</option>{field.options?.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select>
-                    : <input type={field.type} value={sportDynamicData[field.key] || ""} onChange={e => setSportDynamicData({ ...sportDynamicData, [field.key]: e.target.value })} placeholder={field.placeholder} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white font-bold outline-none" required />
-                  }
+                  <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-2">{field.label} {field.unit && `(${field.unit})`}</label>
+                  {field.type === "select" ? <select value={sportDynamicData[field.key] || ""} onChange={e => setSportDynamicData({ ...sportDynamicData, [field.key]: e.target.value })} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white font-bold outline-none" required><option value="">-- 請選擇 --</option>{field.options?.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select> : <input type={field.type} value={sportDynamicData[field.key] || ""} onChange={e => setSportDynamicData({ ...sportDynamicData, [field.key]: e.target.value })} placeholder={field.placeholder} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white font-bold outline-none" required />}
                 </div>
               ))}
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setIsSportModalOpen(false)} className="flex-1 bg-slate-900 text-zinc-400 font-bold py-3 rounded-xl">取消</button>
-                <button type="submit" disabled={!selectedSportId} className="flex-1 bg-slate-50 text-black font-black py-3 rounded-xl">{editingUserSportId ? "儲存" : "加入"}</button>
-              </div>
+              <div className="flex gap-3 pt-2"><button type="button" onClick={() => setIsSportModalOpen(false)} className="flex-1 bg-slate-900 text-zinc-400 font-bold py-3 rounded-xl">取消</button><button type="submit" disabled={!selectedSportId} className="flex-1 bg-slate-50 text-black font-black py-3 rounded-xl">{editingUserSportId ? "儲存" : "加入"}</button></div>
             </form>
           </div>
         </div>
@@ -846,12 +625,7 @@ function ProfilePageContent() {
             <h3 className="text-lg font-black text-white mb-6">歸檔雲端賽事影音</h3>
             <div className="space-y-5 text-sm">
               <div><label className="block text-[10px] font-bold text-zinc-500 uppercase mb-2">1. 歸屬類別</label><select value={uploadMediaSport} onChange={e => setUploadMediaSport(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3.5 text-white font-bold outline-none"><option value="">-- 選擇專長 --</option>{userSports.map(us => <option key={us.id} value={us.sports?.name}>{us.sports?.name}</option>)}</select></div>
-              <div><label className="block text-[10px] font-bold text-zinc-500 uppercase mb-2">2. 選擇檔案</label>
-                <div className="border-2 border-dashed border-slate-800 hover:border-slate-600 transition rounded-xl p-4 text-center cursor-pointer relative overflow-hidden">
-                  <input type="file" ref={mediaInputRef} onChange={handleMediaUpload} accept="image/*" disabled={!uploadMediaSport || isUploadingMedia} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed" />
-                  <span className="text-zinc-400 font-bold block">{isUploadingMedia ? "雲端推流中..." : uploadMediaSport ? "點擊選擇照片" : "請先選擇上方類別"}</span>
-                </div>
-              </div>
+              <div><label className="block text-[10px] font-bold text-zinc-500 uppercase mb-2">2. 選擇檔案</label><div className="border-2 border-dashed border-slate-800 hover:border-slate-600 transition rounded-xl p-4 text-center cursor-pointer relative overflow-hidden"><input type="file" ref={mediaInputRef} onChange={handleMediaUpload} accept="image/*" disabled={!uploadMediaSport || isUploadingMedia} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed" /><span className="text-zinc-400 font-bold block">{isUploadingMedia ? "雲端推流中..." : uploadMediaSport ? "點擊選擇照片" : "請先選擇上方類別"}</span></div></div>
               <button onClick={() => setIsMediaModalOpen(false)} className="w-full bg-slate-900 text-zinc-400 font-bold py-3 rounded-xl mt-2">關閉視窗</button>
             </div>
           </div>
@@ -863,13 +637,7 @@ function ProfilePageContent() {
           <button onClick={() => setSelectedPost(null)} className="absolute top-4 right-4 md:top-6 md:right-6 text-white text-3xl font-black z-50 hover:scale-110">×</button>
           <div className="w-full max-w-6xl max-h-[100dvh] md:max-h-[85vh] bg-slate-950 md:rounded-3xl overflow-hidden flex flex-col md:flex-row border border-slate-800 shadow-2xl">
             <div className="w-full md:w-3/5 bg-black flex items-center justify-center min-h-[40vh] md:min-h-0"><img src={selectedPost.url} alt="Post highlight" className="max-w-full max-h-[85vh] object-contain" /></div>
-            <div className="w-full md:w-2/5 flex flex-col h-[60vh] md:h-full bg-slate-950">
-              <div className="p-4 border-b border-slate-800 flex justify-between items-center">
-                <div className="flex items-center gap-3"><div className="w-8 h-8 rounded-full bg-slate-700 bg-cover bg-center" style={{ backgroundImage: avatarSrc ? `url(${avatarSrc})` : "none" }} /><div><p className="text-sm font-black text-white">{profile?.handle || profile?.first_name}</p></div></div>
-                <button onClick={() => handleDeleteMedia(selectedPost)} className="text-red-400 text-xs font-bold px-3 py-1.5 bg-red-500/10 rounded-lg">刪除</button>
-              </div>
-              <div className="flex-1 p-4" />
-            </div>
+            <div className="w-full md:w-2/5 flex flex-col h-[60vh] md:h-full bg-slate-950"><div className="p-4 border-b border-slate-800 flex justify-between items-center"><div className="flex items-center gap-3"><div className="w-8 h-8 rounded-full bg-slate-700 bg-cover bg-center" style={{ backgroundImage: avatarSrc ? `url(${avatarSrc})` : "none" }} /><div><p className="text-sm font-black text-white">{profile?.handle || profile?.first_name}</p></div></div><button onClick={() => handleDeleteMedia(selectedPost)} className="text-red-400 text-xs font-bold px-3 py-1.5 bg-red-500/10 rounded-lg">刪除</button></div><div className="flex-1 p-4" /></div>
           </div>
         </div>
       )}
