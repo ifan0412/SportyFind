@@ -1,9 +1,14 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { CheckCircle2, MessageSquare, Plus, Trash2, Save, Loader2, UploadCloud, RotateCcw } from "lucide-react";
+import { 
+  CheckCircle2, Plus, Trash2, Save, Loader2, 
+  UploadCloud, RotateCcw, ArrowLeft, Edit3, MapPin, Settings, BookOpen, Inbox
+} from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 
 interface CoachTabProps {
   allSports: any[];
@@ -13,7 +18,7 @@ interface CoachTabProps {
   isSaving?: boolean;       
 }
 
-// 1. 潛在學生諮詢單名單
+// 1. 全局潛在學生諮詢收件匣 (Global Leads Inbox)
 function CoachEnquiriesInbox({ fallbackCoachId }: { fallbackCoachId?: string }) {
   const [leads, setLeads] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -26,11 +31,15 @@ function CoachEnquiriesInbox({ fallbackCoachId }: { fallbackCoachId?: string }) 
       const targetId = user?.id || fallbackCoachId;
       if (!targetId) { setLoading(false); return; }
 
-      const { data: rawLeads } = await supabase
+      const { data: rawLeads, error } = await supabase
         .from("coach_enquiries")
         .select("*")
         .eq("coach_id", targetId)
         .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("讀取諮詢單失敗:", error.message);
+      }
 
       if (!rawLeads || rawLeads.length === 0) {
         setLeads([]); setLoading(false); return;
@@ -51,50 +60,58 @@ function CoachEnquiriesInbox({ fallbackCoachId }: { fallbackCoachId?: string }) 
   }, [fallbackCoachId, supabase]);
 
   const toggleContacted = async (id: string, currentStatus: string) => {
-    const newStatus = currentStatus === "contacted" ? "pending" : "contacted";
+    const newStatus = currentStatus === "contacted" ? "seen" : "contacted";
     const { error } = await supabase.from("coach_enquiries").update({ status: newStatus }).eq("id", id);
     if (error) {
-      alert("狀態更新失敗: 請確認已於 SQL Editor 新增 UPDATE 權限策略");
+      alert("狀態更新失敗: " + error.message);
       return;
     }
     setLeads(prev => prev.map(l => l.id === id ? { ...l, status: newStatus } : l));
   };
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-6 mt-12">
-      <div className="border-b border-slate-800 pb-4">
-        <h3 className="text-lg font-black text-white flex items-center gap-2">
-          <MessageSquare className="w-5 h-5 text-amber-400" />
-          潛在學生諮詢單名單 (Leads Inbox)
-        </h3>
-        <p className="text-xs text-zinc-500 mt-1">學員在您的課程卡片或獨立頁點擊「預約諮詢」時，諮詢單將自動發送至此。</p>
+    <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-6 animate-fadeIn">
+      <div className="border-b border-slate-800 pb-4 flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-black text-white flex items-center gap-2">
+            <Inbox className="w-5 h-5 text-amber-400" />
+            潛在學生諮詢單名單 (Global Leads Inbox)
+          </h3>
+          <p className="text-xs text-zinc-500 mt-1">學員在您的各個課程卡片點擊「預約諮詢」時，所有諮詢單將統一匯聚於此。</p>
+        </div>
+        <span className="px-3 py-1 rounded-full text-xs font-black bg-amber-500/10 text-amber-400 border border-amber-500/20">
+          共 {leads.length} 筆
+        </span>
       </div>
 
       <div className="space-y-4">
         {loading ? (
-          <div className="py-8 text-center text-zinc-500 text-xs font-mono">載入詢問單中...</div>
+          <div className="py-12 text-center text-zinc-500 text-xs font-mono flex items-center justify-center gap-2">
+            <Loader2 className="w-4 h-4 animate-spin text-amber-500" /> 載入詢問單中...
+          </div>
         ) : leads.length === 0 ? (
-          <div className="py-10 text-center bg-slate-950 rounded-2xl border border-dashed border-slate-800 text-zinc-500 text-xs font-bold">
-            目前尚無新進的學員諮詢單。
+          <div className="py-14 text-center bg-slate-950/50 rounded-2xl border border-dashed border-slate-800 text-zinc-500 text-xs font-bold space-y-1">
+            <p className="text-sm text-zinc-400">目前尚無新進的學員諮詢單。</p>
+            <p>當學員發送詢問後，您將立即在此收到通知與訊息內容。</p>
           </div>
         ) : (
           leads.map(lead => (
-            <div key={lead.id} className="p-4 rounded-2xl bg-slate-950 border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="flex items-start gap-3 min-w-0">
+            <div key={lead.id} className="p-4 rounded-2xl bg-slate-950 border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition hover:border-slate-700">
+              <div className="flex items-start gap-3.5 min-w-0">
                 <Link href={`/p/${lead.student?.id || lead.student_id}`} className="shrink-0 cursor-pointer">
-                  <div className="w-10 h-10 rounded-full bg-slate-800 bg-cover bg-center" style={lead.student?.avatar_url ? { backgroundImage: `url(${lead.student.avatar_url})` } : undefined} />
+                  <div className="w-11 h-11 rounded-full bg-slate-800 bg-cover bg-center border border-slate-700" style={lead.student?.avatar_url ? { backgroundImage: `url(${lead.student.avatar_url})` } : undefined} />
                 </Link>
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <Link href={`/p/${lead.student?.id || lead.student_id}`} className="font-bold text-sm text-white hover:underline cursor-pointer">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Link href={`/p/${lead.student?.id || lead.student_id}`} className="font-bold text-sm text-white hover:text-amber-400 transition cursor-pointer">
                       {lead.student?.full_name || "未知運動員"}
                     </Link>
                     <span className="text-[10px] px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20 font-bold">
                       諮詢：{lead.service?.title || "專項課程"}
                     </span>
                   </div>
-                  <p className="text-xs text-zinc-300 mt-1.5 bg-slate-900/80 p-2.5 rounded-xl border border-slate-800/80 leading-relaxed">💬 「{lead.message}」</p>
-                  <span className="text-[10px] text-zinc-500 mt-1 block">送出時間：{new Date(lead.created_at).toLocaleString("zh-HK", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+                  <p className="text-xs text-zinc-300 mt-2 bg-slate-900/90 p-3 rounded-xl border border-slate-800 leading-relaxed">💬 「{lead.message}」</p>
+                  <span className="text-[10px] text-zinc-500 mt-1.5 block">送出時間：{new Date(lead.created_at).toLocaleString("zh-HK", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
                 </div>
               </div>
 
@@ -105,7 +122,7 @@ function CoachEnquiriesInbox({ fallbackCoachId }: { fallbackCoachId?: string }) 
                     <RotateCcw className="w-3 h-3 ml-0.5 text-zinc-400" />
                   </button>
                 ) : (
-                  <button onClick={() => toggleContacted(lead.id, lead.status)} className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs transition cursor-pointer">
+                  <button onClick={() => toggleContacted(lead.id, lead.status)} className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs transition cursor-pointer shadow-md">
                     標記為已聯絡
                   </button>
                 )}
@@ -118,61 +135,161 @@ function CoachEnquiriesInbox({ fallbackCoachId }: { fallbackCoachId?: string }) 
   );
 }
 
-// 2. 獨立課程與服務設定 ( Coach Services Manager )
+// 2. 獨立課程與服務專屬管理模組
 function CoachServicesManager({ allSports }: { allSports: any[] }) {
   const [services, setServices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [savingId, setSavingId] = useState<string | null>(null);
-  const [uploadingId, setUploadingId] = useState<string | null>(null);
   const supabase = createSupabaseBrowserClient();
+
+  const [selectedService, setSelectedService] = useState<any | null>(null);
+  const [detailTab, setDetailTab] = useState<"info" | "reviews" | "media" | "leads">("info");
+
+  const [isEditingInfo, setIsEditingInfo] = useState(false);
+  const [editForm, setEditForm] = useState<any>({});
+  const [isSavingInfo, setIsSavingInfo] = useState(false);
+
+  const [courseReviews, setCourseReviews] = useState<any[]>([]);
+  const [courseLeads, setCourseLeads] = useState<any[]>([]);
+  const [loadingSubData, setLoadingSubData] = useState(false);
+  const [uploadingMedia, setUploadingMedia] = useState(false);
+  const [pendingServiceIds, setPendingServiceIds] = useState<Set<string>>(new Set());
+
 
   const fetchServices = useCallback(async () => {
     setLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return setLoading(false);
-
-    const { data } = await supabase.from("coach_services").select("*").eq("coach_id", user.id).order("created_at", { ascending: false });
-    setServices(data || []);
+  
+    const [{ data: servicesData }, { data: pendingLeads }] = await Promise.all([
+      supabase.from("coach_services").select("*").eq("coach_id", user.id).order("created_at", { ascending: false }),
+      supabase.from("coach_enquiries").select("service_id").eq("coach_id", user.id).eq("status", "pending")
+    ]);
+  
+    setServices(servicesData || []);
+    const ids = new Set<string>((pendingLeads || []).map((l: any) => l.service_id));
+    setPendingServiceIds(ids);
     setLoading(false);
   }, [supabase]);
 
   useEffect(() => { fetchServices(); }, [fetchServices]);
 
-  // 🔥 修正點 1 & 2：新增時預設欄位為乾淨的空白 ("")，搭配標準下拉
-  const handleAddService = async () => {
+  useEffect(() => {
+    const fetchSubData = async () => {
+      if (!selectedService) return;
+      setLoadingSubData(true);
+
+      const [revRes, leadRes] = await Promise.all([
+        supabase.from("coach_reviews").select("*, student:profiles!student_id(full_name, avatar_url)").eq("service_id", selectedService.id).order("created_at", { ascending: false }),
+        supabase.from("coach_enquiries").select("*, student:profiles!student_id(full_name, avatar_url)").eq("service_id", selectedService.id).order("created_at", { ascending: false })
+      ]);
+
+      setCourseReviews(revRes.data || []);
+      setCourseLeads(leadRes.data || []);
+      setLoadingSubData(false);
+    };
+    fetchSubData();
+  }, [selectedService, supabase]);
+
+  const handleCreateNewService = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return alert("請先登入");
 
-    const newService = {
+    const newServicePayload = {
       coach_id: user.id,
-      title: "",
+      title: "新課程專案 (點擊編輯)",
       sport_category: allSports[0]?.name || "Football / Soccer",
-      hourly_rate: null,
+      hourly_rate: 500,
       location: "九龍區 (Kowloon)",
-      description: "",
+      description: "請填寫詳細授課內容與教學目標...",
       photos: [],
       is_active: true
     };
 
-    const { data, error } = await supabase.from("coach_services").insert(newService).select().single();
-    if (error) alert("新增失敗: " + error.message);
-    else if (data) setServices([data, ...services]);
+    const { data, error } = await supabase.from("coach_services").insert(newServicePayload).select().single();
+    if (error) {
+      alert("新增失敗: " + error.message);
+    } else if (data) {
+      setServices([data, ...services]);
+      setSelectedService(data);
+      setEditForm(data);
+      setIsEditingInfo(true);
+      setDetailTab("info");
+    }
   };
 
-  const handleUpdateService = (id: string, field: string, value: any) => {
-    setServices(services.map(s => s.id === id ? { ...s, [field]: value } : s));
+  // ✅ When coach clicks into a card:
+  // 1. Remove red dot from local state immediately
+  // 2. Mark all pending enquiries for this service as "seen" in the DB
+  //    so the dot never comes back on refresh unless a NEW enquiry arrives
+  const handleOpenDetail = async (srv: any) => {
+    setSelectedService(srv);
+    setEditForm(srv);
+    setIsEditingInfo(false);
+    setDetailTab("info");
+  
+    // Remove red dot immediately in UI
+    setPendingServiceIds(prev => {
+      const next = new Set(prev);
+      next.delete(srv.id);
+      return next;
+    });
+  
+    // Write "seen" to DB so dot doesn't return on refresh
+    await supabase
+      .from("coach_enquiries")
+      .update({ status: "seen" })
+      .eq("service_id", srv.id)
+      .eq("status", "pending");
   };
 
-  const handleUploadPhoto = async (srvId: string, files: FileList | null) => {
-    if (!files || files.length === 0) return;
-    setUploadingId(srvId);
+  const handleSaveCourseInfo = async () => {
+    if (!editForm.title?.trim()) return alert("請填寫課程標題");
+    setIsSavingInfo(true);
 
+    const { error } = await supabase.from("coach_services").update({
+      title: editForm.title,
+      sport_category: editForm.sport_category,
+      hourly_rate: Number(editForm.hourly_rate) || 0,
+      location: editForm.location,
+      description: editForm.description,
+      is_active: editForm.is_active
+    }).eq("id", editForm.id);
+
+    setIsSavingInfo(false);
+    if (error) {
+      alert("更新失敗: " + error.message);
+    } else {
+      alert("🎉 課程資訊已更新！");
+      setSelectedService(editForm);
+      setServices(services.map(s => s.id === editForm.id ? editForm : s));
+      setIsEditingInfo(false);
+    }
+  };
+
+  const handleDeleteCourse = async (id: string) => {
+    if (!confirm("確定刪除此課程專案嗎？相關諮詢與評價也會移除。")) return;
+    await supabase.from("coach_services").delete().eq("id", id);
+    setServices(services.filter(s => s.id !== id));
+    setSelectedService(null);
+  };
+
+  const handleDeleteReview = async (revId: string) => {
+    if (!confirm("確定要刪除這條學員評價嗎？此動作不可復原。")) return;
+    const { error } = await supabase.from("coach_reviews").delete().eq("id", revId);
+    if (error) {
+      alert("刪除失敗: " + error.message);
+    } else {
+      setCourseReviews(courseReviews.filter(r => r.id !== revId));
+    }
+  };
+
+  const handleUploadPhoto = async (files: FileList | null) => {
+    if (!files || files.length === 0 || !selectedService) return;
+    setUploadingMedia(true);
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setUploadingId(null); return; }
+    if (!user) return setUploadingMedia(false);
 
-    const srv = services.find(s => s.id === srvId);
-    const updatedPhotos = [...(srv.photos || [])];
-
+    const updatedPhotos = [...(selectedService.photos || [])];
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       const filePath = `${user.id}/services/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.]/g, '')}`;
@@ -183,153 +300,311 @@ function CoachServicesManager({ allSports }: { allSports: any[] }) {
       }
     }
 
-    handleUpdateService(srvId, "photos", updatedPhotos);
-    setUploadingId(null);
+    await supabase.from("coach_services").update({ photos: updatedPhotos }).eq("id", selectedService.id);
+    const updatedService = { ...selectedService, photos: updatedPhotos };
+    setSelectedService(updatedService);
+    setServices(services.map(s => s.id === updatedService.id ? updatedService : s));
+    setUploadingMedia(false);
   };
 
-  const handleRemovePhotoUrl = (srvId: string, idx: number) => {
-    const srv = services.find(s => s.id === srvId);
-    const updatedPhotos = (srv.photos || []).filter((_: any, i: number) => i !== idx);
-    handleUpdateService(srvId, "photos", updatedPhotos);
-  };
-
-  const handleSaveService = async (srv: any) => {
-    if (!srv.title?.trim()) return alert("請填寫課程標題");
-    setSavingId(srv.id);
-    const { error } = await supabase.from("coach_services").update({
-      title: srv.title, sport_category: srv.sport_category, hourly_rate: srv.hourly_rate || 0, location: srv.location, description: srv.description, photos: srv.photos || [], is_active: srv.is_active
-    }).eq("id", srv.id);
-
-    setSavingId(null);
-    if (error) alert("儲存失敗: " + error.message);
-    else alert("🎉 課程專案已成功儲存發布！");
-  };
-
-  const handleDeleteService = async (id: string) => {
-    if (!confirm("確定要刪除此課程專案嗎？")) return;
-    await supabase.from("coach_services").delete().eq("id", id);
-    setServices(services.filter(s => s.id !== id));
+  const handleRemovePhoto = async (idxToRemove: number) => {
+    if (!selectedService) return;
+    const updatedPhotos = selectedService.photos.filter((_: any, idx: number) => idx !== idxToRemove);
+    await supabase.from("coach_services").update({ photos: updatedPhotos }).eq("id", selectedService.id);
+    const updatedService = { ...selectedService, photos: updatedPhotos };
+    setSelectedService(updatedService);
+    setServices(services.map(s => s.id === updatedService.id ? updatedService : s));
   };
 
   return (
-    <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-6 mt-8">
+    <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-6 animate-fadeIn">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
         <div>
-          <h3 className="text-lg font-black text-white">開立獨立課程與教學專案 (`coach_services`)</h3>
+          <h3 className="text-lg font-black text-white flex items-center gap-2">
+            <BookOpen className="w-5 h-5 text-amber-400" />
+            獨立課程與教學專案管理
+          </h3>
           <p className="text-xs text-zinc-400 mt-1">建立的課程將直接展示於教練名師榜大廳與個人檔案，供學員預約洽詢。</p>
         </div>
-        <button onClick={handleAddService} type="button" className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-black px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-1.5 shrink-0 cursor-pointer">
+        <button 
+          onClick={handleCreateNewService} 
+          type="button" 
+          className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-black px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-1.5 shrink-0 cursor-pointer active:scale-95"
+        >
           <Plus className="w-4 h-4" /> ＋ 新增獨立課程
         </button>
       </div>
 
-      {loading ? (
-        <div className="py-8 text-center text-zinc-500 text-xs font-mono">載入課程列表中...</div>
-      ) : services.length === 0 ? (
-        <div className="py-10 text-center bg-slate-950 rounded-2xl border border-dashed border-slate-800 text-zinc-500 text-xs font-bold">
-          您目前沒有開立任何獨立課程專案。點擊右上方「＋ 新增獨立課程」開始建立！
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-6">
-          {services.map(srv => (
-            <div key={srv.id} className="p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="sm:col-span-2">
-                  <label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">課程標題 *</label>
-                  <input
-                    type="text"
-                    value={srv.title || ""}
-                    placeholder="例：一對一高階足球突破特訓班"
-                    onChange={(e) => handleUpdateService(srv.id, "title", e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-sm text-white font-bold placeholder:text-zinc-600"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">專項類別</label>
-                  <select value={srv.sport_category} onChange={(e) => handleUpdateService(srv.id, "sport_category", e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-sm text-white cursor-pointer font-bold">
-                    {allSports && allSports.length > 0 ? (
-                      allSports.map(s => <option key={s.id || s.name} value={s.name}>{s.name}</option>)
-                    ) : (
-                      <option value="Football / Soccer">Football / Soccer</option>
-                    )}
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">授課時薪 (HKD/小時)</label>
-                  {/* 🔥 修正點 3：解決數字 `0` 無法清空的問題 */}
-                  <input
-                    type="number"
-                    value={srv.hourly_rate ?? ""}
-                    placeholder="例：500"
-                    onChange={(e) => handleUpdateService(srv.id, "hourly_rate", e.target.value === "" ? "" : Number(e.target.value))}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-sm text-emerald-400 font-black placeholder:text-zinc-600"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">授課區域 (地區下拉選單)</label>
-                  {/* 🔥 修正點 4：統一使用緊湊的地區選單，與大廳篩選完美對齊 */}
-                  <select
-                    value={srv.location || ""}
-                    onChange={(e) => handleUpdateService(srv.id, "location", e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-sm text-white cursor-pointer font-bold"
-                  >
-                    <option value="">請選擇授課區域...</option>
-                    <option value="港島區 (Hong Kong Island)">港島區 (Hong Kong Island)</option>
-                    <option value="九龍區 (Kowloon)">九龍區 (Kowloon)</option>
-                    <option value="新界區 (New Territories)">新界區 (New Territories)</option>
-                    <option value="離島區 (Outlying Islands)">離島區 (Outlying Islands)</option>
-                    <option value="全港 / 現場可議">全港 / 現場可議</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">詳細課程說明</label>
-                <textarea
-                  rows={3}
-                  value={srv.description || ""}
-                  placeholder="請填寫授課目標、適合程度與課程特色介紹..."
-                  onChange={(e) => handleUpdateService(srv.id, "description", e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-xs text-zinc-300 placeholder:text-zinc-600"
-                />
-              </div>
-
-              <div className="space-y-2 pt-2 border-t border-slate-900">
-                <div className="flex items-center justify-between">
-                  <label className="text-[10px] text-zinc-500 font-bold uppercase">課程實況圖片 ({srv.photos?.length || 0})</label>
-                  <label className="bg-slate-800 hover:bg-slate-700 text-blue-400 px-3 py-1 rounded-xl text-xs font-bold cursor-pointer flex items-center gap-1.5">
-                    {uploadingId === srv.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <UploadCloud className="w-3.5 h-3.5" />}
-                    {uploadingId === srv.id ? "上傳中..." : "上傳相片"}
-                    <input type="file" accept="image/*" multiple onChange={(e) => handleUploadPhoto(srv.id, e.target.files)} className="hidden" />
-                  </label>
-                </div>
-
-                {srv.photos && srv.photos.length > 0 && (
-                  <div className="flex flex-wrap gap-2 pt-1">
-                    {srv.photos.map((url: string, idx: number) => (
-                      <div key={idx} className="relative w-16 h-16 rounded-xl overflow-hidden border border-slate-800 group">
-                        <img src={url} alt="course" className="w-full h-full object-cover" />
-                        <button type="button" onClick={() => handleRemovePhotoUrl(srv.id, idx)} className="absolute inset-0 bg-red-900/80 text-white font-black text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition cursor-pointer">刪除</button>
-                      </div>
-                    ))}
+      {!selectedService ? (
+        loading ? (
+          <div className="py-12 text-center text-zinc-500 text-xs font-mono flex items-center justify-center gap-2">
+            <Loader2 className="w-4 h-4 animate-spin text-blue-500" /> 載入課程卡片中...
+          </div>
+        ) : services.length === 0 ? (
+          <div className="py-14 text-center bg-slate-950/50 rounded-2xl border border-dashed border-slate-800 text-zinc-500 text-xs font-bold space-y-1">
+            <p className="text-sm text-zinc-400">您目前沒有開立任何獨立課程專案。</p>
+            <p>點擊右上方「＋ 新增獨立課程」開始建立您的專屬教練課程！</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {services.map(srv => (
+              <div
+              key={srv.id}
+              onClick={() => handleOpenDetail(srv)}
+              className="relative bg-slate-900/90 border border-slate-800 hover:border-amber-500/50 rounded-3xl p-6 flex flex-col justify-between transition duration-300 group hover:-translate-y-1 shadow-md hover:shadow-2xl cursor-pointer overflow-hidden"
+            >
+              {/* Red dot — only shows when there are unread pending enquiries */}
+              {pendingServiceIds.has(srv.id) && (
+                <span className="absolute top-4 right-4 w-3 h-3 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)] z-10 animate-pulse" />
+              )}
+            
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="px-3 py-1 rounded-full text-xs font-black uppercase bg-amber-500/15 text-amber-400 border border-amber-500/30 tracking-wider">
+                      {srv.sport_category}
+                    </span>
+                    <span className="text-base font-black text-emerald-400">
+                      HK$ {srv.hourly_rate} <span className="text-xs text-zinc-500 font-normal">/小時</span>
+                    </span>
                   </div>
-                )}
-              </div>
 
-              <div className="flex items-center justify-between pt-2 border-t border-slate-900">
-                <Link href={`/coaches/services/${srv.id}`} target="_blank" className="text-xs text-blue-400 hover:underline font-bold">↗ 預覽此專案頁面</Link>
-                <div className="flex items-center gap-2">
-                  <button onClick={() => handleDeleteService(srv.id)} type="button" className="p-2 rounded-xl bg-slate-900 hover:bg-red-500/20 text-zinc-400 hover:text-red-400 transition cursor-pointer"><Trash2 className="w-4 h-4" /></button>
-                  <button onClick={() => handleSaveService(srv)} disabled={savingId === srv.id} type="button" className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-black text-xs transition flex items-center gap-1.5 cursor-pointer">
-                    {savingId === srv.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} 儲存更新
+                  <div>
+                    <h4 className="text-lg font-black text-white tracking-tight group-hover:text-amber-400 transition line-clamp-1">
+                      {srv.title}
+                    </h4>
+                    <p className="text-xs text-zinc-400 font-medium mt-1.5 line-clamp-2 h-8 leading-snug">
+                      {srv.description || "尚無詳細大綱介紹。"}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-300 bg-slate-950/60 p-2.5 rounded-xl border border-slate-800">
+                    <MapPin className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    <span className="truncate">{srv.location}</span>
+                  </div>
+                </div>
+
+                <div className="pt-4 mt-5 border-t border-slate-800/80 flex items-center justify-between">
+                  <span className="text-xs text-zinc-500 font-bold">實況照 ({srv.photos?.length || 0})</span>
+                  <span className="text-xs font-black text-amber-400 group-hover:underline flex items-center gap-1">
+                    管理此專案 / 查看後台 →
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )
+      ) : (
+        <div className="bg-slate-950 border border-slate-800 rounded-3xl p-6 space-y-6 animate-fadeIn">
+          <div className="flex items-center justify-between border-b border-slate-800/80 pb-4">
+            <button 
+              onClick={() => setSelectedService(null)} 
+              type="button" 
+              className="inline-flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-white transition cursor-pointer"
+            >
+              <ArrowLeft className="w-4 h-4" /> 返回課程列表
+            </button>
+            <div className="flex items-center gap-3">
+              <Link 
+                href={`/coaches/services/${selectedService.id}`} 
+                target="_blank" 
+                className="text-xs font-bold text-blue-400 hover:underline"
+              >
+                ↗ 預覽公開頁面
+              </Link>
+              <button 
+                onClick={() => handleDeleteCourse(selectedService.id)}
+                className="p-2 rounded-xl bg-slate-900 hover:bg-red-500/20 text-zinc-400 hover:text-red-400 transition cursor-pointer"
+                title="刪除課程"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <span className="text-[10px] uppercase font-black px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                課程管理後台
+              </span>
+              <h2 className="text-2xl font-black text-white mt-1">{selectedService.title}</h2>
+            </div>
+            {!isEditingInfo && detailTab === "info" && (
+              <button 
+                onClick={() => setIsEditingInfo(true)}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-black transition flex items-center gap-1.5 cursor-pointer"
+              >
+                <Edit3 className="w-3.5 h-3.5" /> 編輯基本資料
+              </button>
+            )}
+          </div>
+
+          <div className="flex border-b border-slate-800 gap-6 overflow-x-auto pb-1">
+            <button onClick={() => setDetailTab("info")} className={`pb-2.5 text-sm font-black transition whitespace-nowrap border-b-2 cursor-pointer ${detailTab === "info" ? "border-amber-500 text-white" : "border-transparent text-zinc-500 hover:text-zinc-300"}`}>
+              📋 課程資訊與編輯
+            </button>
+            <button onClick={() => setDetailTab("reviews")} className={`pb-2.5 text-sm font-black transition whitespace-nowrap border-b-2 cursor-pointer ${detailTab === "reviews" ? "border-amber-500 text-white" : "border-transparent text-zinc-500 hover:text-zinc-300"}`}>
+              💬 學員評價管理 ({courseReviews.length})
+            </button>
+            <button onClick={() => setDetailTab("media")} className={`pb-2.5 text-sm font-black transition whitespace-nowrap border-b-2 cursor-pointer ${detailTab === "media" ? "border-amber-500 text-white" : "border-transparent text-zinc-500 hover:text-zinc-300"}`}>
+              🖼️ 實況相簿管理 ({selectedService.photos?.length || 0})
+            </button>
+            <button onClick={() => setDetailTab("leads")} className={`pb-2.5 text-sm font-black transition whitespace-nowrap border-b-2 cursor-pointer ${detailTab === "leads" ? "border-amber-500 text-white" : "border-transparent text-zinc-500 hover:text-zinc-300"}`}>
+              📬 本課程諮詢名單 ({courseLeads.length})
+            </button>
+          </div>
+
+          {detailTab === "info" && (
+            isEditingInfo ? (
+              <div className="space-y-4 pt-2 animate-fadeIn">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="sm:col-span-2">
+                    <label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">課程標題 *</label>
+                    <input type="text" value={editForm.title || ""} onChange={(e) => setEditForm({...editForm, title: e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-sm text-white font-bold" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">專項類別</label>
+                    <select value={editForm.sport_category} onChange={(e) => setEditForm({...editForm, sport_category: e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-sm text-white font-bold cursor-pointer">
+                      {allSports.map(s => <option key={s.id || s.name} value={s.name}>{s.name}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">授課時薪 (HKD/小時)</label>
+                    <input type="number" value={editForm.hourly_rate ?? ""} onChange={(e) => setEditForm({...editForm, hourly_rate: e.target.value === "" ? "" : Number(e.target.value)})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-sm text-emerald-400 font-black" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">授課區域</label>
+                    <select value={editForm.location || ""} onChange={(e) => setEditForm({...editForm, location: e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-sm text-white font-bold cursor-pointer">
+                      <option value="港島區 (Hong Kong Island)">港島區 (Hong Kong Island)</option>
+                      <option value="九龍區 (Kowloon)">九龍區 (Kowloon)</option>
+                      <option value="新界區 (New Territories)">新界區 (New Territories)</option>
+                      <option value="離島區 (Outlying Islands)">離島區 (Outlying Islands)</option>
+                      <option value="全港 / 現場可議">全港 / 現場可議</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">課程大綱與介紹</label>
+                  <textarea rows={4} value={editForm.description || ""} onChange={(e) => setEditForm({...editForm, description: e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-zinc-200" />
+                </div>
+
+                <div className="flex justify-end gap-3 pt-2">
+                  <button onClick={() => setIsEditingInfo(false)} type="button" className="px-5 py-2.5 rounded-xl bg-slate-800 text-zinc-400 font-bold text-xs cursor-pointer">取消</button>
+                  <button onClick={handleSaveCourseInfo} disabled={isSavingInfo} type="button" className="px-6 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-black text-xs transition flex items-center gap-1.5 cursor-pointer">
+                    {isSavingInfo ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} 儲存修改
                   </button>
                 </div>
               </div>
+            ) : (
+              <div className="space-y-4 pt-2 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
+                  <div><span className="text-xs text-zinc-500 block font-bold">專項類別</span><span className="font-extrabold text-amber-400">{selectedService.sport_category}</span></div>
+                  <div><span className="text-xs text-zinc-500 block font-bold">授課收費</span><span className="font-extrabold text-emerald-400">${selectedService.hourly_rate} HKD / 小時</span></div>
+                  <div><span className="text-xs text-zinc-500 block font-bold">授課區域</span><span className="font-extrabold text-white">{selectedService.location}</span></div>
+                </div>
+                <div className="bg-slate-900/60 p-4 rounded-2xl border border-slate-800 space-y-1">
+                  <span className="text-xs text-zinc-500 block font-bold">詳細課程說明</span>
+                  <p className="text-zinc-300 whitespace-pre-wrap leading-relaxed">{selectedService.description || "未填寫說明。"}</p>
+                </div>
+              </div>
+            )
+          )}
+
+          {detailTab === "reviews" && (
+            <div className="space-y-4 pt-2">
+              {loadingSubData ? (
+                <div className="py-8 text-center text-zinc-500 text-xs">載入評價中...</div>
+              ) : courseReviews.length === 0 ? (
+                <div className="py-10 text-center bg-slate-900/40 rounded-2xl border border-dashed border-slate-800 text-zinc-500 text-xs font-bold">
+                  本課程目前尚未收到學員評價。
+                </div>
+              ) : (
+                courseReviews.map(rev => (
+                  <div key={rev.id} className="bg-slate-900/60 border border-slate-800 p-4 rounded-2xl flex items-start justify-between gap-4">
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 rounded-full bg-slate-800 bg-cover bg-center shrink-0 border border-slate-700" style={rev.student?.avatar_url ? { backgroundImage: `url(${rev.student.avatar_url})` } : undefined} />
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-sm text-white">{rev.student?.full_name || "學員"}</span>
+                          <span className="text-xs text-amber-400 font-black">{"★".repeat(rev.rating)}</span>
+                        </div>
+                        <p className="text-xs text-zinc-300 mt-1">{rev.comment}</p>
+                        <span className="text-[10px] text-zinc-500 mt-1 block">{new Date(rev.created_at).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => handleDeleteReview(rev.id)} 
+                      className="px-3 py-1.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 font-bold text-xs transition shrink-0 cursor-pointer"
+                    >
+                      刪除評論
+                    </button>
+                  </div>
+                ))
+              )}
             </div>
-          ))}
+          )}
+
+          {detailTab === "media" && (
+            <div className="space-y-4 pt-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-zinc-400 font-bold">上傳精彩的實況照，有助於大幅提高學員諮詢意願！</span>
+                <label className="bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 rounded-xl text-xs font-black cursor-pointer flex items-center gap-1.5 transition">
+                  {uploadingMedia ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <UploadCloud className="w-3.5 h-3.5" />}
+                  {uploadingMedia ? "上傳中..." : "＋ 選擇相片上傳"}
+                  <input type="file" accept="image/*" multiple onChange={(e) => handleUploadPhoto(e.target.files)} className="hidden" />
+                </label>
+              </div>
+
+              {selectedService.photos && selectedService.photos.length > 0 ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-2">
+                  {selectedService.photos.map((url: string, idx: number) => (
+                    <div key={idx} className="relative aspect-video rounded-2xl overflow-hidden bg-slate-900 border border-slate-800 group">
+                      <Image src={url} alt="Showcase" fill className="object-cover" />
+                      <button 
+                        type="button" 
+                        onClick={() => handleRemovePhoto(idx)} 
+                        className="absolute inset-0 bg-red-950/80 text-white font-black text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition cursor-pointer"
+                      >
+                        刪除此相片
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="py-12 text-center bg-slate-900/40 rounded-2xl border border-dashed border-slate-800 text-zinc-500 text-xs font-bold">
+                  本課程尚無相片，請點擊上方按鈕開始上傳。
+                </div>
+              )}
+            </div>
+          )}
+
+          {detailTab === "leads" && (
+            <div className="space-y-4 pt-2">
+              {loadingSubData ? (
+                <div className="py-8 text-center text-zinc-500 text-xs">載入詢問單中...</div>
+              ) : courseLeads.length === 0 ? (
+                <div className="py-10 text-center bg-slate-900/40 rounded-2xl border border-dashed border-slate-800 text-zinc-500 text-xs font-bold">
+                  這堂課目前尚未收到諮詢單。
+                </div>
+              ) : (
+                courseLeads.map(lead => (
+                  <div key={lead.id} className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 flex items-center justify-between gap-4">
+                    <div className="flex items-start gap-3">
+                      <div className="w-9 h-9 rounded-full bg-slate-800 bg-cover bg-center shrink-0 border border-slate-700" style={lead.student?.avatar_url ? { backgroundImage: `url(${lead.student.avatar_url})` } : undefined} />
+                      <div>
+                        <div className="font-bold text-sm text-white">{lead.student?.full_name || "學員"}</div>
+                        <p className="text-xs text-zinc-300 mt-1 bg-slate-950 p-2.5 rounded-lg border border-slate-800">💬 {lead.message}</p>
+                        <span className="text-[10px] text-zinc-500 mt-1 block">{new Date(lead.created_at).toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -344,25 +619,74 @@ export function CoachTab({
   editForm,
   onFieldChange
 }: CoachTabProps) {
+  const searchParams = useSearchParams();
+
+  // ✅ Auto-navigate to correct subtab when coming from notification bell
+  const [subTab, setSubTab] = useState<"settings" | "services" | "inbox">(() => {
+    const s = searchParams.get("subtab");
+    if (s === "inbox" || s === "services" || s === "settings") return s;
+    return "settings";
+  });
+
+  useEffect(() => {
+    const s = searchParams.get("subtab");
+    if (s === "inbox" || s === "services" || s === "settings") {
+      setSubTab(s);
+    }
+  }, [searchParams]);
+
   return (
     <div className="space-y-6 animate-fadeIn">
-      <div className="mb-4">
-        <h2 className="text-lg md:text-xl font-black text-white">教練名片設定</h2>
-        <p className="text-[10px] md:text-xs text-zinc-500 mt-1">管理您的專屬教學導讀、獨立課程專案與諮詢單收件匣。</p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
+        <div>
+          <h2 className="text-lg md:text-xl font-black text-white">教練專區後台 (Coach Dashboard)</h2>
+          <p className="text-[10px] md:text-xs text-zinc-500 mt-1">管理您的專屬教學導讀、獨立課程專案與諮詢單收件匣。</p>
+        </div>
       </div>
 
-      {editForm && onFieldChange && (
-        <div className="bg-slate-900/40 border border-slate-800 rounded-3xl p-5 md:p-6 mb-8 shadow-sm">
-          
-          <div className="mb-5 pb-5 border-b border-slate-800">
+      <div className="grid grid-cols-3 gap-2 bg-slate-900/80 p-1.5 rounded-2xl border border-slate-800/80">
+        <button
+          onClick={() => setSubTab("settings")}
+          className={`py-3 px-4 rounded-xl text-xs md:text-sm font-black flex items-center justify-center gap-2 transition cursor-pointer ${
+            subTab === "settings" ? "bg-amber-600 text-white shadow-md" : "text-zinc-400 hover:text-white hover:bg-slate-800/50"
+          }`}
+        >
+          <Settings className="w-4 h-4 shrink-0" />
+          <span className="truncate">教練名片設定</span>
+        </button>
+
+        <button
+          onClick={() => setSubTab("services")}
+          className={`py-3 px-4 rounded-xl text-xs md:text-sm font-black flex items-center justify-center gap-2 transition cursor-pointer ${
+            subTab === "services" ? "bg-amber-600 text-white shadow-md" : "text-zinc-400 hover:text-white hover:bg-slate-800/50"
+          }`}
+        >
+          <BookOpen className="w-4 h-4 shrink-0" />
+          <span className="truncate">獨立課程管理</span>
+        </button>
+
+        <button
+          onClick={() => setSubTab("inbox")}
+          className={`py-3 px-4 rounded-xl text-xs md:text-sm font-black flex items-center justify-center gap-2 transition cursor-pointer ${
+            subTab === "inbox" ? "bg-amber-600 text-white shadow-md" : "text-zinc-400 hover:text-white hover:bg-slate-800/50"
+          }`}
+        >
+          <Inbox className="w-4 h-4 shrink-0" />
+          <span className="truncate">潛在學生收件匣</span>
+        </button>
+      </div>
+
+      {subTab === "settings" && editForm && onFieldChange && (
+        <div className="bg-slate-900/40 border border-slate-800 rounded-3xl p-5 md:p-8 shadow-sm animate-fadeIn">
+          <div className="mb-6 pb-6 border-b border-slate-800">
             <h3 className="text-sm md:text-base font-black text-white mb-1">專業教學導讀 (Coach Bio)</h3>
-            <p className="text-[10px] md:text-xs text-zinc-500 mb-3">此自介獨立於您的運動員自介，將顯示在教練名片頂端。</p>
+            <p className="text-[10px] md:text-xs text-zinc-500 mb-3">此自介獨立於您的運動員自介，將對外顯示在您的教練名片頂端。</p>
             <textarea
-              rows={3}
+              rows={4}
               placeholder="例如：超過 10 年教學資歷，擅長針對不同程度學員客製化訓練課表..."
               value={editForm.coach_bio || ""}
               onChange={(e) => onFieldChange("coach_bio", e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white focus:border-amber-500 transition outline-none"
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3.5 text-sm text-white focus:border-amber-500 transition outline-none"
             />
           </div>
 
@@ -370,50 +694,57 @@ export function CoachTab({
             <h3 className="text-sm md:text-base font-black text-white">對外聯絡與服務地點</h3>
             <p className="text-[10px] md:text-xs text-zinc-500 mt-1">填寫後的聯絡方式將於學員點擊洽詢預約時呈現。</p>
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
             <div className="space-y-1.5">
               <label className="text-[10px] text-zinc-500 font-bold uppercase block pl-1">公開聯絡信箱</label>
-              <input type="email" value={editForm.contact_email || ""} onChange={(e) => onFieldChange("contact_email", e.target.value)} placeholder="coach@example.com" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 md:py-3 text-sm text-white focus:border-amber-500 transition outline-none" />
+              <input type="email" value={editForm.contact_email || ""} onChange={(e) => onFieldChange("contact_email", e.target.value)} placeholder="coach@example.com" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-amber-500 transition outline-none" />
             </div>
             <div className="space-y-1.5">
               <label className="text-[10px] text-zinc-500 font-bold uppercase block pl-1">公開聯絡電話 (選填)</label>
-              <input type="tel" value={editForm.contact_phone || ""} onChange={(e) => onFieldChange("contact_phone", e.target.value)} placeholder="+852 9876 5432" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 md:py-3 text-sm text-white focus:border-amber-500 transition outline-none" />
+              <input type="tel" value={editForm.contact_phone || ""} onChange={(e) => onFieldChange("contact_phone", e.target.value)} placeholder="+852 9876 5432" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-amber-500 transition outline-none" />
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
             <div className="space-y-1.5">
               <label className="text-[10px] text-zinc-500 font-bold uppercase block pl-1">主要服務地區</label>
-              <input type="text" value={editForm.city_region || ""} onChange={(e) => onFieldChange("city_region", e.target.value)} placeholder="例如：九龍區 / 港島東" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 md:py-3 text-sm text-white focus:border-amber-500 transition outline-none" />
+              <input type="text" value={editForm.city_region || ""} onChange={(e) => onFieldChange("city_region", e.target.value)} placeholder="例如：九龍區 / 港島東" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-amber-500 transition outline-none" />
             </div>
             <div className="space-y-1.5">
               <label className="text-[10px] text-zinc-500 font-bold uppercase block pl-1">詳細地址 (場館/工作室)</label>
-              <input type="text" value={editForm.address || ""} onChange={(e) => onFieldChange("address", e.target.value)} placeholder="例如：彌敦道 123 號 4 樓" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 md:py-3 text-sm text-white focus:border-amber-500 transition outline-none" />
+              <input type="text" value={editForm.address || ""} onChange={(e) => onFieldChange("address", e.target.value)} placeholder="例如：彌敦道 123 號 4 樓" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-amber-500 transition outline-none" />
             </div>
           </div>
 
-          <label className="flex items-center gap-3 p-3 bg-slate-950/50 border border-slate-800 rounded-xl cursor-pointer hover:bg-slate-900 transition-colors">
+          <label className="flex items-center gap-3.5 p-4 bg-slate-950/60 border border-slate-800 rounded-2xl cursor-pointer hover:bg-slate-900 transition-colors">
             <input type="checkbox" checked={editForm.is_address_public ?? true} onChange={(e) => onFieldChange("is_address_public", e.target.checked)} className="w-4 h-4 rounded border-slate-700 text-amber-500 bg-slate-950" />
             <div className="flex flex-col">
-              <span className="text-sm font-bold text-slate-200">公開詳細地址</span>
-              <span className="text-[10px] md:text-xs text-slate-500">關閉後，名片上將只顯示「主要服務地區」，保護您的隱私。</span>
+              <span className="text-sm font-bold text-slate-200">對外公開詳細地址</span>
+              <span className="text-[10px] md:text-xs text-slate-500">關閉後，名片上將只顯示「主要服務地區」，保護您的私人隱私。</span>
             </div>
           </label>
 
           <div className="flex justify-end mt-8 pt-5 border-t border-slate-800/80">
             <button onClick={onSaveGlobal} disabled={isSaving} className="bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-500 text-white text-sm font-black px-8 py-3 rounded-xl transition-all shadow-[0_0_15px_rgba(37,99,235,0.3)] active:scale-95 flex items-center gap-2 cursor-pointer">
-              {isSaving ? "儲存中..." : "儲存"}
+              {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              {isSaving ? "儲存中..." : "儲存名片設定"}
             </button>
           </div>
         </div>
       )}
 
-      {/* 獨立課程管理 */}
-      <CoachServicesManager allSports={allSports} />
+      {subTab === "services" && (
+        <div className="animate-fadeIn">
+          <CoachServicesManager allSports={allSports} />
+        </div>
+      )}
 
-      {/* 諮詢收件匣 */}
-      <CoachEnquiriesInbox fallbackCoachId={editForm?.id || editForm?.user_id} />
+      {subTab === "inbox" && (
+        <div className="animate-fadeIn">
+          <CoachEnquiriesInbox fallbackCoachId={editForm?.id || editForm?.user_id} />
+        </div>
+      )}
     </div>
   );
 }

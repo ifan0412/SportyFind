@@ -11,8 +11,6 @@ import { DashboardTab } from "@/components/profile/DashboardTab";
 import { FeedTab } from "@/components/profile/FeedTab";
 import { ExpertiseTab } from "@/components/profile/ExpertiseTab";
 import { HighlightsTab } from "@/components/profile/HighlightsTab";
-import { CoachTab } from "@/components/profile/CoachTab";
-import { PhysioTab } from "@/components/profile/PhysioTab";
 import { PRO_SPORT_SCHEMA } from "@/constants/sportsSchema";
 
 interface Profile {
@@ -85,7 +83,8 @@ const TEAM_SPORT_ZH: Record<string, string> = {
   volleyball: "排球", basketball: "籃球", soccer: "足球", tennis: "網球",
   badminton: "羽毛球", pickleball: "匹克球", gym: "健身", running: "路跑",
 };
-type TabId = "dashboard" | "expertise" | "highlights" | "feed" | "coach" | "physio" | "friends" | "teams";
+
+type TabId = "dashboard" | "expertise" | "highlights" | "feed" | "friends" | "teams";
 
 const DEFAULT_FORM = {
   first_name: "", last_name: "", handle: "", full_name: "", headline: "", location: "", country: "", region: "", bio: "", avatar_url: "", status_tag: "committed", display_sports: [] as string[],
@@ -179,30 +178,24 @@ function ProfilePageContent() {
 
   useEffect(() => {
     const tabParam = (searchParams?.get("tab") || searchParams?.get("view")) as TabId | null;
-    if (tabParam && ["dashboard", "expertise", "highlights", "feed", "coach", "physio", "friends", "teams"].includes(tabParam)) {
+    if (tabParam && ["dashboard", "expertise", "highlights", "feed", "friends", "teams"].includes(tabParam)) {
       setActiveTab(tabParam);
     }
   }, [searchParams]);
 
-  // 🔥 乾淨整併的動態過濾 publicTabs
   const publicTabs = useMemo(() => {
-    const base: { id: TabId; icon: string; label: string; en: string }[] = [];
+    const base: { id: TabId; icon: string; label: string }[] = [];
     if (profile?.is_player !== false || editForm.is_player) {
-      base.push({ id: "expertise", icon: "📋", label: "技術特長", en: "Expertise" });
-      base.push({ id: "highlights", icon: "🎞️", label: "賽場圖庫", en: "Highlights" });
+      base.push({ id: "expertise", icon: "📋", label: "技術特長" });
+      base.push({ id: "highlights", icon: "🎞️", label: "賽場圖庫" });
     }
-    base.push({ id: "feed", icon: "📰", label: "個人動態", en: "Feed" });
-    if (profile?.is_coach || editForm.is_coach) base.push({ id: "coach", icon: "🎓", label: "教練設定", en: "Coach" });
-    if (profile?.is_physio || editForm.is_physio) base.push({ id: "physio", icon: "⚕️", label: "治療設定", en: "Physio" });
+    base.push({ id: "feed", icon: "📰", label: "個人動態" });
     return base;
-  }, [profile?.is_player, profile?.is_coach, profile?.is_physio, editForm.is_player, editForm.is_coach, editForm.is_physio]);
+  }, [profile?.is_player, editForm.is_player]);
 
-  // 若使用者並非球員且當前停留於球員專有 Tab，自動切換至適當預設分頁
   useEffect(() => {
     if (profile && profile.is_player === false && (activeTab === "expertise" || activeTab === "highlights")) {
-      if (profile.is_coach) setActiveTab("coach");
-      else if (profile.is_physio) setActiveTab("physio");
-      else setActiveTab("feed");
+      setActiveTab("feed");
     }
   }, [profile, activeTab]);
 
@@ -230,19 +223,19 @@ function ProfilePageContent() {
       }
       if (prof) {
         setProfile(prof);
-        setEditForm({ 
-          first_name: prof.first_name ?? "", 
-          last_name: prof.last_name ?? "", 
-          handle: prof.handle ?? "", 
-          full_name: prof.full_name ?? "", 
-          headline: prof.headline ?? "", 
-          location: prof.location ?? "", 
-          country: prof.country ?? "", 
-          region: prof.region ?? "", 
-          bio: prof.bio ?? "", 
-          avatar_url: prof.avatar_url ?? "", 
-          status_tag: prof.status_tag ?? "committed", 
-          display_sports: prof.display_sports ?? [], 
+        setEditForm({
+          first_name: prof.first_name ?? "",
+          last_name: prof.last_name ?? "",
+          handle: prof.handle ?? "",
+          full_name: prof.full_name ?? "",
+          headline: prof.headline ?? "",
+          location: prof.location ?? "",
+          country: prof.country ?? "",
+          region: prof.region ?? "",
+          bio: prof.bio ?? "",
+          avatar_url: prof.avatar_url ?? "",
+          status_tag: prof.status_tag ?? "committed",
+          display_sports: prof.display_sports ?? [],
           is_player: prof.is_player ?? true,
           is_coach: prof.is_coach ?? false,
           is_physio: prof.is_physio ?? false,
@@ -325,53 +318,50 @@ function ProfilePageContent() {
 
   const handleSaveProfile = async () => {
     if (!user || handleStatus === "taken") return;
-    if (!window.confirm("確定要儲存您的個人檔案與專業資訊變更嗎？")) return; 
-
+    if (!window.confirm("確定要儲存您的個人檔案與專業資訊變更嗎？")) return;
     setIsSaving(true);
     let finalAvatarUrl = editForm.avatar_url;
     if (pendingAvatarFile.current) {
       const filePath = `${user.id}/avatar-${Date.now()}.jpg`;
       const { error: uploadError } = await supabase.storage.from("avatars").upload(filePath, pendingAvatarFile.current, { upsert: true });
       if (!uploadError) finalAvatarUrl = supabase.storage.from("avatars").getPublicUrl(filePath).data.publicUrl;
-      pendingAvatarFile.current = null; 
+      pendingAvatarFile.current = null;
       if (blobUrlRef.current) { URL.revokeObjectURL(blobUrlRef.current); blobUrlRef.current = null; }
     }
-    
     const fullName = `${editForm.first_name} ${editForm.last_name}`.trim();
     const physioRateVal = Number(editForm.physio_rate) || 0;
-
-    const { error } = await supabase.from("profiles").upsert({ 
-      id: user.id, 
+    const { error } = await supabase.from("profiles").upsert({
+      id: user.id,
       is_player: editForm.is_player,
       is_coach: editForm.is_coach,
       is_physio: editForm.is_physio,
-      first_name: editForm.first_name, 
-      last_name: editForm.last_name, 
-      handle: editForm.handle, 
-      full_name: fullName, 
-      headline: editForm.headline, 
-      country: editForm.country, 
-      region: editForm.region, 
-      location: editForm.region ? `${editForm.region}, ${editForm.country}` : editForm.country, 
-      bio: editForm.bio, 
-      avatar_url: finalAvatarUrl, 
-      status_tag: editForm.status_tag, 
-      display_sports: editForm.display_sports, 
+      first_name: editForm.first_name,
+      last_name: editForm.last_name,
+      handle: editForm.handle,
+      full_name: fullName,
+      headline: editForm.headline,
+      country: editForm.country,
+      region: editForm.region,
+      location: editForm.region ? `${editForm.region}, ${editForm.country}` : editForm.country,
+      bio: editForm.bio,
+      avatar_url: finalAvatarUrl,
+      status_tag: editForm.status_tag,
+      display_sports: editForm.display_sports,
       height_cm: editForm.height_cm ? Number(editForm.height_cm) : null,
       weight_kg: editForm.weight_kg ? Number(editForm.weight_kg) : null,
       show_physical_stats: editForm.show_physical_stats ?? true,
-      contact_email: editForm.contact_email || null,             
-      contact_phone: editForm.contact_phone || null,             
-      address: editForm.address || null,                         
-      city_region: editForm.city_region || null,                 
-      is_address_public: editForm.is_address_public ?? true,     
+      contact_email: editForm.contact_email || null,
+      contact_phone: editForm.contact_phone || null,
+      address: editForm.address || null,
+      city_region: editForm.city_region || null,
+      is_address_public: editForm.is_address_public ?? true,
       instagram_url: editForm.instagram_url || null,
       facebook_url: editForm.facebook_url || null,
       threads_url: editForm.threads_url || null,
-      physio_rate: physioRateVal, 
-      clinic_name: editForm.clinic_name || null, 
-      physio_status: editForm.physio_status || "hidden", 
-      physio_country: editForm.physio_country || null, 
+      physio_rate: physioRateVal,
+      clinic_name: editForm.clinic_name || null,
+      physio_status: editForm.physio_status || "hidden",
+      physio_country: editForm.physio_country || null,
       physio_region: editForm.physio_region || null,
       physio_experience_years: editForm.physio_experience_years || null,
       physio_qualifications: editForm.physio_qualifications || null,
@@ -385,14 +375,11 @@ function ProfilePageContent() {
       physio_facebook_url: editForm.physio_facebook_url || null,
       physio_threads_url: editForm.physio_threads_url || null,
     });
-
     if (!error) {
       setProfile(prev => ({ ...prev!, ...editForm, avatar_url: finalAvatarUrl, full_name: fullName, location: `${editForm.region}, ${editForm.country}` }));
-      setIsEditing(false); 
-      alert("✅ 儲存成功！您的個人資料與專業名片已更新。");
+      setIsEditing(false);
+      alert("✅ 儲存成功！您的個人資料已更新。");
       router.refresh();
-      if (editForm.is_coach && !profile?.is_coach) handleTabSwitch("coach");
-      else if (editForm.is_physio && !profile?.is_physio) handleTabSwitch("physio");
     } else {
       console.error("Save Error:", error);
       alert("❌ 同步失敗，請開啟瀏覽器主控台 (F12 Console) 檢查錯誤詳情。");
@@ -402,7 +389,7 @@ function ProfilePageContent() {
 
   const toggleDisplaySport = (sportName: string) => {
     setEditForm((prev: any) => { let current = [...prev.display_sports]; if (current.includes(sportName)) current = current.filter(s => s !== sportName); else { if (current.length >= 3) current.shift(); current.push(sportName); } return { ...prev, display_sports: current }; });
-  }; 
+  };
 
   const handleOpenSportModal = useCallback((us?: UserSport) => {
     if (us) { setSelectedSportId(us.sport_id); setSportDynamicData(us.metadata || {}); setEditingUserSportId(us.id); }
@@ -442,12 +429,17 @@ function ProfilePageContent() {
   if (isLoading) return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-zinc-500 font-mono">載入總部中...</div>;
   const avatarSrc = editForm.avatar_url || profile?.avatar_url || "";
 
+  // Determine which role dashboards to show
+  const showCoachDashboard = profile?.is_coach || editForm.is_coach;
+  const showPhysioDashboard = profile?.is_physio || editForm.is_physio;
+
   return (
     <div className="bg-slate-950 min-h-screen text-zinc-200 font-sans selection:bg-blue-500/30">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <BackButton label="返回首頁" />
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mt-4">
 
+          {/* ── Left sidebar ── */}
           <div className="lg:col-span-4 xl:col-span-3 space-y-6">
             <div className="bg-slate-900/40 backdrop-blur-xl border border-slate-800/60 rounded-3xl p-6 sticky top-20 shadow-2xl">
               <div className="relative w-32 h-32 mx-auto mb-6">
@@ -465,18 +457,10 @@ function ProfilePageContent() {
                   </div>
                   <div className="space-y-1"><label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">Unique Handle</label><input className={`w-full bg-slate-950/50 border rounded-xl p-3 text-white text-sm ${handleStatus === "taken" ? "border-red-500" : "border-slate-800"}`} value={editForm.handle} onChange={e => setEditForm({ ...editForm, handle: e.target.value.replace(/[^a-zA-Z0-9_]/g, "") })} placeholder="ID 帳號" /></div>
                   <div className="space-y-1"><label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">Headline</label><input className="w-full bg-slate-950/50 border border-slate-800 rounded-xl p-3 text-white text-sm" value={editForm.headline} onChange={e => setEditForm({ ...editForm, headline: e.target.value })} placeholder="例如: 網球底線玩家" /></div>
-                  
                   <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1">
-                      <label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">身高 Height (cm)</label>
-                      <input type="number" className="w-full bg-slate-950/50 border border-slate-800 rounded-xl p-3 text-white text-sm" value={editForm.height_cm} onChange={e => setEditForm({ ...editForm, height_cm: e.target.value })} placeholder="例: 178" />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">體重 Weight (kg)</label>
-                      <input type="number" className="w-full bg-slate-950/50 border border-slate-800 rounded-xl p-3 text-white text-sm" value={editForm.weight_kg} onChange={e => setEditForm({ ...editForm, weight_kg: e.target.value })} placeholder="例: 70" />
-                    </div>
+                    <div className="space-y-1"><label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">身高 (cm)</label><input type="number" className="w-full bg-slate-950/50 border border-slate-800 rounded-xl p-3 text-white text-sm" value={editForm.height_cm} onChange={e => setEditForm({ ...editForm, height_cm: e.target.value })} placeholder="例: 178" /></div>
+                    <div className="space-y-1"><label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">體重 (kg)</label><input type="number" className="w-full bg-slate-950/50 border border-slate-800 rounded-xl p-3 text-white text-sm" value={editForm.weight_kg} onChange={e => setEditForm({ ...editForm, weight_kg: e.target.value })} placeholder="例: 70" /></div>
                   </div>
-
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1"><label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">國家</label><select className="w-full bg-slate-950/50 border border-slate-800 rounded-xl p-3 text-white text-sm" value={editForm.country} onChange={e => setEditForm({ ...editForm, country: e.target.value, region: "" })}><option value="">選擇國家</option>{Object.keys(locationData).map(c => <option key={c} value={c}>{c}</option>)}</select></div>
                     <div className="space-y-1"><label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">地區</label><select className="w-full bg-slate-950/50 border border-slate-800 rounded-xl p-3 text-white text-sm" value={editForm.region} onChange={e => setEditForm({ ...editForm, region: e.target.value })}><option value="">選擇區域</option>{editForm.country && locationData[editForm.country]?.map(r => <option key={r} value={r}>{r}</option>)}</select></div>
@@ -486,7 +470,11 @@ function ProfilePageContent() {
                     <div>
                       <label className="text-[10px] text-zinc-400 font-bold uppercase pl-1 block mb-2">運動員/一般狀態</label>
                       <select className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white text-xs" value={editForm.status_tag} onChange={e => setEditForm((prev: any) => ({ ...prev, status_tag: e.target.value }))}>
-                        <option value="recruiting">🟢 尋找新血</option><option value="seeking_team">🔵 尋找隊伍</option><option value="open_to_match">🟡 開放約戰</option><option value="committed">⚪ 穩定狀態</option><option value="hidden">🔒 未發布 (隱藏中)</option>
+                        <option value="recruiting">🟢 尋找新血</option>
+                        <option value="seeking_team">🔵 尋找隊伍</option>
+                        <option value="open_to_match">🟡 開放約戰</option>
+                        <option value="committed">⚪ 穩定狀態</option>
+                        <option value="hidden">🔒 未發布 (隱藏中)</option>
                       </select>
                     </div>
                     <div className="pt-3 border-t border-slate-800/80 space-y-3">
@@ -505,7 +493,7 @@ function ProfilePageContent() {
                 <div className="text-center animate-fadeIn mt-2">
                   <h1 className="text-3xl font-black text-white tracking-tight leading-none mb-1">{profile?.first_name} {profile?.last_name}</h1>
                   <p className="text-sm font-mono text-blue-400 mb-2">@{profile?.handle || "ID_未設定"}</p>
-                  
+
                   {profile?.is_player !== false && profile?.show_physical_stats && (profile?.height_cm || profile?.weight_kg) && (
                     <div className="flex items-center justify-center gap-4 px-4 py-1.5 rounded-full bg-slate-900/60 border border-slate-800 text-xs font-mono text-zinc-400 mb-4 mx-auto w-fit shadow-inner">
                       {profile.height_cm && <span>📏 {profile.height_cm} cm</span>}
@@ -520,6 +508,7 @@ function ProfilePageContent() {
                     {profile?.is_physio && <span className="bg-emerald-500/10 text-emerald-400 text-[10px] font-black px-3 py-1 rounded-full border border-emerald-500/20">⚕️ 物理治療</span>}
                   </div>
                   <p className="text-sm text-zinc-300 leading-relaxed text-left bg-slate-900/30 p-4 rounded-2xl border border-slate-800/50 mb-6">{profile?.bio || "寫下一段關於你的歷程..."}</p>
+
                   <div className="flex flex-col gap-3">
                     <button onClick={() => setIsEditing(true)} className="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition flex items-center justify-center gap-2">✏️ 編輯基礎檔案與身份</button>
                     <div className="grid grid-cols-2 gap-2">
@@ -527,18 +516,49 @@ function ProfilePageContent() {
                       <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/p/${user?.id}`); alert("名片網址已複製！"); }} className="w-full bg-transparent border border-slate-700 hover:border-slate-500 text-zinc-300 font-bold py-3 rounded-xl transition text-xs">分享連結 ↗</button>
                     </div>
                   </div>
-                  
+
+                  {/* ── Private backend navigation ── */}
                   <div className="mt-6 pt-6 border-t border-slate-800/80 space-y-3">
                     <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider pl-1 text-left">專屬後台 (Backend)</p>
-                    <button onClick={() => handleTabSwitch("friends")} className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold transition ${activeTab === "friends" ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20" : "bg-slate-900/50 text-zinc-400 hover:bg-slate-800 hover:text-white"}`}><span className="flex items-center gap-3"><span className="text-lg">👥</span> 好友管理</span><span className="text-xs">→</span></button>
-                    {userTeams.length > 0 && <button onClick={() => handleTabSwitch("teams")} className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold transition ${activeTab === "teams" ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20" : "bg-slate-900/50 text-zinc-400 hover:bg-slate-800 hover:text-white"}`}><span className="flex items-center gap-3"><span className="text-lg">🛡️</span> 我的團隊</span><span className="text-xs">→</span></button>}
-                    <button onClick={() => handleTabSwitch("dashboard")} className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold transition ${activeTab === "dashboard" ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20" : "bg-slate-900/50 text-zinc-400 hover:bg-slate-800 hover:text-white"}`}><span className="flex items-center gap-3"><span className="text-lg">📊</span> 數據後台</span><span className="text-xs">→</span></button>
+
+                    <button onClick={() => handleTabSwitch("friends")} className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold transition ${activeTab === "friends" ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20" : "bg-slate-900/50 text-zinc-400 hover:bg-slate-800 hover:text-white"}`}>
+                      <span className="flex items-center gap-3"><span className="text-lg">👥</span> 好友管理</span><span className="text-xs">→</span>
+                    </button>
+
+                    {userTeams.length > 0 && (
+                      <button onClick={() => handleTabSwitch("teams")} className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold transition ${activeTab === "teams" ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20" : "bg-slate-900/50 text-zinc-400 hover:bg-slate-800 hover:text-white"}`}>
+                        <span className="flex items-center gap-3"><span className="text-lg">🛡️</span> 我的團隊</span><span className="text-xs">→</span>
+                      </button>
+                    )}
+
+                    {/* ✅ Coach Dashboard entry — only visible when is_coach is true */}
+                    {showCoachDashboard && (
+                      <button
+                        onClick={() => router.push("/dashboard/coach")}
+                        className="w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold transition bg-amber-600/20 border border-amber-500/30 text-amber-400 hover:bg-amber-600 hover:text-white hover:border-amber-600"
+                      >
+                        <span className="flex items-center gap-3"><span className="text-lg">🎓</span> 教練專屬後台</span>
+                        <span className="text-xs">→</span>
+                      </button>
+                    )}
+
+                    {/* ✅ Physio Dashboard entry — only visible when is_physio is true */}
+                    {showPhysioDashboard && (
+                      <button
+                        onClick={() => router.push("/dashboard/physio")}
+                        className="w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold transition bg-emerald-600/20 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-600 hover:text-white hover:border-emerald-600"
+                      >
+                        <span className="flex items-center gap-3"><span className="text-lg">⚕️</span> 治療師專屬後台</span>
+                        <span className="text-xs">→</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               )}
             </div>
           </div>
 
+          {/* ── Right content ── */}
           <div className="lg:col-span-8 xl:col-span-9 flex flex-col" ref={contentRef}>
             {(() => {
               const isPrivateTab = ["dashboard", "friends", "teams"].includes(activeTab);
@@ -552,14 +572,19 @@ function ProfilePageContent() {
                         <p className="text-[10px] text-zinc-400 font-bold tracking-wider mt-0.5">專屬私密空間</p>
                       </div>
                     </div>
-                    <button onClick={() => handleTabSwitch("expertise")} className="bg-slate-800 hover:bg-slate-700 border border-slate-600 text-zinc-300 hover:text-white text-xs md:text-sm font-bold px-3 py-2 md:px-4 md:py-2.5 rounded-xl transition flex items-center gap-1.5 shadow-sm"><span className="hidden sm:inline">返回公開檔案</span><span className="sm:hidden">返回</span> ↗</button>
+                    <button onClick={() => handleTabSwitch("expertise")} className="bg-slate-800 hover:bg-slate-700 border border-slate-600 text-zinc-300 hover:text-white text-xs md:text-sm font-bold px-3 py-2 md:px-4 md:py-2.5 rounded-xl transition flex items-center gap-1.5 shadow-sm">
+                      <span className="hidden sm:inline">返回公開檔案</span><span className="sm:hidden">返回</span> ↗
+                    </button>
                   </div>
                 );
               }
               return (
                 <div className="bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 p-1 rounded-2xl flex w-full sticky top-16 z-30 mb-8 shadow-sm overflow-x-auto [&::-webkit-scrollbar]:hidden">
                   {publicTabs.map((t) => (
-                    <button key={t.id} onClick={() => handleTabSwitch(t.id as TabId)} className={`flex-1 flex flex-col items-center justify-center py-2 px-3 rounded-xl transition-all duration-300 min-w-[70px] ${activeTab === t.id ? "bg-slate-50 text-black shadow-lg scale-[1.02]" : "text-zinc-500 hover:text-white hover:bg-slate-800/50"}`}><span className="text-lg md:text-xl mb-0.5">{t.icon}</span><span className="text-[10px] md:text-xs font-black leading-tight truncate w-full text-center">{t.label}</span></button>
+                    <button key={t.id} onClick={() => handleTabSwitch(t.id as TabId)} className={`flex-1 flex flex-col items-center justify-center py-2 px-3 rounded-xl transition-all duration-300 min-w-[70px] ${activeTab === t.id ? "bg-slate-50 text-black shadow-lg scale-[1.02]" : "text-zinc-500 hover:text-white hover:bg-slate-800/50"}`}>
+                      <span className="text-lg md:text-xl mb-0.5">{t.icon}</span>
+                      <span className="text-[10px] md:text-xs font-black leading-tight truncate w-full text-center">{t.label}</span>
+                    </button>
                   ))}
                 </div>
               );
@@ -570,12 +595,15 @@ function ProfilePageContent() {
               {activeTab === "expertise" && <ExpertiseTab userSports={userSports} editFormDisplaySports={editForm.display_sports} onToggleDisplaySport={toggleDisplaySport} onOpenSportModal={handleOpenSportModal} onRemoveSport={handleRemoveSport} onSaveDisplaySports={handleSaveProfile} />}
               {activeTab === "highlights" && <HighlightsTab galleryMedia={galleryMedia} userSports={userSports} onSelectPost={setSelectedPost} onOpenMediaModal={() => setIsMediaModalOpen(true)} />}
               {activeTab === "feed" && <FeedTab profile={profile} avatarSrc={avatarSrc} />}
-              {activeTab === "friends" && user && <div className="animate-fadeIn"><div className="mb-6 px-2"><h2 className="text-lg md:text-xl font-black text-white">好友管理</h2><p className="text-xs text-zinc-500 mt-1">管理你的好友、待接受請求與已發送請求。</p></div><FriendsTab currentUserId={user.id} /></div>}
-              {activeTab === "coach" && <CoachTab allSports={allSports} editForm={editForm} onFieldChange={(field, value) => setEditForm((prev: any) => ({ ...prev, [field]: value }))} onSaveGlobal={handleSaveProfile} isSaving={isSaving} />}
-              {activeTab === "physio" && <PhysioTab editForm={editForm} locationData={locationData} isSaving={isSaving} avatarSrc={avatarSrc} profile={profile} onFieldChange={(field, value) => setEditForm((prev: any) => ({ ...prev, [field]: value }))} onSaveGlobal={handleSaveProfile} />}
+              {activeTab === "friends" && user && (
+                <div className="animate-fadeIn">
+                  <div className="mb-6 px-2"><h2 className="text-lg md:text-xl font-black text-white">好友管理</h2><p className="text-xs text-zinc-500 mt-1">管理你的好友、待接受請求與已發送請求。</p></div>
+                  <FriendsTab currentUserId={user.id} />
+                </div>
+              )}
               {activeTab === "teams" && (() => {
                 const managedTeams = userTeams.filter(t => t.role === "admin" && t.teams);
-                const joinedTeams  = userTeams.filter(t => t.role !== "admin" && t.teams);
+                const joinedTeams = userTeams.filter(t => t.role !== "admin" && t.teams);
                 const hasBoth = managedTeams.length > 0 || joinedTeams.length > 0;
                 return (
                   <div className="animate-fadeIn space-y-8">
@@ -584,8 +612,51 @@ function ProfilePageContent() {
                       <a href="/team/create" className="flex-shrink-0 flex items-center gap-1.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-black px-4 py-2.5 rounded-xl shadow-[0_0_10px_rgba(217,119,6,0.2)] transition-all active:scale-95">＋ 建立團隊</a>
                     </div>
                     {!hasBoth && <div className="bg-slate-900/30 border border-dashed border-slate-700/50 rounded-3xl py-16 text-center px-6"><p className="text-4xl mb-4">🛡️</p><p className="text-zinc-400 font-bold text-sm mb-2">你尚未加入或建立任何團隊</p><a href="/team/create" className="inline-flex items-center gap-2 bg-amber-600 hover:bg-amber-500 text-white text-sm font-black px-6 py-3 rounded-xl transition-all shadow-[0_0_15px_rgba(217,119,6,0.2)]">＋ Create Team / Group</a></div>}
-                    {managedTeams.length > 0 && <div><p className="text-[10px] font-black text-amber-400 uppercase tracking-widest mb-4 pl-1">我管理的團隊 (Admin)</p><div className="grid grid-cols-1 md:grid-cols-2 gap-4">{managedTeams.map(({ teams: t }) => { if (!t) return null; const emoji = TEAM_SPORT_EMOJI[t.sport_category] ?? "🏅"; const zh = TEAM_SPORT_ZH[t.sport_category] ?? t.sport_category; const name = t.name_en || t.name_zh || "Unnamed"; return <div key={t.id} className="bg-slate-900/50 border border-amber-500/20 rounded-2xl p-4 flex gap-4 items-start"><div className="w-14 h-14 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-2xl font-black text-zinc-500 flex-shrink-0 overflow-hidden bg-cover bg-center" style={t.logo_url ? { backgroundImage: `url(${t.logo_url})` } : undefined}>{!t.logo_url && (name[0] || "T")}</div><div className="flex-1 min-w-0"><p className="text-sm font-black text-white truncate">{name}</p><div className="flex flex-wrap gap-1.5 mt-1.5 mb-3"><span className="text-[10px] font-black text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded-full">{emoji} {zh}</span></div><div className="flex gap-2"><a href={`/team/${t.id}`} className="flex-1 text-center text-xs font-bold py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-zinc-200 transition">查看頁面</a><a href={`/team/${t.id}/admin`} className="flex-1 text-center text-xs font-black py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white transition">⚙️ 管理</a></div></div></div>; })}</div></div>}
-                    {joinedTeams.length > 0 && <div><p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-4 pl-1">我加入的團隊</p><div className="space-y-3">{joinedTeams.map(({ teams: t, role }) => { if (!t) return null; const emoji = TEAM_SPORT_EMOJI[t.sport_category] ?? "🏅"; const zh = TEAM_SPORT_ZH[t.sport_category] ?? t.sport_category; const name = t.name_en || t.name_zh || "Unnamed"; return <a key={t.id} href={`/team/${t.id}`} className="flex items-center gap-4 bg-slate-900/40 border border-slate-800 hover:border-slate-600 rounded-2xl p-4 transition group"><div className="w-11 h-11 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-xl font-black text-zinc-500 flex-shrink-0 overflow-hidden bg-cover bg-center" style={t.logo_url ? { backgroundImage: `url(${t.logo_url})` } : undefined}>{!t.logo_url && (name[0] || "T")}</div><div className="flex-1 min-w-0"><p className="text-sm font-black text-white truncate group-hover:text-amber-400 transition">{name}</p><p className="text-xs text-zinc-500">{emoji} {zh}</p></div></a>; })}</div></div>}
+                    {managedTeams.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest mb-4 pl-1">我管理的團隊 (Admin)</p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {managedTeams.map(({ teams: t }) => {
+                            if (!t) return null;
+                            const emoji = TEAM_SPORT_EMOJI[t.sport_category] ?? "🏅";
+                            const zh = TEAM_SPORT_ZH[t.sport_category] ?? t.sport_category;
+                            const name = t.name_en || t.name_zh || "Unnamed";
+                            return (
+                              <div key={t.id} className="bg-slate-900/50 border border-amber-500/20 rounded-2xl p-4 flex gap-4 items-start">
+                                <div className="w-14 h-14 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-2xl font-black text-zinc-500 flex-shrink-0 overflow-hidden bg-cover bg-center" style={t.logo_url ? { backgroundImage: `url(${t.logo_url})` } : undefined}>{!t.logo_url && (name[0] || "T")}</div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-black text-white truncate">{name}</p>
+                                  <div className="flex flex-wrap gap-1.5 mt-1.5 mb-3"><span className="text-[10px] font-black text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded-full">{emoji} {zh}</span></div>
+                                  <div className="flex gap-2">
+                                    <a href={`/team/${t.id}`} className="flex-1 text-center text-xs font-bold py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-zinc-200 transition">查看頁面</a>
+                                    <a href={`/team/${t.id}/admin`} className="flex-1 text-center text-xs font-black py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white transition">⚙️ 管理</a>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                    {joinedTeams.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-4 pl-1">我加入的團隊</p>
+                        <div className="space-y-3">
+                          {joinedTeams.map(({ teams: t }) => {
+                            if (!t) return null;
+                            const emoji = TEAM_SPORT_EMOJI[t.sport_category] ?? "🏅";
+                            const zh = TEAM_SPORT_ZH[t.sport_category] ?? t.sport_category;
+                            const name = t.name_en || t.name_zh || "Unnamed";
+                            return (
+                              <a key={t.id} href={`/team/${t.id}`} className="flex items-center gap-4 bg-slate-900/40 border border-slate-800 hover:border-slate-600 rounded-2xl p-4 transition group">
+                                <div className="w-11 h-11 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-xl font-black text-zinc-500 flex-shrink-0 overflow-hidden bg-cover bg-center" style={t.logo_url ? { backgroundImage: `url(${t.logo_url})` } : undefined}>{!t.logo_url && (name[0] || "T")}</div>
+                                <div className="flex-1 min-w-0"><p className="text-sm font-black text-white truncate group-hover:text-amber-400 transition">{name}</p><p className="text-xs text-zinc-500">{emoji} {zh}</p></div>
+                              </a>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })()}
@@ -594,6 +665,7 @@ function ProfilePageContent() {
         </div>
       </div>
 
+      {/* ── Crop Modal ── */}
       {isCropModalOpen && cropImageSrc && (
         <div className="fixed inset-0 bg-black/95 z-50 flex flex-col items-center justify-center p-4">
           <div className="relative w-full max-w-md h-[400px] bg-slate-900 rounded-3xl overflow-hidden shadow-2xl mb-6"><Cropper image={cropImageSrc} crop={crop} zoom={zoom} aspect={1} cropShape="round" showGrid={false} onCropChange={setCrop} onCropComplete={(_, px) => setCroppedAreaPixels(px as any)} onZoomChange={setZoom} /></div>
@@ -601,6 +673,7 @@ function ProfilePageContent() {
         </div>
       )}
 
+      {/* ── Sport Modal ── */}
       {isSportModalOpen && (
         <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fadeIn">
           <div className="bg-slate-950 border border-slate-800 w-full max-w-sm rounded-3xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
@@ -619,6 +692,7 @@ function ProfilePageContent() {
         </div>
       )}
 
+      {/* ── Media Modal ── */}
       {isMediaModalOpen && (
         <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fadeIn">
           <div className="bg-slate-950 border border-slate-800 w-full max-w-sm rounded-3xl p-6 shadow-2xl">
@@ -632,12 +706,19 @@ function ProfilePageContent() {
         </div>
       )}
 
+      {/* ── Post lightbox ── */}
       {selectedPost && (
         <div className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-0 md:p-8 animate-fadeIn">
           <button onClick={() => setSelectedPost(null)} className="absolute top-4 right-4 md:top-6 md:right-6 text-white text-3xl font-black z-50 hover:scale-110">×</button>
           <div className="w-full max-w-6xl max-h-[100dvh] md:max-h-[85vh] bg-slate-950 md:rounded-3xl overflow-hidden flex flex-col md:flex-row border border-slate-800 shadow-2xl">
             <div className="w-full md:w-3/5 bg-black flex items-center justify-center min-h-[40vh] md:min-h-0"><img src={selectedPost.url} alt="Post highlight" className="max-w-full max-h-[85vh] object-contain" /></div>
-            <div className="w-full md:w-2/5 flex flex-col h-[60vh] md:h-full bg-slate-950"><div className="p-4 border-b border-slate-800 flex justify-between items-center"><div className="flex items-center gap-3"><div className="w-8 h-8 rounded-full bg-slate-700 bg-cover bg-center" style={{ backgroundImage: avatarSrc ? `url(${avatarSrc})` : "none" }} /><div><p className="text-sm font-black text-white">{profile?.handle || profile?.first_name}</p></div></div><button onClick={() => handleDeleteMedia(selectedPost)} className="text-red-400 text-xs font-bold px-3 py-1.5 bg-red-500/10 rounded-lg">刪除</button></div><div className="flex-1 p-4" /></div>
+            <div className="w-full md:w-2/5 flex flex-col h-[60vh] md:h-full bg-slate-950">
+              <div className="p-4 border-b border-slate-800 flex justify-between items-center">
+                <div className="flex items-center gap-3"><div className="w-8 h-8 rounded-full bg-slate-700 bg-cover bg-center" style={{ backgroundImage: avatarSrc ? `url(${avatarSrc})` : "none" }} /><div><p className="text-sm font-black text-white">{profile?.handle || profile?.first_name}</p></div></div>
+                <button onClick={() => handleDeleteMedia(selectedPost)} className="text-red-400 text-xs font-bold px-3 py-1.5 bg-red-500/10 rounded-lg">刪除</button>
+              </div>
+              <div className="flex-1 p-4" />
+            </div>
           </div>
         </div>
       )}

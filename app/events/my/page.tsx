@@ -164,7 +164,7 @@ export default function MyEventsPage() {
             >
               <span>👤 我參加的行程</span>
               <span className="px-2 py-0.5 rounded-full text-[10px] bg-slate-950/60 font-mono">
-                {joinedEvents.length}
+              {filteredJoined.length}
               </span>
             </button>
 
@@ -178,7 +178,7 @@ export default function MyEventsPage() {
             >
               <span>👑 我主辦的賽事</span>
               <span className="px-2 py-0.5 rounded-full text-[10px] bg-slate-950/60 font-mono">
-                {hostedEvents.length}
+                {filteredHosted.length}
               </span>
             </button>
           </div>

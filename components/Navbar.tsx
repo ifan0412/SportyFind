@@ -21,7 +21,8 @@ const navLinks = [
 
 export interface Notification {
   id: string;
-  type: "friend_request" | "friend_accepted" | "team_join_request" | "team_request_accepted" | "team_request_rejected" | "event_registration" | "event_kicked";
+  // ✅ Added coach_enquiry and coach_review to the type union
+  type: "friend_request" | "friend_accepted" | "team_join_request" | "team_request_accepted" | "team_request_rejected" | "event_registration" | "event_kicked" | "coach_enquiry" | "coach_review";
   is_read: boolean;
   created_at: string;
   friendship_id: string | null;
@@ -61,6 +62,15 @@ function NotificationBell({
   const handleNotifClick = (notif: Notification) => {
     setOpen(false);
 
+    // ✅ Added coach_enquiry and coach_review navigation
+    if (notif.type === "coach_enquiry") {
+      router.push("/profile?tab=coach&subtab=inbox");
+      return;
+    }
+    if (notif.type === "coach_review") {
+      router.push("/profile?tab=coach&subtab=services");
+      return;
+    }
     if (notif.type === "team_join_request" && notif.team_id) {
       router.push(`/team/${notif.team_id}/admin`);
     } else if ((notif.type === "team_request_accepted" || notif.type === "team_request_rejected") && notif.team_id) {
@@ -168,6 +178,14 @@ function NotificationBell({
                         )}
                         {notif.type === "event_kicked" && (
                           <><span className="text-white">系統通知</span>：您已被主辦方移除出某活動的參賽名單</>
+                        )}
+                        {/* ✅ NEW: coach enquiry notification text */}
+                        {notif.type === "coach_enquiry" && (
+                          <><span className="text-white">{notif.sender?.full_name ?? "某學員"}</span> 向您發送了一份課程諮詢單 📬</>
+                        )}
+                        {/* ✅ NEW: coach review notification text */}
+                        {notif.type === "coach_review" && (
+                          <><span className="text-white">{notif.sender?.full_name ?? "某學員"}</span> 為您的課程留下了一則評價 ⭐</>
                         )}
                       </p>
                       <span className="text-[10px] text-zinc-500">
@@ -387,7 +405,6 @@ export function Navbar() {
     <header className="sticky top-0 z-50 border-b border-slate-800 bg-slate-950/90 backdrop-blur-md shadow-sm">
       <nav className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6 lg:px-8">
 
-        {/* 💡 替換為圖片 Logo ＋ 品牌字樣 (情境 B)，電腦與手機版一併更新 */}
         <Link href="/" className="flex items-center gap-2.5 transition-opacity hover:opacity-80" onClick={() => setMobileOpen(false)}>
           <Image
             src="/icon-512.png"

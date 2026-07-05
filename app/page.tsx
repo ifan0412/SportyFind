@@ -129,11 +129,6 @@ export default function HomePage() {
 
         </div>
 
-        {/* 動態牆區域 */}
-        <div className="w-full mt-2">
-          <CommunityFeed />
-        </div>
-
         {/* Core Values */}
         <div className="w-full max-w-2xl border-t border-slate-800/60 pt-10 mt-6">
           <div className="flex flex-wrap justify-center items-center gap-4 md:gap-10 text-xs font-black tracking-[0.15em] uppercase text-slate-600">
