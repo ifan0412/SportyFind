@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { createBrowserClient } from "@supabase/ssr";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { 
   Calendar, MapPin, Users, Shield, Trophy, Search, 
   Plus, Loader2, User as UserIcon, Filter, Clock
@@ -30,10 +30,7 @@ const AVAILABILITY_OPTIONS = [
 ];
 
 export default function EventsLobbyPage() {
-  const supabase = useMemo(() => createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  ), []);
+  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
   const [events, setEvents] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);

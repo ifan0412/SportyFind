@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { createBrowserClient } from "@supabase/ssr";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { 
   Trophy, Calendar, MapPin, Shield, ChevronRight, Plus, Loader2, ArrowUpRight 
 } from "lucide-react";
@@ -12,10 +12,7 @@ import CalendarExportButton from "@/components/CalendarExportButton";
 
 export default function MyEventsPage() {
   const router = useRouter();
-  const supabase = useMemo(() => createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  ), []);
+  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
   const [activeTab, setActiveTab] = useState<"joined" | "hosted">("joined");
   const [timeHorizon, setTimeHorizon] = useState<"upcoming" | "past">("upcoming");

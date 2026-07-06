@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { createBrowserClient } from "@supabase/ssr";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { MessageSquare, Send, Trash2, Loader2 } from "lucide-react";
 
 interface EventLobbyBoardProps {
@@ -17,10 +17,7 @@ const TAG_OPTIONS = [
 ];
 
 export default function EventLobbyBoard({ eventId, currentUser, isOrganizer }: EventLobbyBoardProps) {
-  const supabase = useMemo(() => createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  ), []);
+  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
   const [comments, setComments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);

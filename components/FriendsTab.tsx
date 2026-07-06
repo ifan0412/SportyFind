@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo, useCallback } from "react";
 import Link from "next/link";
-import { createBrowserClient } from "@supabase/ssr";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { Users, Clock, Send, UserX, Check, X } from "lucide-react";
 
 // ── Supabase response shapes ───────────────────────────────────────────────
@@ -114,10 +114,7 @@ interface FriendsTabProps {
 }
 
 export function FriendsTab({ currentUserId }: FriendsTabProps) {
-  const supabase = useMemo(() => createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  ), []);
+  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
   const [activeSubTab, setActiveSubTab] = useState<SubTab>("friends");
   const [isLoading, setIsLoading]       = useState(true);

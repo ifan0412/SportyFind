@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { createBrowserClient } from "@supabase/ssr";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { 
   Calendar, MapPin, Users, Shield, Trophy, AlertTriangle, 
   UserCheck, ArrowLeft, Loader2, User as UserIcon, Trash2, Share2, Check
@@ -15,10 +15,7 @@ export default function EventDetailPage() {
   const router = useRouter();
   const eventId = params.id as string;
 
-  const supabase = useMemo(() => createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  ), []);
+  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [event, setEvent] = useState<any>(null);

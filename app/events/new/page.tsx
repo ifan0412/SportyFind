@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { createBrowserClient } from "@supabase/ssr";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { 
   Calendar as CalendarIcon, MapPin, Users, AlertTriangle, 
   Shield, Trophy, Loader2, ArrowLeft, Clock, ChevronLeft, ChevronRight 
@@ -238,10 +238,7 @@ function TimeScroller({ label, value, onChange }: { label: string; value: string
 
 export default function CreateEventPage() {
   const router = useRouter();
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);

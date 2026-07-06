@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback, use } from "react";
 import { useRouter } from "next/navigation";
-import { createBrowserClient } from "@supabase/ssr";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { 
   MapPin, DollarSign, Star, MessageSquare, ArrowLeft, 
   Loader2, CheckCircle2, User as UserIcon, Send, Image as ImageIcon, AlertCircle, Settings
@@ -22,10 +22,7 @@ export default function CoachServiceDetailPage({ params }: { params: Promise<{ i
   const { id: serviceId } = use(params);
   const router = useRouter();
 
-  const supabase = useMemo(() => createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  ), []);
+  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [service, setService] = useState<any>(null);

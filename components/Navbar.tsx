@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { isSiteAdmin } from "@/lib/admin";
-import { createBrowserClient } from "@supabase/ssr";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { User as SupabaseAuthUser } from "@supabase/supabase-js";
 
 const navLinks = [
@@ -254,10 +254,7 @@ export function Navbar() {
     };
   }, [mobileOpen]);
 
-  const supabase = useMemo(() => createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  ), []);
+  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
   const fetchNotifications = useCallback(async (uid: string) => {
     const { data } = await supabase
