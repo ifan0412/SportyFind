@@ -4,11 +4,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { BackButton } from "@/components/BackButton";
-import { CONTENT_CATEGORIES, getCategoryLabel } from "@/lib/content/constants";
+import { getCategoryMeta, normalizeCategories, normalizeSports } from "@/lib/content/constants";
 import { isHtmlBody } from "@/lib/content/body";
 import { SITE } from "@/lib/site";
 import type { ContentLink, ContentPost } from "@/lib/types/content";
-import { ArrowRight, Calendar, ExternalLink } from "lucide-react";
+import { ContentBadges } from "@/components/content/ContentBadges";
+import { ArrowRight, Calendar, Clock, ExternalLink } from "lucide-react";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -24,7 +25,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     .eq("status", "published")
     .maybeSingle();
 
-  if (!data) return { title: `文章未找到 | ${SITE.name}` };
+  if (!data) return { title: `Article not found | ${SITE.name}` };
 
   return {
     title: data.meta_title || `${data.title} | ${SITE.name}`,
@@ -36,6 +37,12 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       type: "article",
     },
   };
+}
+
+function estimateReadMinutes(body: string): number {
+  const text = body.replace(/<[^>]+>/g, " ");
+  const words = text.trim().split(/\s+/).filter(Boolean).length;
+  return Math.max(1, Math.ceil(words / 200));
 }
 
 export default async function ContentDetailPage({ params }: PageProps) {
@@ -53,9 +60,12 @@ export default async function ContentDetailPage({ params }: PageProps) {
 
   const article = post as ContentPost;
   const links = (Array.isArray(article.links) ? article.links : []) as ContentLink[];
-  const categoryMeta = CONTENT_CATEGORIES.find((c) => c.id === article.category);
+  const categories = normalizeCategories(article.categories);
+  const sports = normalizeSports(article.sports);
+  const categoryMetas = categories.map(getCategoryMeta).filter(Boolean);
   const published = article.published_at || article.created_at;
   const bodyIsHtml = isHtmlBody(article.body);
+  const readMin = estimateReadMinutes(article.body);
   const paragraphs = bodyIsHtml
     ? []
     : article.body
@@ -65,58 +75,75 @@ export default async function ContentDetailPage({ params }: PageProps) {
 
   return (
     <article className="bg-slate-950 min-h-screen text-zinc-200">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
-        <BackButton label="返回知識庫" href="/content" />
+      {/* Hero banner */}
+      {article.cover_image_url ? (
+        <div className="relative w-full min-h-[320px] sm:min-h-[420px] flex items-end">
+          <Image
+            src={article.cover_image_url}
+            alt={article.title}
+            fill
+            className="object-cover"
+            priority
+            sizes="100vw"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/70 to-slate-950/30" />
+          <div className="absolute inset-0 bg-gradient-to-r from-slate-950/40 to-transparent" />
 
-        <header className="mt-6 mb-8">
-          <div className="flex flex-wrap gap-2 mb-4">
-            <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">
-              {getCategoryLabel(article.category)}
-            </span>
-            {article.sport && (
-              <span className="text-[10px] font-black px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                {article.sport}
+          <div className="relative z-10 w-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-10 pt-24">
+            <BackButton label="Back to Sports Tips" href="/content" />
+
+            <div className="flex flex-wrap gap-2 mb-4 mt-4">
+              <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-full bg-violet-500/20 text-violet-200 border border-violet-400/30 backdrop-blur-sm">
+                Sports Tips
               </span>
+              <ContentBadges categories={categories} sports={sports} overlay />
+            </div>
+
+            <h1 className="text-3xl sm:text-5xl font-black text-white tracking-tight leading-[1.1] mb-4 max-w-3xl drop-shadow-lg">
+              {article.title}
+            </h1>
+
+            {article.excerpt && (
+              <p className="text-base sm:text-lg text-zinc-300 leading-relaxed mb-5 max-w-2xl drop-shadow">
+                {article.excerpt}
+              </p>
             )}
+
+            <div className="flex flex-wrap items-center gap-4 text-xs text-zinc-400 font-bold">
+              <time dateTime={published} className="flex items-center gap-1.5">
+                <Calendar className="w-3.5 h-3.5" />
+                {new Date(published).toLocaleDateString("en-US", {
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                })}
+              </time>
+              <span className="flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5" />
+                {readMin} min read
+              </span>
+            </div>
           </div>
+        </div>
+      ) : (
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
+          <BackButton label="Back to Sports Tips" href="/content" />
+          <header className="mt-6 mb-8">
+            <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight leading-tight mb-4">
+              {article.title}
+            </h1>
+            {article.excerpt && (
+              <p className="text-base sm:text-lg text-zinc-400 leading-relaxed mb-4">{article.excerpt}</p>
+            )}
+          </header>
+        </div>
+      )}
 
-          <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight leading-tight mb-4">
-            {article.title}
-          </h1>
-
-          {article.excerpt && (
-            <p className="text-base sm:text-lg text-zinc-400 leading-relaxed mb-4">{article.excerpt}</p>
-          )}
-
-          <time
-            dateTime={published}
-            className="text-xs text-zinc-500 font-bold flex items-center gap-1.5"
-          >
-            <Calendar className="w-3.5 h-3.5" />
-            {new Date(published).toLocaleDateString("zh-HK", {
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-            })}
-          </time>
-        </header>
-
-        {article.cover_image_url && (
-          <div className="relative aspect-[16/9] rounded-2xl overflow-hidden border border-slate-800 mb-10 shadow-2xl">
-            <Image
-              src={article.cover_image_url}
-              alt={article.title}
-              fill
-              className="object-cover"
-              priority
-              sizes="(max-width: 768px) 100vw, 768px"
-            />
-          </div>
-        )}
-
+      {/* Article body */}
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-12">
         {bodyIsHtml ? (
           <div
-            className="content-article-body prose prose-invert max-w-none text-[15px] sm:text-base leading-relaxed text-zinc-300"
+            className="content-article-body prose prose-invert max-w-none text-[15px] sm:text-[17px] leading-relaxed text-zinc-300"
             dangerouslySetInnerHTML={{ __html: article.body }}
           />
         ) : (
@@ -128,8 +155,8 @@ export default async function ContentDetailPage({ params }: PageProps) {
         )}
 
         {links.length > 0 && (
-          <section className="mt-12 pt-8 border-t border-slate-800">
-            <h2 className="text-sm font-black text-white uppercase tracking-wider mb-4">相關連結</h2>
+          <section className="mt-14 pt-10 border-t border-slate-800">
+            <h2 className="text-sm font-black text-white uppercase tracking-wider mb-5">Related links</h2>
             <div className="grid gap-3 sm:grid-cols-2">
               {links.map((link, i) => {
                 const isExternal = link.url.startsWith("http");
@@ -140,9 +167,9 @@ export default async function ContentDetailPage({ params }: PageProps) {
                     href={href}
                     target={isExternal ? "_blank" : undefined}
                     rel={isExternal ? "noopener noreferrer" : undefined}
-                    className="flex items-center justify-between gap-3 p-4 rounded-xl bg-slate-900 border border-slate-800 hover:border-blue-500/40 hover:bg-slate-800/80 transition group"
+                    className="flex items-center justify-between gap-3 p-4 rounded-xl bg-slate-900 border border-slate-800 hover:border-violet-500/40 hover:bg-slate-800/80 transition group"
                   >
-                    <span className="text-sm font-bold text-white group-hover:text-blue-400 transition">
+                    <span className="text-sm font-bold text-white group-hover:text-violet-300 transition">
                       {link.label}
                     </span>
                     {isExternal ? (
@@ -157,18 +184,26 @@ export default async function ContentDetailPage({ params }: PageProps) {
           </section>
         )}
 
-        {categoryMeta && (
-          <div className="mt-10 p-5 rounded-2xl bg-blue-950/30 border border-blue-500/20 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <p className="text-xs text-blue-300 font-bold">想在 {categoryMeta.label} 專區行動？</p>
-              <p className="text-[11px] text-zinc-500 mt-0.5">立即探索 SportyFind 相關功能</p>
+        {categoryMetas.length > 0 && (
+          <div className="mt-10 space-y-3">
+            <p className="text-xs text-violet-300 font-bold">Ready to take action?</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {categoryMetas.map((meta) => meta && (
+                <Link
+                  key={meta.id}
+                  href={meta.href}
+                  className="flex items-center justify-between gap-3 p-4 rounded-xl bg-gradient-to-br from-violet-950/40 to-slate-900/60 border border-violet-500/20 hover:border-violet-400/40 transition group"
+                >
+                  <div>
+                    <p className="text-sm font-bold text-white group-hover:text-violet-200 transition">
+                      {meta.labelEn}
+                    </p>
+                    <p className="text-[11px] text-zinc-500 mt-0.5">Explore on SportyFind</p>
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-violet-400 group-hover:translate-x-0.5 transition shrink-0" />
+                </Link>
+              ))}
             </div>
-            <Link
-              href={categoryMeta.href}
-              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-black transition shrink-0"
-            >
-              前往 {categoryMeta.label} <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
           </div>
         )}
       </div>

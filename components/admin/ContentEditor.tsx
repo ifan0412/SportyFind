@@ -4,7 +4,8 @@ import { useMemo, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { CONTENT_CATEGORIES, CONTENT_SPORTS, slugify } from "@/lib/content/constants";
+import { CONTENT_CATEGORIES, CONTENT_SPORTS, normalizeCategories, normalizeSports, slugify } from "@/lib/content/constants";
+import { saveContentPost } from "@/lib/content/savePost";
 import type { ContentLink, ContentPost } from "@/lib/types/content";
 import { RichTextEditor } from "@/components/admin/RichTextEditor";
 import { ImagePlus, Loader2, Plus, Trash2 } from "lucide-react";
@@ -28,8 +29,8 @@ export function ContentEditor({ post }: ContentEditorProps) {
   const [excerpt, setExcerpt] = useState(post?.excerpt ?? "");
   const [body, setBody] = useState(post?.body ?? "");
   const [coverImageUrl, setCoverImageUrl] = useState(post?.cover_image_url ?? "");
-  const [category, setCategory] = useState(post?.category ?? "general");
-  const [sport, setSport] = useState(post?.sport ?? "");
+  const [categories, setCategories] = useState<string[]>(normalizeCategories(post?.categories));
+  const [sports, setSports] = useState<string[]>(normalizeSports(post?.sports));
   const [status, setStatus] = useState<"draft" | "published">(post?.status ?? "draft");
   const [links, setLinks] = useState<ContentLink[]>(
     (post?.links?.length ? post.links : [{ label: "", url: "" }]) as ContentLink[]
@@ -71,6 +72,22 @@ export function ContentEditor({ post }: ContentEditorProps) {
   const addLink = () => setLinks((prev) => [...prev, { label: "", url: "" }]);
   const removeLink = (index: number) => setLinks((prev) => prev.filter((_, i) => i !== index));
 
+  const toggleCategory = (id: string) => {
+    setCategories((prev) => {
+      if (prev.includes(id)) {
+        const next = prev.filter((c) => c !== id);
+        return next.length > 0 ? next : prev;
+      }
+      return [...prev, id];
+    });
+  };
+
+  const toggleSport = (sport: string) => {
+    setSports((prev) =>
+      prev.includes(sport) ? prev.filter((s) => s !== sport) : [...prev, sport]
+    );
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -84,6 +101,11 @@ export function ContentEditor({ post }: ContentEditorProps) {
       return;
     }
 
+    if (!categories.length) {
+      setError("請至少選擇一個功能分類");
+      return;
+    }
+
     setSaving(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -91,34 +113,48 @@ export function ContentEditor({ post }: ContentEditorProps) {
 
       const cleanLinks = links.filter((l) => l.label.trim() && l.url.trim());
       const now = new Date().toISOString();
-      const payload = {
-        slug: slug.trim(),
-        title: title.trim(),
-        excerpt: excerpt.trim() || null,
-        body: body.trim(),
-        cover_image_url: coverImageUrl.trim() || null,
-        category,
-        sport: sport || null,
-        status,
-        links: cleanLinks,
-        meta_title: metaTitle.trim() || null,
-        meta_description: metaDescription.trim() || null,
-        author_id: user.id,
-        published_at: status === "published" ? (post?.published_at || now) : null,
-      };
 
-      if (isEdit && post) {
-        const { error: updateError } = await supabase.from("content_posts").update(payload).eq("id", post.id);
-        if (updateError) throw updateError;
-      } else {
-        const { error: insertError } = await supabase.from("content_posts").insert(payload);
-        if (insertError) throw insertError;
+      const { error: saveError, usedLegacySchema } = await saveContentPost(
+        supabase,
+        {
+          slug: slug.trim(),
+          title: title.trim(),
+          excerpt: excerpt.trim() || null,
+          body: body.trim(),
+          cover_image_url: coverImageUrl.trim() || null,
+          categories,
+          sports,
+          status,
+          links: cleanLinks,
+          meta_title: metaTitle.trim() || null,
+          meta_description: metaDescription.trim() || null,
+          author_id: user.id,
+          published_at: status === "published" ? (post?.published_at || now) : null,
+        },
+        isEdit && post ? post.id : undefined
+      );
+
+      if (saveError) {
+        setError(
+          saveError.includes("not authorized") || saveError.includes("permission")
+            ? "無權限儲存 — 請以網站管理員帳戶登入"
+            : saveError.includes("duplicate key") || saveError.includes("content_posts_slug")
+              ? "此網址代稱 (slug) 已被使用，請改用其他名稱"
+              : saveError
+        );
+        return;
+      }
+
+      if (usedLegacySchema && categories.length > 1) {
+        console.warn(
+          "Saved with legacy single category column. Run migration 008_content_multi_categories.sql for multi-select support."
+        );
       }
 
       router.push("/admin/content");
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "儲存失敗");
+      setError(err instanceof Error ? err.message : "儲存失敗，請稍後再試");
     } finally {
       setSaving(false);
     }
@@ -228,27 +264,51 @@ export function ContentEditor({ post }: ContentEditorProps) {
       <section className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 sm:p-6 space-y-5">
         <h2 className="text-sm font-black text-white">分類與狀態</h2>
 
-        <div className="grid sm:grid-cols-2 gap-4">
+        <div className="space-y-5">
           <div>
-            <label className={labelClass}>功能分類</label>
-            <select value={category} onChange={(e) => setCategory(e.target.value)} className={inputClass}>
-              {CONTENT_CATEGORIES.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.label}
-                </option>
-              ))}
-            </select>
+            <label className={labelClass}>功能分類（可多選）</label>
+            <p className="text-[11px] text-zinc-600 mb-2">至少選擇一項 — 文章會出現在對應篩選中</p>
+            <div className="flex flex-wrap gap-2">
+              {CONTENT_CATEGORIES.map((c) => {
+                const selected = categories.includes(c.id);
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => toggleCategory(c.id)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition ${
+                      selected
+                        ? "bg-blue-600 text-white"
+                        : "bg-slate-800 text-zinc-400 hover:text-white"
+                    }`}
+                  >
+                    {c.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
           <div>
-            <label className={labelClass}>運動項目（選填）</label>
-            <select value={sport} onChange={(e) => setSport(e.target.value)} className={inputClass}>
-              <option value="">— 不限 —</option>
-              {CONTENT_SPORTS.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
+            <label className={labelClass}>運動項目（可多選，選填）</label>
+            <div className="flex flex-wrap gap-2">
+              {CONTENT_SPORTS.map((s) => {
+                const selected = sports.includes(s);
+                return (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => toggleSport(s)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition ${
+                      selected
+                        ? "bg-amber-600 text-white"
+                        : "bg-slate-800 text-zinc-400 hover:text-white"
+                    }`}
+                  >
+                    {s}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
 

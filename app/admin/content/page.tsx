@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { AdminShell } from "@/components/admin/AdminShell";
-import { getCategoryLabel } from "@/lib/content/constants";
+import { getCategoryLabel, normalizeCategories, normalizeSports } from "@/lib/content/constants";
 import type { ContentPost } from "@/lib/types/content";
 import { Edit, ExternalLink, Loader2, Plus, Trash2 } from "lucide-react";
 
@@ -80,10 +80,12 @@ function AdminContentList() {
                   >
                     {post.status === "published" ? "已發佈" : "草稿"}
                   </span>
-                  <span className="text-[10px] font-bold text-zinc-500">{getCategoryLabel(post.category)}</span>
-                  {post.sport && (
-                    <span className="text-[10px] font-bold text-amber-500/80">{post.sport}</span>
-                  )}
+                  {normalizeCategories(post.categories).map((c) => (
+                    <span key={c} className="text-[10px] font-bold text-zinc-500">{getCategoryLabel(c)}</span>
+                  ))}
+                  {normalizeSports(post.sports).map((s) => (
+                    <span key={s} className="text-[10px] font-bold text-amber-500/80">{s}</span>
+                  ))}
                 </div>
                 <h2 className="text-sm font-black text-white truncate">{post.title}</h2>
                 <p className="text-[11px] text-zinc-600 mt-0.5">/content/{post.slug}</p>

@@ -5,7 +5,7 @@ import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import {
-  Menu, Users, GraduationCap, Zap, X, LogOut, Shield, Activity, Bell, User, MessageSquare, Trophy, Calendar, BookOpen, Settings2
+  Menu, Users, GraduationCap, Zap, X, LogOut, Shield, Activity, Bell, User, MessageSquare, Trophy, Calendar, Sparkles, Settings2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { isSiteAdmin } from "@/lib/admin";
@@ -18,7 +18,7 @@ const navLinks = [
   { href: "/team",    label: "Teams",   icon: Shield },
   { href: "/events",  label: "Events",  icon: Trophy },
   { href: "/physio",  label: "Physio",  icon: Activity },
-  { href: "/content", label: "Knowledge", icon: BookOpen },
+  { href: "/content", label: "Sports Tips", icon: Sparkles },
 ];
 
 export interface Notification {

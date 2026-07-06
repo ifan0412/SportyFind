@@ -29,8 +29,8 @@ export function Footer() {
                   href="/content"
                   className="text-sm text-zinc-400 hover:text-white transition font-medium"
                 >
-                  運動知識庫
-                  <span className="text-zinc-600 text-xs ml-1.5">/ Knowledge</span>
+                  Sports Tips
+                  <span className="text-zinc-600 text-xs ml-1.5">/ Guides</span>
                 </Link>
               </li>
             </ul>

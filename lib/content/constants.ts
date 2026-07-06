@@ -24,6 +24,27 @@ export function getCategoryLabel(id: string): string {
   return CONTENT_CATEGORIES.find((c) => c.id === id)?.label ?? id;
 }
 
+export function getCategoryMeta(id: string) {
+  return CONTENT_CATEGORIES.find((c) => c.id === id);
+}
+
+/** Normalize DB value — supports legacy single string during transition */
+export function normalizeCategories(value: unknown): string[] {
+  if (Array.isArray(value) && value.length > 0) {
+    return value.filter((v): v is string => typeof v === "string" && v.length > 0);
+  }
+  if (typeof value === "string" && value) return [value];
+  return ["general"];
+}
+
+export function normalizeSports(value: unknown): string[] {
+  if (Array.isArray(value) && value.length > 0) {
+    return value.filter((v): v is string => typeof v === "string" && v.length > 0);
+  }
+  if (typeof value === "string" && value) return [value];
+  return [];
+}
+
 export function slugify(text: string): string {
   return text
     .toLowerCase()

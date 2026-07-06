@@ -8,7 +8,7 @@ import { ContentCard } from "@/components/content/ContentCard";
 import { CONTENT_CATEGORIES, CONTENT_SPORTS } from "@/lib/content/constants";
 import { stripHtml } from "@/lib/content/body";
 import type { ContentPost } from "@/lib/types/content";
-import { BookOpen, Loader2, Search } from "lucide-react";
+import { Sparkles, Loader2, Search } from "lucide-react";
 
 export default function ContentListingClient() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
@@ -31,8 +31,8 @@ export default function ContentListingClient() {
         .eq("status", "published")
         .order("published_at", { ascending: false, nullsFirst: false });
 
-      if (categoryFilter) query = query.eq("category", categoryFilter);
-      if (sportFilter) query = query.eq("sport", sportFilter);
+      if (categoryFilter) query = query.contains("categories", [categoryFilter]);
+      if (sportFilter) query = query.contains("sports", [sportFilter]);
 
       const { data, error } = await query;
       if (error) console.error("Failed to load content:", error.message);
@@ -67,16 +67,16 @@ export default function ContentListingClient() {
 
         <header className="mt-6 mb-10">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-12 h-12 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
-              <BookOpen className="w-6 h-6 text-blue-400" />
+            <div className="w-12 h-12 rounded-2xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
+              <Sparkles className="w-6 h-6 text-violet-400" />
             </div>
             <div>
-              <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">運動知識庫</h1>
-              <p className="text-sm text-zinc-500 mt-0.5">Sports Knowledge & Guides</p>
+              <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">Sports Tips</h1>
+              <p className="text-sm text-zinc-500 mt-0.5">Train smarter · Eat better · Play longer</p>
             </div>
           </div>
           <p className="text-sm text-zinc-400 max-w-2xl leading-relaxed">
-            探索訓練技巧、平台使用指南、各項運動入門與社群攻略 — 助你更快找到夥伴、教練與賽事。
+            Expert guides on training, nutrition, recovery, and getting more from your sport — curated for the SportyFind community.
           </p>
         </header>
 

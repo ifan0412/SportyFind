@@ -10,8 +10,8 @@ export interface ContentPost {
   excerpt: string | null;
   body: string;
   cover_image_url: string | null;
-  category: string;
-  sport: string | null;
+  categories: string[];
+  sports: string[];
   status: "draft" | "published";
   links: ContentLink[];
   meta_title: string | null;
