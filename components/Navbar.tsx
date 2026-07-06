@@ -5,9 +5,10 @@ import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import {
-  Menu, Users, GraduationCap, Zap, X, LogOut, Shield, Activity, Bell, User, MessageSquare, Trophy, Calendar
+  Menu, Users, GraduationCap, Zap, X, LogOut, Shield, Activity, Bell, User, MessageSquare, Trophy, Calendar, BookOpen, Settings2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { isSiteAdmin } from "@/lib/admin";
 import { createBrowserClient } from "@supabase/ssr";
 import type { User as SupabaseAuthUser } from "@supabase/supabase-js";
 
@@ -17,6 +18,7 @@ const navLinks = [
   { href: "/team",    label: "Teams",   icon: Shield },
   { href: "/events",  label: "Events",  icon: Trophy },
   { href: "/physio",  label: "Physio",  icon: Activity },
+  { href: "/content", label: "Knowledge", icon: BookOpen },
 ];
 
 export interface Notification {
@@ -64,11 +66,11 @@ function NotificationBell({
 
     // ✅ Added coach_enquiry and coach_review navigation
     if (notif.type === "coach_enquiry") {
-      router.push("/profile?tab=coach&subtab=inbox");
+      router.push("/dashboard/coach?subtab=inbox");
       return;
     }
     if (notif.type === "coach_review") {
-      router.push("/profile?tab=coach&subtab=services");
+      router.push("/dashboard/coach?subtab=services");
       return;
     }
     if (notif.type === "team_join_request" && notif.team_id) {
@@ -401,23 +403,44 @@ export function Navbar() {
     router,
   };
 
+  const showAdmin = isSiteAdmin(user?.email);
+
   return (
     <header className="sticky top-0 z-50 border-b border-slate-800 bg-slate-950/90 backdrop-blur-md shadow-sm">
-      <nav className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6 lg:px-8">
+      <nav className="flex h-14 w-full items-center justify-between px-4 sm:px-6 lg:px-10">
 
-        <Link href="/" className="flex items-center gap-2.5 transition-opacity hover:opacity-80" onClick={() => setMobileOpen(false)}>
-          <Image
-            src="/icon-512.png"
-            alt="SportyFind Logo"
-            width={32}
-            height={32}
-            className="size-8 rounded-md object-contain"
-            priority
-          />
-          <span className="text-sm font-black tracking-tight text-white sm:text-base">
-            SPORTY<span className="text-blue-400">FIND</span>
-          </span>
-        </Link>
+        <div className="flex items-center gap-2 sm:gap-3">
+          <Link href="/" className="flex items-center gap-2.5 transition-opacity hover:opacity-80" onClick={() => setMobileOpen(false)}>
+            <Image
+              src="/icon-512.png"
+              alt="SportyFind Logo"
+              width={32}
+              height={32}
+              className="size-8 rounded-md object-contain"
+              priority
+            />
+            <span className="text-sm font-black tracking-tight text-white sm:text-base">
+              SPORTY<span className="text-blue-400">FIND</span>
+            </span>
+          </Link>
+
+          {showAdmin && (
+            <Link
+              href="/admin/analytics"
+              onClick={() => setMobileOpen(false)}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-lg border px-2 py-0.5 sm:px-2.5 sm:py-1 text-[9px] sm:text-[10px] font-black uppercase tracking-wider transition",
+                pathname.startsWith("/admin")
+                  ? "border-amber-500/50 bg-amber-500/10 text-amber-400"
+                  : "border-slate-700 bg-slate-900 text-zinc-400 hover:border-amber-500/40 hover:text-amber-400"
+              )}
+              title="網站管理員 CMS"
+            >
+              <Settings2 className="size-3" />
+              Admin
+            </Link>
+          )}
+        </div>
 
         <ul className="hidden items-center gap-1 md:flex">
           {navLinks.map(({ href, label, icon: Icon }) => {
@@ -506,7 +529,7 @@ export function Navbar() {
 
       {mobileOpen && (
         <div className="absolute top-full left-0 w-full h-[calc(100vh-3.5rem)] bg-slate-950 md:hidden overflow-y-auto border-t border-slate-800 shadow-2xl">
-          <ul className="mx-auto w-full max-w-6xl space-y-2 px-4 py-6 sm:px-6">
+          <ul className="mx-auto w-full space-y-2 px-4 py-6 sm:px-6 lg:px-10">
             {navLinks.map(({ href, label, icon: Icon }) => {
               const isActive = pathname === href || pathname.startsWith(`${href}/`);
               return (
@@ -525,6 +548,23 @@ export function Navbar() {
                 </li>
               );
             })}
+
+            {showAdmin && (
+              <li>
+                <Link
+                  href="/admin/analytics"
+                  className={cn(
+                    "flex items-center gap-3 rounded-md px-3 py-3 text-sm font-bold transition-colors",
+                    pathname.startsWith("/admin")
+                      ? "bg-amber-600/15 text-amber-400"
+                      : "text-amber-500/80 hover:bg-slate-800 hover:text-amber-400"
+                  )}
+                  onClick={() => setMobileOpen(false)}
+                >
+                  <Settings2 className="size-4" /> 網站管理 Admin
+                </Link>
+              </li>
+            )}
 
             <div className="h-px bg-slate-800 my-4" />
 

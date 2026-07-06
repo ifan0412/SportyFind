@@ -1,9 +1,12 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { PasswordRequirements } from "@/components/PasswordRequirements";
+import { getPasswordValidationError } from "@/lib/password";
 
 export default function AuthPage() {
   const [email, setEmail] = useState("");
@@ -21,6 +24,7 @@ export default function AuthPage() {
   const [isPlayer, setIsPlayer] = useState(true);
   const [isCoach, setIsCoach] = useState(false);
   const [isPhysio, setIsPhysio] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const supabase = createSupabaseBrowserClient();
   const router = useRouter();
@@ -78,6 +82,18 @@ export default function AuthPage() {
       }
       if (handleStatus !== "available") {
         toast.error("Please choose a valid and available Account ID.");
+        setIsLoading(false);
+        return;
+      }
+      if (!acceptedTerms) {
+        toast.error("Please accept the Terms of Service and Privacy Policy.");
+        setIsLoading(false);
+        return;
+      }
+
+      const passwordError = getPasswordValidationError(password);
+      if (passwordError) {
+        toast.error(passwordError);
         setIsLoading(false);
         return;
       }
@@ -299,11 +315,36 @@ export default function AuthPage() {
               required
               className="w-full p-3 bg-pro-slate-800 border border-pro-slate-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm transition placeholder:text-slate-600 disabled:opacity-50"
             />
+            {isSignUp && (
+              <div className="mt-2.5 p-3 rounded-lg bg-pro-slate-800/60 border border-pro-slate-700/80">
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-2">Password requirements</p>
+                <PasswordRequirements password={password} />
+              </div>
+            )}
           </div>
+
+          {isSignUp && (
+            <label className="flex items-start gap-3 p-3 rounded-lg bg-pro-slate-800/40 border border-pro-slate-700/60 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={acceptedTerms}
+                onChange={(e) => setAcceptedTerms(e.target.checked)}
+                className="mt-0.5 rounded border-slate-600"
+              />
+              <span className="text-xs text-slate-400 leading-relaxed">
+                我已閱讀並同意{" "}
+                <Link href="/terms" target="_blank" className="text-blue-400 hover:underline font-bold">服務條款</Link>
+                、{" "}
+                <Link href="/privacy" target="_blank" className="text-blue-400 hover:underline font-bold">私隱政策</Link>
+                {" "}及{" "}
+                <Link href="/cookies" target="_blank" className="text-blue-400 hover:underline font-bold">Cookie 政策</Link>。
+              </span>
+            </label>
+          )}
 
           <button
             type="submit"
-            disabled={isLoading || (isSignUp && handleStatus !== "available")}
+            disabled={isLoading || (isSignUp && (handleStatus !== "available" || !acceptedTerms))}
             className="w-full py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-500 transition shadow-lg shadow-blue-900/20 disabled:bg-pro-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed"
           >
             {isLoading ? "Processing..." : isSignUp ? "Create Account" : "Sign In"}
@@ -341,6 +382,7 @@ export default function AuthPage() {
           onClick={() => {
             setIsSignUp(!isSignUp);
             setHandleStatus("idle");
+            setAcceptedTerms(false);
           }}
           disabled={isLoading}
           className="mt-6 w-full text-center text-sm text-slate-400 hover:text-white underline transition disabled:opacity-50"

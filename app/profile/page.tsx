@@ -11,6 +11,7 @@ import { DashboardTab } from "@/components/profile/DashboardTab";
 import { FeedTab } from "@/components/profile/FeedTab";
 import { ExpertiseTab } from "@/components/profile/ExpertiseTab";
 import { HighlightsTab } from "@/components/profile/HighlightsTab";
+import { AccountManagementTab } from "@/components/profile/AccountManagementTab";
 import { PRO_SPORT_SCHEMA } from "@/constants/sportsSchema";
 
 interface Profile {
@@ -84,7 +85,7 @@ const TEAM_SPORT_ZH: Record<string, string> = {
   badminton: "羽毛球", pickleball: "匹克球", gym: "健身", running: "路跑",
 };
 
-type TabId = "dashboard" | "expertise" | "highlights" | "feed" | "friends" | "teams";
+type TabId = "dashboard" | "expertise" | "highlights" | "feed" | "friends" | "teams" | "account";
 
 const DEFAULT_FORM = {
   first_name: "", last_name: "", handle: "", full_name: "", headline: "", location: "", country: "", region: "", bio: "", avatar_url: "", status_tag: "committed", display_sports: [] as string[],
@@ -178,7 +179,7 @@ function ProfilePageContent() {
 
   useEffect(() => {
     const tabParam = (searchParams?.get("tab") || searchParams?.get("view")) as TabId | null;
-    if (tabParam && ["dashboard", "expertise", "highlights", "feed", "friends", "teams"].includes(tabParam)) {
+    if (tabParam && ["dashboard", "expertise", "highlights", "feed", "friends", "teams", "account"].includes(tabParam)) {
       setActiveTab(tabParam);
     }
   }, [searchParams]);
@@ -525,6 +526,10 @@ function ProfilePageContent() {
                       <span className="flex items-center gap-3"><span className="text-lg">👥</span> 好友管理</span><span className="text-xs">→</span>
                     </button>
 
+                    <button onClick={() => handleTabSwitch("account")} className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold transition ${activeTab === "account" ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20" : "bg-slate-900/50 text-zinc-400 hover:bg-slate-800 hover:text-white"}`}>
+                      <span className="flex items-center gap-3"><span className="text-lg">⚙️</span> 帳戶管理</span><span className="text-xs">→</span>
+                    </button>
+
                     {userTeams.length > 0 && (
                       <button onClick={() => handleTabSwitch("teams")} className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold transition ${activeTab === "teams" ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20" : "bg-slate-900/50 text-zinc-400 hover:bg-slate-800 hover:text-white"}`}>
                         <span className="flex items-center gap-3"><span className="text-lg">🛡️</span> 我的團隊</span><span className="text-xs">→</span>
@@ -561,15 +566,22 @@ function ProfilePageContent() {
           {/* ── Right content ── */}
           <div className="lg:col-span-8 xl:col-span-9 flex flex-col" ref={contentRef}>
             {(() => {
-              const isPrivateTab = ["dashboard", "friends", "teams"].includes(activeTab);
+              const isPrivateTab = ["dashboard", "friends", "teams", "account"].includes(activeTab);
               if (isPrivateTab) {
+                const tabMeta: Record<string, { icon: string; title: string; subtitle: string }> = {
+                  dashboard: { icon: "📊", title: "數據後台", subtitle: "專屬私密空間" },
+                  friends: { icon: "👥", title: "好友管理", subtitle: "專屬私密空間" },
+                  teams: { icon: "🛡️", title: "我的團隊", subtitle: "專屬私密空間" },
+                  account: { icon: "⚙️", title: "帳戶管理", subtitle: "安全與帳戶設定" },
+                };
+                const meta = tabMeta[activeTab];
                 return (
                   <div className="bg-slate-900 border border-slate-800 p-3 md:p-4 rounded-2xl flex items-center justify-between w-full mb-8 shadow-sm">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-xl">{activeTab === "dashboard" ? "📊" : activeTab === "teams" ? "🛡️" : "👥"}</div>
+                      <div className="w-10 h-10 rounded-full bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-xl">{meta.icon}</div>
                       <div>
-                        <h2 className="text-sm md:text-base font-black text-white leading-tight">{activeTab === "dashboard" ? "數據後台" : activeTab === "teams" ? "我的團隊" : "好友管理"}</h2>
-                        <p className="text-[10px] text-zinc-400 font-bold tracking-wider mt-0.5">專屬私密空間</p>
+                        <h2 className="text-sm md:text-base font-black text-white leading-tight">{meta.title}</h2>
+                        <p className="text-[10px] text-zinc-400 font-bold tracking-wider mt-0.5">{meta.subtitle}</p>
                       </div>
                     </div>
                     <button onClick={() => handleTabSwitch("expertise")} className="bg-slate-800 hover:bg-slate-700 border border-slate-600 text-zinc-300 hover:text-white text-xs md:text-sm font-bold px-3 py-2 md:px-4 md:py-2.5 rounded-xl transition flex items-center gap-1.5 shadow-sm">
@@ -600,6 +612,9 @@ function ProfilePageContent() {
                   <div className="mb-6 px-2"><h2 className="text-lg md:text-xl font-black text-white">好友管理</h2><p className="text-xs text-zinc-500 mt-1">管理你的好友、待接受請求與已發送請求。</p></div>
                   <FriendsTab currentUserId={user.id} />
                 </div>
+              )}
+              {activeTab === "account" && user && (
+                <AccountManagementTab userEmail={user.email} identities={user.identities} />
               )}
               {activeTab === "teams" && (() => {
                 const managedTeams = userTeams.filter(t => t.role === "admin" && t.teams);

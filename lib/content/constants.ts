@@ -1,0 +1,36 @@
+export const CONTENT_CATEGORIES = [
+  { id: "players", label: "運動員", labelEn: "Players", href: "/network" },
+  { id: "coaches", label: "教練", labelEn: "Coaches", href: "/coaches" },
+  { id: "teams", label: "隊伍", labelEn: "Teams", href: "/team" },
+  { id: "events", label: "賽事", labelEn: "Events", href: "/events" },
+  { id: "physio", label: "物理治療", labelEn: "Physio", href: "/physio" },
+  { id: "general", label: "平台指南", labelEn: "General", href: "/" },
+] as const;
+
+export type ContentCategory = (typeof CONTENT_CATEGORIES)[number]["id"];
+
+export const CONTENT_SPORTS = [
+  "Volleyball",
+  "Basketball",
+  "Tennis",
+  "Badminton",
+  "Soccer / Football",
+  "Running / Marathon",
+  "Gym / Fitness",
+  "Pickleball",
+] as const;
+
+export function getCategoryLabel(id: string): string {
+  return CONTENT_CATEGORIES.find((c) => c.id === id)?.label ?? id;
+}
+
+export function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s\u4e00-\u9fff-]/g, "")
+    .replace(/[\s_]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 80) || `post-${Date.now()}`;
+}

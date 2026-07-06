@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { ChatBox } from "@/components/ChatBox";
+import { ArrowLeft } from "lucide-react";
 
 function InboxPageContent() {
   const supabase = createSupabaseBrowserClient();
@@ -75,13 +76,16 @@ function InboxPageContent() {
   if (!currentUser) return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-zinc-500 font-mono">載入收件匣中...</div>;
 
   const activeContact = conversations.find(c => c.id === activeFriendId);
+  const showMobileChat = Boolean(activeFriendId && activeContact);
 
   return (
-    <div className="bg-slate-950 min-h-[calc(100vh-3.5rem)] py-6 px-4 md:px-8">
-      <div className="max-w-6xl mx-auto flex flex-col md:flex-row gap-6 h-[80vh]">
+    <div className="bg-slate-950 min-h-[calc(100dvh-3.5rem)] py-4 px-3 sm:py-6 sm:px-8">
+      <div className="max-w-6xl mx-auto flex flex-col md:flex-row gap-4 md:gap-6 h-[calc(100dvh-6rem)] md:h-[80vh]">
         
         {/* 左側：對話列表 */}
-        <div className="w-full md:w-1/3 bg-slate-900 border border-slate-800 rounded-3xl p-4 flex flex-col h-[40vh] md:h-full shadow-xl">
+        <div className={`w-full md:w-1/3 bg-slate-900 border border-slate-800 rounded-3xl p-4 flex flex-col shadow-xl ${
+          showMobileChat ? "hidden md:flex" : "flex h-full"
+        } md:h-full`}>
           <h2 className="text-xl font-black text-white mb-4 px-2">訊息收件匣</h2>
           <div className="flex-1 overflow-y-auto space-y-2 [&::-webkit-scrollbar]:hidden">
             {conversations.length === 0 ? (
@@ -120,17 +124,28 @@ function InboxPageContent() {
         </div>
 
         {/* 右側：聊天視窗 */}
-        <div className="w-full md:w-2/3 h-[50vh] md:h-full">
+        <div className={`w-full md:w-2/3 flex-1 min-h-0 ${showMobileChat ? "flex" : "hidden md:flex"}`}>
           {activeFriendId && activeContact ? (
-            <ChatBox 
-              currentUserId={currentUser.id} 
-              targetUserId={activeFriendId} 
-              targetName={activeContact.full_name}
-              targetAvatarUrl={activeContact.avatar_url}
-              // 🔥 傳入狀態給 ChatBox 處理 anti-spam 鎖定邏輯
-              friendshipStatus={activeContact.friendshipStatus} 
-              isSender={activeContact.isSender}
-            />
+            <div className="flex flex-col h-full w-full min-h-0">
+              <button
+                type="button"
+                onClick={() => setActiveFriendId(null)}
+                className="md:hidden flex items-center gap-2 text-sm font-bold text-zinc-400 hover:text-white mb-3 px-1 shrink-0"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                返回對話列表
+              </button>
+              <div className="flex-1 min-h-0">
+                <ChatBox 
+                  currentUserId={currentUser.id} 
+                  targetUserId={activeFriendId} 
+                  targetName={activeContact.full_name}
+                  targetAvatarUrl={activeContact.avatar_url}
+                  friendshipStatus={activeContact.friendshipStatus} 
+                  isSender={activeContact.isSender}
+                />
+              </div>
+            </div>
           ) : (
             <div className="h-full bg-slate-900 border border-slate-800 rounded-3xl flex flex-col items-center justify-center text-zinc-500">
               <span className="text-4xl mb-4">📫</span>

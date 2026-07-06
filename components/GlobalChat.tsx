@@ -1,9 +1,16 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { usePathname } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { MessageCircle, X, ChevronLeft, Send, Loader2 } from "lucide-react";
 import Link from "next/link";
+import {
+  CHAT_BUBBLE_ME,
+  CHAT_BUBBLE_ROW_ME,
+  CHAT_BUBBLE_ROW_THEM,
+  CHAT_BUBBLE_THEM,
+} from "@/components/chat/styles";
 
 interface Friend {
   id: string;
@@ -25,6 +32,9 @@ interface Message {
 
 export function GlobalChat() {
   const supabase = createSupabaseBrowserClient();
+  const pathname = usePathname();
+  const isInboxPage = pathname === "/inbox" || pathname.startsWith("/inbox/");
+
   const [isOpen, setIsOpen]               = useState(false);
   const [currentUser, setCurrentUser]     = useState<any>(null);
   const [friends, setFriends]             = useState<Friend[]>([]);
@@ -239,10 +249,14 @@ return () => { supabase.removeChannel(chatChannel); };
   if (!currentUser) return null;
 
   return (
-    <div className="fixed bottom-6 right-6 z-[100] flex flex-col items-end">
+    <div
+      className={`fixed bottom-6 right-6 z-[100] flex-col items-end ${
+        isInboxPage ? "hidden md:flex" : "flex"
+      }`}
+    >
 
       {isOpen && (
-        <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-80 h-[450px] mb-4 flex flex-col overflow-hidden animate-fadeIn">
+        <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-[min(100vw-2rem,28rem)] sm:w-96 h-[min(100vh-8rem,520px)] mb-4 flex flex-col overflow-hidden animate-fadeIn">
 
           {/* Header */}
           <div className="bg-slate-800 p-3 flex justify-between items-center border-b border-slate-700 shrink-0">
@@ -305,7 +319,7 @@ return () => { supabase.removeChannel(chatChannel); };
           ) : (
             <>
               {/* Chat messages */}
-              <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-3 [&::-webkit-scrollbar]:hidden bg-slate-950">
+              <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4 [&::-webkit-scrollbar]:hidden bg-slate-950">
                 {isLoading ? (
                   <div className="flex justify-center mt-10">
                     <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
@@ -316,14 +330,13 @@ return () => { supabase.removeChannel(chatChannel); };
                   messages.map((msg) => {
                     const isMe = msg.sender_id === currentUser.id;
                     return (
-                      <div key={msg.id} className={`flex flex-col ${isMe ? "items-end" : "items-start"}`}>
-                        <div className={`max-w-[85%] px-3 py-2 rounded-2xl text-sm font-medium
-                          ${isMe ? "bg-blue-600 text-white rounded-tr-sm" : "bg-slate-800 text-slate-200 rounded-tl-sm"}
-                          ${msg.isSending ? "opacity-60" : "opacity-100"}`}
+                      <div key={msg.id} className={isMe ? CHAT_BUBBLE_ROW_ME : CHAT_BUBBLE_ROW_THEM}>
+                        <div
+                          className={`${isMe ? CHAT_BUBBLE_ME : CHAT_BUBBLE_THEM} ${msg.isSending ? "opacity-60" : "opacity-100"}`}
                         >
                           {msg.content}
                         </div>
-                        <span className="text-[9px] text-slate-500 mt-0.5 px-1">
+                        <span className="text-[9px] text-slate-500 mt-1 px-1">
                           {msg.isSending ? "傳送中..." : msg.isError ? "傳送失敗" : new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                         </span>
                       </div>
@@ -333,18 +346,18 @@ return () => { supabase.removeChannel(chatChannel); };
               </div>
 
               {/* Input */}
-              <form onSubmit={handleSend} className="p-2 border-t border-slate-800 bg-slate-900 flex gap-2 shrink-0">
+              <form onSubmit={handleSend} className="p-3 border-t border-slate-800 bg-slate-900 flex gap-2 shrink-0">
                 <input
                   type="text"
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
-                  placeholder="Aa"
-                  className="flex-1 bg-slate-950 border border-slate-700 rounded-full px-4 py-2 text-sm text-white focus:outline-none focus:border-blue-500 transition"
+                  placeholder="輸入訊息..."
+                  className="flex-1 min-w-0 bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500 transition"
                 />
                 <button
                   type="submit"
                   disabled={!newMessage.trim()}
-                  className="w-9 h-9 bg-blue-600 disabled:bg-slate-800 text-white flex items-center justify-center rounded-full transition shrink-0"
+                  className="w-11 h-11 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-500 text-white flex items-center justify-center rounded-xl transition shrink-0"
                 >
                   <Send className="w-4 h-4 ml-0.5" />
                 </button>

@@ -313,7 +313,7 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
                   onClick={() => setIsContactModalOpen(true)}
                   className="w-full mt-2.5 py-3 px-6 rounded-full text-sm font-black bg-amber-600 hover:bg-amber-500 text-white transition-all duration-300 shadow-[0_0_15px_rgba(217,119,6,0.3)] cursor-pointer flex items-center justify-center gap-2"
                 >
-                  <span>💬</span> 聯絡教練 / 立即洽詢
+                  <span>💬</span> 聯絡 / 洽詢
                 </button>
               )}
             </div>

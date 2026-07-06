@@ -2,6 +2,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Navbar } from "@/components/Navbar"; 
+import { Footer } from "@/components/Footer";
 import SupabaseProvider from "@/components/SupabaseProvider";
 import "./globals.css";
 import Providers from "./providers";
@@ -44,6 +45,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <main className="flex-1 bg-slate-950 py-6">
             <Providers>{children}</Providers>
           </main>
+
+          <Footer />
           
           {/* ✅ 將浮動聊天視窗放在 main 之外，確保它跨頁面常駐，不會被切換頁面干擾 */}
           <GlobalChat />

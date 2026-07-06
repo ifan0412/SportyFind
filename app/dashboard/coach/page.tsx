@@ -44,6 +44,13 @@ function CoachEnquiriesInbox({ coachId }: { coachId: string }) {
     setLeads(prev => prev.map(l => l.id === id ? { ...l, status: newStatus } : l));
   };
 
+  const handleDeleteLead = async (id: string) => {
+    if (!confirm("確定要刪除此諮詢單嗎？此動作無法復原。")) return;
+    const { error } = await supabase.from("coach_enquiries").delete().eq("id", id);
+    if (error) { alert("刪除失敗: " + error.message); return; }
+    setLeads(prev => prev.filter(l => l.id !== id));
+  };
+
   return (
     <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-6">
       <div className="border-b border-slate-800 pb-4 flex items-center justify-between">
@@ -77,7 +84,7 @@ function CoachEnquiriesInbox({ coachId }: { coachId: string }) {
                   <span className="text-[10px] text-zinc-500 mt-1.5 block">送出時間：{new Date(lead.created_at).toLocaleString("zh-HK", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
                 </div>
               </div>
-              <div className="shrink-0 self-end sm:self-center">
+              <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
                 {lead.status === "contacted" ? (
                   <button onClick={() => toggleContacted(lead.id, lead.status)} className="px-3.5 py-2 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-emerald-400 hover:bg-slate-800 hover:text-zinc-300 font-bold text-xs transition flex items-center gap-1.5 cursor-pointer">
                     <CheckCircle2 className="w-4 h-4" /> 已標記聯絡 <RotateCcw className="w-3 h-3 text-zinc-400" />
@@ -85,6 +92,9 @@ function CoachEnquiriesInbox({ coachId }: { coachId: string }) {
                 ) : (
                   <button onClick={() => toggleContacted(lead.id, lead.status)} className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs transition cursor-pointer shadow-md">標記為已聯絡</button>
                 )}
+                <button onClick={() => handleDeleteLead(lead.id)} className="p-2 rounded-xl bg-slate-900 hover:bg-red-500/20 text-zinc-400 hover:text-red-400 transition cursor-pointer" title="刪除諮詢單">
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
             </div>
           ))}
@@ -123,20 +133,56 @@ function CoachServicesManager({ coachId, allSports }: { coachId: string; allSpor
 
   useEffect(() => { fetchServices(); }, [fetchServices]);
 
+  const fetchCourseLeads = useCallback(async (serviceId: string) => {
+    const { data: rawLeads, error } = await supabase
+      .from("coach_enquiries")
+      .select("*")
+      .eq("service_id", serviceId)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("讀取課程諮詢單失敗:", error.message);
+      setCourseLeads([]);
+      return;
+    }
+
+    if (!rawLeads?.length) {
+      setCourseLeads([]);
+      return;
+    }
+
+    const enriched = await Promise.all(rawLeads.map(async (lead) => {
+      const { data: student } = await supabase
+        .from("profiles")
+        .select("id, full_name, avatar_url")
+        .eq("id", lead.student_id)
+        .single();
+      return { ...lead, student: student || null };
+    }));
+    setCourseLeads(enriched);
+  }, [supabase]);
+
   useEffect(() => {
     if (!selectedService) return;
     const fetchSubData = async () => {
       setLoadingSubData(true);
-      const [revRes, leadRes] = await Promise.all([
-        supabase.from("coach_reviews").select("*, student:profiles!student_id(full_name, avatar_url)").eq("service_id", selectedService.id).order("created_at", { ascending: false }),
-        supabase.from("coach_enquiries").select("*, student:profiles!student_id(full_name, avatar_url)").eq("service_id", selectedService.id).order("created_at", { ascending: false })
-      ]);
-      setCourseReviews(revRes.data || []);
-      setCourseLeads(leadRes.data || []);
+      const { data: revs, error: revErr } = await supabase
+        .from("coach_reviews")
+        .select("*, student:profiles!student_id(full_name, avatar_url)")
+        .eq("service_id", selectedService.id)
+        .order("created_at", { ascending: false });
+      if (revErr) console.error("讀取評價失敗:", revErr.message);
+      setCourseReviews(revs || []);
+      await fetchCourseLeads(selectedService.id);
       setLoadingSubData(false);
     };
     fetchSubData();
-  }, [selectedService, supabase]);
+  }, [selectedService, supabase, fetchCourseLeads]);
+
+  useEffect(() => {
+    if (!selectedService || detailTab !== "leads") return;
+    fetchCourseLeads(selectedService.id);
+  }, [detailTab, selectedService, fetchCourseLeads]);
 
   const handleOpenDetail = async (srv: any) => {
     setSelectedService(srv); setEditForm(srv); setIsEditingInfo(false); setDetailTab("info");
@@ -174,6 +220,20 @@ function CoachServicesManager({ coachId, allSports }: { coachId: string; allSpor
     const { error } = await supabase.from("coach_reviews").delete().eq("id", revId);
     if (error) { alert("刪除失敗: " + error.message); return; }
     setCourseReviews(courseReviews.filter(r => r.id !== revId));
+  };
+
+  const toggleLeadContacted = async (id: string, currentStatus: string) => {
+    const newStatus = currentStatus === "contacted" ? "seen" : "contacted";
+    const { error } = await supabase.from("coach_enquiries").update({ status: newStatus }).eq("id", id);
+    if (error) { alert("狀態更新失敗: " + error.message); return; }
+    setCourseLeads(prev => prev.map(l => l.id === id ? { ...l, status: newStatus } : l));
+  };
+
+  const handleDeleteLead = async (id: string) => {
+    if (!confirm("確定要刪除此諮詢單嗎？此動作無法復原。")) return;
+    const { error } = await supabase.from("coach_enquiries").delete().eq("id", id);
+    if (error) { alert("刪除失敗: " + error.message); return; }
+    setCourseLeads(prev => prev.filter(l => l.id !== id));
   };
 
   const handleUploadPhoto = async (files: FileList | null) => {
@@ -397,14 +457,28 @@ function CoachServicesManager({ coachId, allSports }: { coachId: string; allSpor
               {loadingSubData ? <div className="py-8 text-center text-zinc-500 text-xs">載入詢問單中...</div>
                 : courseLeads.length === 0 ? <div className="py-10 text-center bg-slate-900/40 rounded-2xl border border-dashed border-slate-800 text-zinc-500 text-xs font-bold">這堂課目前尚未收到諮詢單。</div>
                 : courseLeads.map(lead => (
-                  <div key={lead.id} className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800">
-                    <div className="flex items-start gap-3">
-                      <div className="w-9 h-9 rounded-full bg-slate-800 bg-cover bg-center shrink-0 border border-slate-700" style={lead.student?.avatar_url ? { backgroundImage: `url(${lead.student.avatar_url})` } : undefined} />
-                      <div>
-                        <div className="font-bold text-sm text-white">{lead.student?.full_name || "學員"}</div>
+                  <div key={lead.id} className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div className="flex items-start gap-3 min-w-0">
+                      <Link href={`/p/${lead.student?.id || lead.student_id}`} className="shrink-0">
+                        <div className="w-9 h-9 rounded-full bg-slate-800 bg-cover bg-center shrink-0 border border-slate-700" style={lead.student?.avatar_url ? { backgroundImage: `url(${lead.student.avatar_url})` } : undefined} />
+                      </Link>
+                      <div className="min-w-0">
+                        <Link href={`/p/${lead.student?.id || lead.student_id}`} className="font-bold text-sm text-white hover:text-amber-400 transition">{lead.student?.full_name || "學員"}</Link>
                         <p className="text-xs text-zinc-300 mt-1 bg-slate-950 p-2.5 rounded-lg border border-slate-800">💬 {lead.message}</p>
-                        <span className="text-[10px] text-zinc-500 mt-1 block">{new Date(lead.created_at).toLocaleString()}</span>
+                        <span className="text-[10px] text-zinc-500 mt-1 block">{new Date(lead.created_at).toLocaleString("zh-HK", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
                       </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                      {lead.status === "contacted" ? (
+                        <button onClick={() => toggleLeadContacted(lead.id, lead.status)} className="px-3.5 py-2 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-emerald-400 hover:bg-slate-800 hover:text-zinc-300 font-bold text-xs transition flex items-center gap-1.5 cursor-pointer">
+                          <CheckCircle2 className="w-4 h-4" /> 已標記聯絡 <RotateCcw className="w-3 h-3 text-zinc-400" />
+                        </button>
+                      ) : (
+                        <button onClick={() => toggleLeadContacted(lead.id, lead.status)} className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs transition cursor-pointer shadow-md">標記為已聯絡</button>
+                      )}
+                      <button onClick={() => handleDeleteLead(lead.id)} className="p-2 rounded-xl bg-slate-900 hover:bg-red-500/20 text-zinc-400 hover:text-red-400 transition cursor-pointer" title="刪除諮詢單">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
                 ))}
