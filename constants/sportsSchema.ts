@@ -1,6 +1,8 @@
 // constants/sportsSchema.ts
 
-export type FieldDef = { 
+import { normalizeSportCategory } from "@/lib/sports-categories";
+
+export type FieldDef = {
     key: string; 
     label: string; 
     type: "select" | "text" | "number"; 
@@ -79,3 +81,23 @@ export type FieldDef = {
       { key: "highlight_skill", label: "特殊招式或備註", type: "text", placeholder: "例: 擅長反手拍、具備教練執照等..." }
     ]
   };
+
+const SCHEMA_BY_SLUG: Record<string, FieldDef[]> = {
+  volleyball: PRO_SPORT_SCHEMA["Volleyball"],
+  basketball: PRO_SPORT_SCHEMA["Basketball"],
+  tennis: PRO_SPORT_SCHEMA["Tennis"],
+  badminton: PRO_SPORT_SCHEMA["Badminton"],
+  soccer: PRO_SPORT_SCHEMA["Soccer / Football"],
+  running: PRO_SPORT_SCHEMA["Running / Marathon"],
+  gym: PRO_SPORT_SCHEMA["Gym / Fitness"],
+  pickleball: PRO_SPORT_SCHEMA.default,
+  boxing: PRO_SPORT_SCHEMA.default,
+  yoga: PRO_SPORT_SCHEMA.default,
+};
+
+export function getSportSchema(sportName: string | null | undefined): FieldDef[] {
+  if (!sportName) return PRO_SPORT_SCHEMA.default;
+  const slug = normalizeSportCategory(sportName);
+  if (slug && SCHEMA_BY_SLUG[slug]) return SCHEMA_BY_SLUG[slug];
+  return PRO_SPORT_SCHEMA[sportName] ?? PRO_SPORT_SCHEMA.default;
+}

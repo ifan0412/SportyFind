@@ -8,6 +8,9 @@ import {
   Shield, Trophy, Loader2, ArrowLeft, Clock, ChevronLeft, ChevronRight 
 } from "lucide-react";
 import Link from "next/link";
+import { SPORT_CATEGORIES } from "@/lib/sports-categories";
+import { HKDistrictPicker } from "@/components/location/HKDistrictPicker";
+import { normalizeDistrictIds, normalizeSubdistrictIds } from "@/lib/hk-locations";
 
 interface TeamOption {
   id: string;
@@ -254,6 +257,8 @@ export default function CreateEventPage() {
   const [organizerTeamId, setOrganizerTeamId] = useState<string>("");
   const [locationName, setLocationName] = useState("");
   const [locationAddress, setLocationAddress] = useState("");
+  const [districts, setDistricts] = useState<string[]>([]);
+  const [subdistricts, setSubdistricts] = useState<string[]>([]);
   const [maxCapacity, setMaxCapacity] = useState<string>("");
   const [fee, setFee] = useState<string>("0");
   const [lateHours, setLateHours] = useState<string>("24");
@@ -323,6 +328,12 @@ export default function CreateEventPage() {
       return;
     }
 
+    const eventDistricts = normalizeDistrictIds(districts, null);
+    if (!eventDistricts.length) {
+      setErrorMsg("請至少選擇一個活動地區");
+      return;
+    }
+
     const startDateTime = new Date(`${dateStr}T${startTimeStr}:00`);
     const endDateTime = new Date(`${dateStr}T${endTimeStr}:00`);
 
@@ -352,6 +363,8 @@ export default function CreateEventPage() {
         registration_type: registrationType,
         location_name: locationName.trim(),
         location_address: locationAddress.trim() || null,
+        districts: eventDistricts,
+        subdistricts: normalizeSubdistrictIds(subdistricts),
         start_time: startDateTime.toISOString(),
         end_time: endDateTime.toISOString(),
         max_capacity: maxCapacity ? parseInt(maxCapacity, 10) : null,
@@ -476,12 +489,11 @@ export default function CreateEventPage() {
                   onChange={(e) => setSportCategory(e.target.value)}
                   className="w-full bg-slate-950 border border-blue-500/50 rounded-xl px-4 py-3 text-sm text-white font-bold focus:outline-none focus:border-blue-500 transition cursor-pointer"
                 >
-                  <option value="volleyball">🏐 排球 (Volleyball)</option>
-                  <option value="tennis">🎾 網球 (Tennis)</option>
-                  <option value="badminton">🏸 羽毛球 (Badminton)</option>
-                  <option value="basketball">🏀 籃球 (Basketball)</option>
-                  <option value="football">⚽ 足球 (Football)</option>
-                  <option value="table_tennis">🏓 乒乓球 (Table Tennis)</option>
+                  {SPORT_CATEGORIES.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.emoji} {s.labelZh} ({s.labelEn})
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -556,7 +568,20 @@ export default function CreateEventPage() {
             </div>
 
             {/* 6. 地點資訊 */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-4">
+              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800/80">
+                <label className="block text-xs font-black text-zinc-300 mb-3">活動地區 *</label>
+                <HKDistrictPicker
+                  districts={districts}
+                  subdistricts={subdistricts}
+                  onDistrictsChange={setDistricts}
+                  onSubdistrictsChange={setSubdistricts}
+                  hideSectionTitle
+                  minDistricts={0}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-black text-zinc-300 mb-2 flex items-center gap-1.5">
                   <MapPin className="w-3.5 h-3.5 text-amber-400" /> 場地名稱 *
@@ -581,6 +606,7 @@ export default function CreateEventPage() {
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500 transition"
                 />
               </div>
+            </div>
             </div>
 
             {/* 7. 名額、費用與紅旗規則 */}

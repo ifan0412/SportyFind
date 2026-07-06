@@ -9,16 +9,9 @@ export const CONTENT_CATEGORIES = [
 
 export type ContentCategory = (typeof CONTENT_CATEGORIES)[number]["id"];
 
-export const CONTENT_SPORTS = [
-  "Volleyball",
-  "Basketball",
-  "Tennis",
-  "Badminton",
-  "Soccer / Football",
-  "Running / Marathon",
-  "Gym / Fitness",
-  "Pickleball",
-] as const;
+import { SPORT_CATEGORIES } from "@/lib/sports-categories";
+
+export const CONTENT_SPORTS = SPORT_CATEGORIES.map((s) => s.id);
 
 export function getCategoryLabel(id: string): string {
   return CONTENT_CATEGORIES.find((c) => c.id === id)?.label ?? id;

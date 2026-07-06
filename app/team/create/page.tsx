@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { SportCategory, RecruitmentStatus } from "@/types/team";
+import { SPORT_CATEGORIES } from "@/lib/sports-categories";
 
 type SportMetadata = Record<string, string | boolean | string[] | unknown>;
 
@@ -35,16 +36,7 @@ const DEFAULT_FORM: FormData = {
   social_fb: "",
 };
 
-const SPORT_OPTIONS: { value: SportCategory; emoji: string; label: string }[] = [
-  { value: "volleyball",  emoji: "🏐", label: "排球 Volleyball" },
-  { value: "basketball",  emoji: "🏀", label: "籃球 Basketball" },
-  { value: "soccer",      emoji: "⚽", label: "足球 Soccer" },
-  { value: "tennis",      emoji: "🎾", label: "網球 Tennis" },
-  { value: "badminton",   emoji: "🏸", label: "羽毛球 Badminton" },
-  { value: "pickleball",  emoji: "🏓", label: "匹克球 Pickleball" },
-  { value: "gym",         emoji: "🏋️", label: "健身 Gym" },
-  { value: "running",     emoji: "🏃", label: "路跑 Running" },
-];
+const SPORT_OPTIONS = SPORT_CATEGORIES;
 
 type FieldType = "text" | "select" | "boolean" | "multiselect";
 interface MetaField {
@@ -289,17 +281,18 @@ export default function CreateTeamPage() {
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {SPORT_OPTIONS.map((s) => (
                   <button
-                    key={s.value}
+                    key={s.id}
                     type="button"
-                    onClick={() => { set("sport_category", s.value); set("sport_metadata", {}); }}
-                    className={`flex flex-col items-center gap-1 py-4 rounded-2xl border text-center transition-all
-                      ${formData.sport_category === s.value
+                    onClick={() => { set("sport_category", s.id as SportCategory); set("sport_metadata", {}); }}
+                    className={`flex flex-col items-center gap-1 py-4 rounded-2xl border text-center transition-all min-h-[88px]
+                      ${formData.sport_category === s.id
                         ? "bg-amber-500/10 border-amber-500 text-amber-400 shadow-[0_0_12px_rgba(217,119,6,0.2)]"
                         : "bg-slate-900/50 border-slate-800 text-zinc-400 hover:border-slate-600 hover:text-white"
                       }`}
                   >
                     <span className="text-2xl">{s.emoji}</span>
-                    <span className="text-[10px] font-black leading-tight px-1">{s.label}</span>
+                    <span className="text-sm font-black text-white leading-tight">{s.labelZh}</span>
+                    <span className="text-[9px] font-black tracking-widest text-zinc-500 uppercase">{s.labelEn}</span>
                   </button>
                 ))}
               </div>
@@ -332,9 +325,9 @@ export default function CreateTeamPage() {
         {currentStep === 2 && (
           <div className="space-y-6 animate-fadeIn">
             <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-4 mb-2 flex items-center gap-3">
-              <span className="text-2xl">{SPORT_OPTIONS.find(s => s.value === formData.sport_category)?.emoji}</span>
+              <span className="text-2xl">{SPORT_OPTIONS.find(s => s.id === formData.sport_category)?.emoji}</span>
               <div>
-                <p className="text-sm font-black text-white">{SPORT_OPTIONS.find(s => s.value === formData.sport_category)?.label}</p>
+                <p className="text-sm font-black text-white">{SPORT_OPTIONS.find(s => s.id === formData.sport_category)?.labelZh}</p>
                 <p className="text-[10px] text-zinc-500">以下欄位依據你的運動種類自動產生，全部為選填。</p>
               </div>
             </div>

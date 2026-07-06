@@ -7,7 +7,9 @@ export type SportCategory =
   | 'badminton' 
   | 'pickleball' 
   | 'gym' 
-  | 'running';
+  | 'running'
+  | 'boxing'
+  | 'yoga';
 
 // 招募狀態
 export type RecruitmentStatus = 'open' | 'invite_only' | 'closed';

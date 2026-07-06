@@ -5,7 +5,19 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { BackButton } from "@/components/BackButton";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Mail, Phone, MapPin, X, EyeOff, MessageSquare, Zap, Star, AlertCircle } from "lucide-react"; 
+import { Mail, Phone, MapPin, X, EyeOff, MessageSquare, Zap, Star, AlertCircle } from "lucide-react";
+import {
+  formatDistrictList,
+  formatSubdistrictList,
+  normalizeDistrictIds,
+  normalizeSubdistrictIds,
+} from "@/lib/hk-locations";
+import { RichBody } from "@/components/content/RichBody";
+import { SportCategoryBadge } from "@/components/sports/SportCategoryBadge";
+import { stripHtml } from "@/lib/content/body";
+import { ServicePublishBadge } from "@/components/services/ServicePublishBadge";
+import { PhysioServiceTypeBadges } from "@/components/physio/PhysioServiceTypePicker";
+import { normalizePhysioServiceTypes } from "@/lib/physio-service-types";
 
 const FacebookIcon = ({ className }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" /></svg>
@@ -25,6 +37,9 @@ interface Profile {
   is_coach: boolean | null;
   is_physio: boolean | null; physio_rate: number | null; clinic_name: string | null; physio_status: string | null; physio_region: string | null;
   contact_email?: string | null; contact_phone?: string | null; city_region?: string | null; address?: string | null; is_address_public?: boolean; instagram_url?: string | null; facebook_url?: string | null; threads_url?: string | null;
+  coach_districts?: string[] | null; coach_subdistricts?: string[] | null; coach_teaching_experience_years?: number | null;
+  districts?: string[] | null; subdistricts?: string[] | null;
+  physio_districts?: string[] | null; physio_subdistricts?: string[] | null;
   physio_contact_email?: string | null; physio_contact_phone?: string | null; physio_city_region?: string | null; physio_address?: string | null; physio_is_address_public?: boolean; physio_instagram_url?: string | null; physio_facebook_url?: string | null; physio_threads_url?: string | null;
   physio_experience_years?: string | null; physio_qualifications?: string | null; physio_services_offered?: string | null;
   height_cm?: number | null; weight_kg?: number | null; show_physical_stats?: boolean | null;
@@ -61,6 +76,7 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [coachServices, setCoachServices] = useState<any[]>([]);
+  const [physioServices, setPhysioServices] = useState<any[]>([]);
   const [coachReviews, setCoachReviews] = useState<any[]>([]);
   const [userSports, setUserSports] = useState<UserSport[]>([]);
   const [galleryMedia, setGalleryMedia] = useState<MediaItem[]>([]);
@@ -104,13 +120,11 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
         const [
           { data: prof, error: profErr },
           { data: usData },
-          { data: servicesData },
           { data: reviewsData },
           { data: { user } }
         ] = await Promise.all([
           supabase.from("profiles").select("*").eq("id", id).single(),
           supabase.from("user_sports").select("id, metadata, sports(name)").eq("user_id", id),
-          supabase.from("coach_services").select("*").eq("coach_id", id).eq("is_active", true),
           supabase.from("coach_reviews").select("rating").eq("coach_id", id),
           supabase.auth.getUser(),
         ]);
@@ -119,7 +133,21 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
         const p = prof as Profile;
         setProfile(p);
         if (usData) setUserSports(usData as unknown as UserSport[]);
-        if (servicesData) setCoachServices(servicesData);
+
+        const uid = user?.id ?? null;
+        const isOwner = uid === id;
+        setCurrentUserId(uid);
+
+        const [{ data: coachSvc }, { data: physioSvc }] = await Promise.all([
+          isOwner
+            ? supabase.from("coach_services").select("*").eq("coach_id", id).order("created_at", { ascending: false })
+            : supabase.from("coach_services").select("*").eq("coach_id", id).eq("is_active", true),
+          isOwner
+            ? supabase.from("physio_services").select("*").eq("physio_id", id).order("created_at", { ascending: false })
+            : supabase.from("physio_services").select("*").eq("physio_id", id).eq("is_active", true),
+        ]);
+        if (coachSvc) setCoachServices(coachSvc);
+        if (physioSvc) setPhysioServices(physioSvc);
         if (reviewsData) setCoachReviews(reviewsData);
 
         if (typeof window !== "undefined") {
@@ -134,9 +162,7 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
         }
   
         if (user) {
-          const uid = user.id;
-          setCurrentUserId(uid);
-          if (uid !== id) await refetchFriendshipStatus(uid);
+          if (user.id !== id) await refetchFriendshipStatus(user.id);
         }
   
         const { data: storageFiles } = await supabase.storage.from("highlights").list(`${id}/`, { limit: 20 });
@@ -303,7 +329,7 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
                 {profile.bio || "這位運動員很低調，還沒有留下詳細的自介。"}
               </p>
               <div className="mt-4 flex items-center justify-center gap-2 text-xs text-zinc-500 font-medium">
-                <span>📍 {profile.location || "地點未公開"}</span>
+                <span>📍 {formatDistrictList(normalizeDistrictIds(profile.districts, profile.location), 2) || profile.location || "地點未公開"}</span>
               </div>
 
               <FriendButton />
@@ -426,16 +452,22 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
                         </div>
                       </div>
 
-                      {(profile.contact_email || profile.contact_phone || profile.city_region) && (
+                      {(profile.contact_email || profile.contact_phone || profile.city_region || (profile.coach_districts && profile.coach_districts.length > 0)) && (
                         <div className="flex flex-wrap items-center gap-2 bg-slate-900/40 p-3.5 rounded-2xl border border-slate-800/80 text-xs">
                           <span className="font-black text-amber-400 flex items-center gap-1 shrink-0 mr-1">
                             <MapPin className="w-3.5 h-3.5" /> 授課據點與聯絡：
                           </span>
 
-                          {profile.city_region && (
+                          {(profile.coach_districts?.length || profile.city_region) && (
                             <span className="bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800 text-zinc-200 font-bold">
-                              📍 {profile.city_region}
+                              📍 {formatDistrictList(normalizeDistrictIds(profile.coach_districts, profile.city_region), 3) || profile.city_region}
                               {profile.is_address_public && profile.address && ` (${profile.address})`}
+                            </span>
+                          )}
+
+                          {profile.coach_teaching_experience_years != null && profile.coach_teaching_experience_years > 0 && (
+                            <span className="text-[10px] font-black px-2.5 py-1.5 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                              {profile.coach_teaching_experience_years} 年教學經驗
                             </span>
                           )}
 
@@ -465,10 +497,11 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
                               className="bg-slate-900 border border-slate-800 hover:border-amber-500/50 rounded-3xl p-6 transition-all duration-300 flex flex-col justify-between group"
                             >
                               <div className="space-y-3">
-                                <div className="flex items-center justify-between">
-                                  <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                                    {srv.sport_category}
-                                  </span>
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <SportCategoryBadge category={srv.sport_category} variant="amber" size="xs" />
+                                    {currentUserId === id && <ServicePublishBadge isActive={!!srv.is_active} />}
+                                  </div>
                                   <span className="text-base font-black text-emerald-400">
                                     HK$ {srv.hourly_rate} <span className="text-xs text-zinc-500 font-normal">/小時</span>
                                   </span>
@@ -483,15 +516,23 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
                                 <p className="text-xs text-zinc-400 line-clamp-2 leading-relaxed">
                                   {srv.description || "點擊查看完整課程內容與學員評價"}
                                 </p>
+                                <div className="inline-flex items-center gap-1 text-[10px] font-bold text-zinc-400">
+                                  <MapPin className="w-3 h-3 text-amber-400" />
+                                  {formatDistrictList(normalizeDistrictIds(srv.districts, srv.location), 2) || "地點可商議"}
+                                </div>
                               </div>
 
                               <div className="pt-4 mt-5 border-t border-slate-800/80">
-                                <Link
-                                  href={`/coaches/services/${srv.id}`}
-                                  className="w-full bg-amber-600 hover:bg-amber-500 text-white font-black py-3 rounded-2xl transition shadow-[0_0_15px_rgba(217,119,6,0.3)] active:scale-95 flex items-center justify-center gap-1.5 text-sm"
-                                >
-                                  查看課程詳情 →
-                                </Link>
+                                {srv.is_active ? (
+                                  <Link
+                                    href={`/coaches/services/${srv.id}`}
+                                    className="w-full bg-amber-600 hover:bg-amber-500 text-white font-black py-3 rounded-2xl transition shadow-[0_0_15px_rgba(217,119,6,0.3)] active:scale-95 flex items-center justify-center gap-1.5 text-sm"
+                                  >
+                                    查看課程詳情 →
+                                  </Link>
+                                ) : currentUserId === id ? (
+                                  <p className="text-center text-xs font-bold text-zinc-500 py-2">草稿 — 發佈後才會顯示於名師榜</p>
+                                ) : null}
                               </div>
                             </div>
                           ))}
@@ -503,105 +544,128 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
               )}
 
               {activeRole === "physio" && (
-                <div className="space-y-8 animate-fadeIn">
-                  {(profile.physio_contact_email || profile.physio_contact_phone || profile.physio_city_region) && (
-                    <div className="bg-slate-900/40 border border-slate-800 rounded-3xl p-5 md:p-6 mb-8 mt-4">
-                      <h3 className="text-sm md:text-base font-black text-white mb-5 flex items-center gap-2">
-                        <MapPin className="w-4 h-4 text-emerald-500" />
-                        聯絡與服務據點
-                      </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {profile.physio_contact_email && (
-                          <div className="flex items-start gap-3 p-3 bg-slate-950/50 rounded-2xl border border-slate-800/50">
-                            <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center shrink-0"><Mail className="w-4 h-4 text-blue-400" /></div>
-                            <div className="flex flex-col overflow-hidden">
-                              <span className="text-[10px] text-zinc-500 font-bold uppercase">Email</span>
-                              <a href={`mailto:${profile.physio_contact_email}`} className="text-sm font-medium text-white hover:text-blue-400 transition-colors truncate">{profile.physio_contact_email}</a>
-                            </div>
-                          </div>
-                        )}
-                        {profile.physio_contact_phone && (
-                          <div className="flex items-start gap-3 p-3 bg-slate-950/50 rounded-2xl border border-slate-800/50">
-                            <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center shrink-0"><Phone className="w-4 h-4 text-emerald-400" /></div>
-                            <div className="flex flex-col overflow-hidden">
-                              <span className="text-[10px] text-zinc-500 font-bold uppercase">Phone</span>
-                              <a href={`tel:${profile.physio_contact_phone}`} className="text-sm font-medium text-white hover:text-emerald-400 transition-colors truncate">{profile.physio_contact_phone}</a>
-                            </div>
-                          </div>
-                        )}
-                        {profile.physio_city_region && (
-                          <div className="flex items-start gap-3 p-3 bg-slate-950/50 rounded-2xl border border-slate-800/50 md:col-span-2">
-                            <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center shrink-0"><MapPin className="w-4 h-4 text-emerald-400" /></div>
-                            <div className="flex flex-col">
-                              <span className="text-[10px] text-zinc-500 font-bold uppercase">Location</span>
-                              <span className="text-sm font-black text-white mt-0.5">{profile.physio_city_region}</span>
-                              {profile.physio_is_address_public && profile.physio_address ? (
-                                <span className="text-xs font-medium text-slate-400 mt-1">{profile.physio_address}</span>
-                              ) : (
-                                <span className="text-xs font-medium text-slate-500 mt-1 flex items-center gap-1.5"><EyeOff className="w-3 h-3" /> 詳細地址未公開，請私訊預約</span>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
+                <div className="space-y-6 animate-fadeIn">
+                  {!profile.is_physio ? (
+                    <div className="p-12 bg-slate-900/40 border border-slate-800 rounded-3xl text-center space-y-3">
+                      <AlertCircle className="w-10 h-10 text-zinc-500 mx-auto" />
+                      <div className="text-base font-bold text-zinc-300">🚫 此運動員目前未開啟或已暫停物理治療專區</div>
+                      <p className="text-xs text-zinc-500 max-w-md mx-auto">該使用者並未對外公開治療師服務或正在調整內容中。</p>
                     </div>
-                  )}
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="md:col-span-1 space-y-6">
-                      <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-3xl p-6 md:p-8 text-center flex flex-col justify-center h-[calc(100%-88px)]">
-                        <div>
-                          <StatusBadge tag={profile.physio_status} type="physio" />
-                          <div className="mt-6">
-                            <span className="text-xs text-zinc-500 font-bold uppercase block mb-1">所屬診所 / 工作室</span>
-                            <span className="text-lg font-black text-white block mb-6">{profile.clinic_name || "獨立接案防護員"}</span>
-                            <span className="text-xs text-zinc-500 font-bold uppercase block mb-1">單次參考收費</span>
-                            <span className="text-4xl font-black text-white">HK$ {profile.physio_rate}</span>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="bg-slate-900/40 border border-slate-800 rounded-3xl p-5 flex flex-col justify-center items-center text-center">
-                        <button 
-                          onClick={() => setIsContactModalOpen(true)}
-                          className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-3.5 px-6 rounded-2xl transition shadow-[0_0_15px_rgba(16,185,129,0.3)] active:scale-95 cursor-pointer"
-                        >
-                          聯繫方式
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="md:col-span-2 space-y-6">
-                      <div className="bg-slate-900/40 border border-slate-800 rounded-3xl p-6 md:p-8">
-                        <h3 className="text-lg font-black text-emerald-400 mb-6 flex items-center gap-2">
-                          <span className="text-2xl">🎓</span> 專業資歷
-                        </h3>
-                        <div className="space-y-6">
-                          <div>
-                            <span className="text-xs text-zinc-500 font-bold uppercase block mb-1">從業經驗</span>
-                            <span className="text-white font-medium bg-slate-800 px-3 py-1 rounded-lg">
-                              {profile.physio_experience_years ? `${profile.physio_experience_years} 年以上` : "未提供"}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-xs text-zinc-500 font-bold uppercase block mb-2">專業證照與資格 (Certifications)</span>
-                            <p className="text-zinc-300 whitespace-pre-wrap leading-relaxed text-sm bg-slate-950/50 p-4 rounded-xl border border-slate-800">
-                              {profile.physio_qualifications || "尚未填寫專業資格。"}
+                  ) : (
+                    <>
+                      <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-xl mt-2">
+                        <div className="space-y-2 max-w-2xl">
+                          <h3 className="text-sm font-black text-emerald-400 uppercase tracking-wider flex items-center gap-2">
+                            <span>⚕️</span> 治療師專業簡介
+                          </h3>
+                          <p className="text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap">
+                            {profile.physio_qualifications || "目前尚未填寫專業資歷與簡介。"}
+                          </p>
+                          {profile.clinic_name && (
+                            <p className="text-xs text-zinc-500 font-bold">
+                              所屬：{profile.clinic_name}
+                              {profile.physio_experience_years ? ` · ${profile.physio_experience_years} 年經驗` : ""}
                             </p>
-                          </div>
+                          )}
+                        </div>
+
+                        <div className="bg-slate-950 px-6 py-4 rounded-2xl border border-slate-800/80 text-center shrink-0 w-full md:w-auto">
+                          <StatusBadge tag={profile.physio_status} type="physio" />
+                          <button
+                            onClick={() => setIsContactModalOpen(true)}
+                            className="mt-4 w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-2.5 px-5 rounded-xl transition shadow-[0_0_15px_rgba(16,185,129,0.3)] active:scale-95 cursor-pointer text-sm"
+                          >
+                            聯繫方式
+                          </button>
                         </div>
                       </div>
 
-                      <div className="bg-slate-900/40 border border-slate-800 rounded-3xl p-6 md:p-8">
-                        <h3 className="text-lg font-black text-emerald-400 mb-4 flex items-center gap-2">
-                          <span className="text-2xl">💆‍♂️</span> 服務項目 (Services)
+                      {(profile.physio_contact_email || profile.physio_contact_phone || profile.physio_city_region || (profile.physio_districts && profile.physio_districts.length > 0)) && (
+                        <div className="flex flex-wrap items-center gap-2 bg-slate-900/40 p-3.5 rounded-2xl border border-slate-800/80 text-xs">
+                          <span className="font-black text-emerald-400 flex items-center gap-1 shrink-0 mr-1">
+                            <MapPin className="w-3.5 h-3.5" /> 服務據點與聯絡：
+                          </span>
+
+                          {(profile.physio_districts?.length || profile.physio_city_region) && (
+                            <span className="bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800 text-zinc-200 font-bold">
+                              📍 {formatDistrictList(normalizeDistrictIds(profile.physio_districts, profile.physio_city_region), 3) || profile.physio_city_region}
+                              {profile.physio_is_address_public && profile.physio_address && ` (${profile.physio_address})`}
+                            </span>
+                          )}
+
+                          {profile.physio_contact_email && (
+                            <a href={`mailto:${profile.physio_contact_email}`} className="bg-blue-950/40 text-blue-300 border border-blue-500/30 px-3 py-1.5 rounded-xl hover:bg-blue-900/50 transition">
+                              ✉️ {profile.physio_contact_email}
+                            </a>
+                          )}
+
+                          {profile.physio_contact_phone && (
+                            <a href={`tel:${profile.physio_contact_phone}`} className="bg-emerald-950/40 text-emerald-300 border border-emerald-500/30 px-3 py-1.5 rounded-xl hover:bg-emerald-900/50 transition">
+                              📞 {profile.physio_contact_phone}
+                            </a>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="pt-2">
+                        <h3 className="text-base md:text-lg font-black text-white mb-4 flex items-center justify-between">
+                          <span>診療項目 / 服務 ({physioServices.length})</span>
                         </h3>
-                        <p className="text-zinc-300 whitespace-pre-wrap leading-relaxed text-sm bg-slate-950/50 p-4 rounded-xl border border-slate-800">
-                          {profile.physio_services_offered || "尚未填寫提供的服務項目。"}
-                        </p>
+
+                        {physioServices.length === 0 ? (
+                          <p className="text-zinc-500 text-sm">尚未公開任何診療項目。</p>
+                        ) : (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            {physioServices.map((srv: any) => (
+                              <div
+                                key={srv.id}
+                                className="bg-slate-900 border border-slate-800 hover:border-emerald-500/50 rounded-3xl p-6 transition-all duration-300 flex flex-col justify-between group"
+                              >
+                                <div className="space-y-3">
+                                  <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <PhysioServiceTypeBadges types={normalizePhysioServiceTypes(srv.service_types, srv.service_type)} size="xs" />
+                                      {currentUserId === id && <ServicePublishBadge isActive={!!srv.is_active} />}
+                                    </div>
+                                    <span className="text-base font-black text-emerald-400">
+                                      HK$ {srv.session_rate} <span className="text-xs text-zinc-500 font-normal">/節</span>
+                                    </span>
+                                  </div>
+
+                                  <Link href={`/physio/services/${srv.id}`} className="block">
+                                    <h4 className="text-lg font-black text-white group-hover:text-emerald-400 transition line-clamp-1">
+                                      {srv.title || "未命名項目"}
+                                    </h4>
+                                  </Link>
+
+                                  <p className="text-xs text-zinc-400 line-clamp-2 leading-relaxed">
+                                    {stripHtml(srv.description || "") || "點擊查看完整診療內容與評價"}
+                                  </p>
+                                  <div className="inline-flex items-center gap-1 text-[10px] font-bold text-zinc-400">
+                                    <MapPin className="w-3 h-3 text-emerald-400" />
+                                    {formatDistrictList(normalizeDistrictIds(srv.districts, srv.location), 2) || "地點可商議"}
+                                  </div>
+                                </div>
+
+                                <div className="pt-4 mt-5 border-t border-slate-800/80">
+                                  {srv.is_active ? (
+                                    <Link
+                                      href={`/physio/services/${srv.id}`}
+                                      className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-3 rounded-2xl transition shadow-[0_0_15px_rgba(16,185,129,0.3)] active:scale-95 flex items-center justify-center gap-1.5 text-sm"
+                                    >
+                                      查看項目詳情 →
+                                    </Link>
+                                  ) : currentUserId === id ? (
+                                    <p className="text-center text-xs font-bold text-zinc-500 py-2">草稿 — 發佈後才會顯示於名錄</p>
+                                  ) : null}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  </div>
+                    </>
+                  )}
                 </div>
               )}
             </div>

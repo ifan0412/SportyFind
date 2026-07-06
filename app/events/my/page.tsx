@@ -7,6 +7,7 @@ import {
   Trophy, Calendar, MapPin, Shield, ChevronRight, Plus, Loader2, ArrowUpRight 
 } from "lucide-react";
 import Link from "next/link";
+import { getSportCategory } from "@/lib/sports-categories";
 import CalendarExportButton from "@/components/CalendarExportButton";
 
 export default function MyEventsPage() {
@@ -120,13 +121,7 @@ export default function MyEventsPage() {
     });
   };
 
-  const getSportIcon = (cat: string) => {
-    const icons: Record<string, string> = {
-      volleyball: "🏐", tennis: "🎾", badminton: "🏸",
-      basketball: "🏀", football: "⚽", table_tennis: "🏓"
-    };
-    return icons[cat] || "⚡";
-  };
+  const getSportIcon = (cat: string) => getSportCategory(cat)?.emoji ?? "⚡";
 
   return (
     <div className="bg-slate-950 min-h-screen py-10 px-4 sm:px-6 lg:px-8 text-white">

@@ -6,9 +6,13 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { BackButton } from "@/components/BackButton";
 import { ContentCard } from "@/components/content/ContentCard";
 import { CONTENT_CATEGORIES, CONTENT_SPORTS } from "@/lib/content/constants";
+import { getSportCategory } from "@/lib/sports-categories";
 import { stripHtml } from "@/lib/content/body";
 import type { ContentPost } from "@/lib/types/content";
 import { Sparkles, Loader2, Search } from "lucide-react";
+
+const filterChip =
+  "px-3 py-1.5 rounded-full text-xs font-bold transition border";
 
 export default function ContentListingClient() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
@@ -99,8 +103,10 @@ export default function ContentListingClient() {
                 <button
                   type="button"
                   onClick={() => setFilter("category", "")}
-                  className={`px-3 py-1.5 rounded-full text-xs font-bold transition ${
-                    !categoryFilter ? "bg-blue-600 text-white" : "bg-slate-800 text-zinc-400 hover:text-white"
+                  className={`${filterChip} ${
+                    !categoryFilter
+                      ? "bg-blue-600/20 border-blue-500 text-blue-300"
+                      : "bg-slate-950 border-slate-800 text-zinc-400 hover:border-slate-600 hover:text-white"
                   }`}
                 >
                   全部
@@ -110,8 +116,10 @@ export default function ContentListingClient() {
                     key={c.id}
                     type="button"
                     onClick={() => setFilter("category", c.id)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition ${
-                      categoryFilter === c.id ? "bg-blue-600 text-white" : "bg-slate-800 text-zinc-400 hover:text-white"
+                    className={`${filterChip} ${
+                      categoryFilter === c.id
+                        ? "bg-blue-600/20 border-blue-500 text-blue-300"
+                        : "bg-slate-950 border-slate-800 text-zinc-400 hover:border-slate-600 hover:text-white"
                     }`}
                   >
                     {c.label}
@@ -126,24 +134,31 @@ export default function ContentListingClient() {
                 <button
                   type="button"
                   onClick={() => setFilter("sport", "")}
-                  className={`px-3 py-1.5 rounded-full text-xs font-bold transition ${
-                    !sportFilter ? "bg-amber-600 text-white" : "bg-slate-800 text-zinc-400 hover:text-white"
+                  className={`${filterChip} ${
+                    !sportFilter
+                      ? "bg-amber-600/20 border-amber-500 text-amber-300"
+                      : "bg-slate-950 border-slate-800 text-zinc-400 hover:border-slate-600 hover:text-white"
                   }`}
                 >
                   全部運動
                 </button>
-                {CONTENT_SPORTS.map((s) => (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => setFilter("sport", s)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition ${
-                      sportFilter === s ? "bg-amber-600 text-white" : "bg-slate-800 text-zinc-400 hover:text-white"
-                    }`}
-                  >
-                    {s}
-                  </button>
-                ))}
+                {CONTENT_SPORTS.map((s) => {
+                  const sport = getSportCategory(s);
+                  return (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setFilter("sport", s)}
+                      className={`${filterChip} ${
+                        sportFilter === s
+                          ? "bg-amber-600/20 border-amber-500 text-amber-300"
+                          : "bg-slate-950 border-slate-800 text-zinc-400 hover:border-slate-600 hover:text-white"
+                      }`}
+                    >
+                      {sport ? `${sport.emoji} ${sport.labelZh}` : s}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>

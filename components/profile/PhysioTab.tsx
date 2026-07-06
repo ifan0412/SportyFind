@@ -1,5 +1,7 @@
 "use client";
 
+import { HKDistrictPicker } from "@/components/location/HKDistrictPicker";
+
 interface PhysioTabProps {
   editForm?: any;
   onFieldChange?: (field: string, value: any) => void;
@@ -37,7 +39,7 @@ export function PhysioTab({
           <h3 className="text-sm font-black text-emerald-400 mb-4 flex items-center gap-2">
             <span className="w-1.5 h-4 bg-emerald-500 rounded-full"></span> 基本資訊
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label className="text-[10px] text-zinc-500 font-bold uppercase block pl-1">狀態</label>
               <select
@@ -49,16 +51,6 @@ export function PhysioTab({
                 <option value="full">🔴 滿診中</option>
                 <option value="hidden">🔒 未發布 (隱藏)</option>
               </select>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-[10px] text-zinc-500 font-bold uppercase block pl-1">單次參考收費 (HK$)</label>
-              <input
-                type="number"
-                value={editForm.physio_rate || ""}
-                onChange={(e) => onFieldChange("physio_rate", e.target.value === "" ? null : Number(e.target.value))}
-                placeholder="例如: 800"
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:border-emerald-500 transition-colors outline-none"
-              />
             </div>
             <div className="space-y-1.5">
               <label className="text-[10px] text-zinc-500 font-bold uppercase block pl-1">所屬診所 / 工作室名稱</label>
@@ -126,9 +118,19 @@ export function PhysioTab({
               <label className="text-[10px] text-zinc-500 font-bold uppercase block pl-1">公開聯絡電話</label>
               <input type="tel" value={editForm.physio_contact_phone || ""} onChange={(e) => onFieldChange("physio_contact_phone", e.target.value)} placeholder="+852 9876 5432" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:border-emerald-500 transition-colors outline-none" />
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 md:col-span-2">
               <label className="text-[10px] text-zinc-500 font-bold uppercase block pl-1">主要服務地區</label>
-              <input type="text" value={editForm.physio_city_region || ""} onChange={(e) => onFieldChange("physio_city_region", e.target.value)} placeholder="例如：中環 / 尖沙咀" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:border-emerald-500 transition-colors outline-none" />
+              <HKDistrictPicker
+                districts={editForm.physio_districts || []}
+                subdistricts={editForm.physio_subdistricts || []}
+                onDistrictsChange={() => {}}
+                onSubdistrictsChange={() => {}}
+                onSelectionChange={(d, s) => {
+                  onFieldChange("physio_districts", d);
+                  onFieldChange("physio_subdistricts", s);
+                }}
+                hideSectionTitle
+              />
             </div>
             <div className="space-y-1.5">
               <label className="text-[10px] text-zinc-500 font-bold uppercase block pl-1">詳細地址</label>

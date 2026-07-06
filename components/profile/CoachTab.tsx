@@ -1,17 +1,29 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { HKDistrictPicker } from "@/components/location/HKDistrictPicker";
+import {
+  formatDistrictList,
+  normalizeDistrictIds,
+  normalizeSubdistrictIds,
+} from "@/lib/hk-locations";
 import { 
   CheckCircle2, Plus, Trash2, Save, Loader2, 
   UploadCloud, RotateCcw, ArrowLeft, Edit3, MapPin, Settings, BookOpen, Inbox
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
+import { RichTextEditor } from "@/components/admin/RichTextEditor";
+import { RichBody } from "@/components/content/RichBody";
+import { SportCategoryBadge } from "@/components/sports/SportCategoryBadge";
+import { SportCategoryPicker } from "@/components/sports/SportCategoryPicker";
+import type { SportCategoryId } from "@/lib/sports-categories";
+import { stripHtml } from "@/lib/content/body";
+import { ServicePublishBadge } from "@/components/services/ServicePublishBadge";
 
 interface CoachTabProps {
-  allSports: any[];
   editForm?: any; 
   onFieldChange?: (field: string, value: any) => void;
   onSaveGlobal?: () => void; 
@@ -136,7 +148,7 @@ function CoachEnquiriesInbox({ fallbackCoachId }: { fallbackCoachId?: string }) 
 }
 
 // 2. 獨立課程與服務專屬管理模組
-function CoachServicesManager({ allSports }: { allSports: any[] }) {
+function CoachServicesManager() {
   const [services, setServices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const supabase = createSupabaseBrowserClient();
@@ -153,7 +165,32 @@ function CoachServicesManager({ allSports }: { allSports: any[] }) {
   const [loadingSubData, setLoadingSubData] = useState(false);
   const [uploadingMedia, setUploadingMedia] = useState(false);
   const [pendingServiceIds, setPendingServiceIds] = useState<Set<string>>(new Set());
+  const titleSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const persistServiceField = useCallback(
+    async (id: string, patch: Record<string, unknown>) => {
+      const { error } = await supabase.from("coach_services").update(patch).eq("id", id);
+      if (error) {
+        console.error("Auto-save failed:", error.message);
+        return false;
+      }
+      setSelectedService((prev: any) => (prev?.id === id ? { ...prev, ...patch } : prev));
+      setServices((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
+      return true;
+    },
+    [supabase]
+  );
+
+  useEffect(() => {
+    if (!isEditingInfo || !selectedService?.id) return;
+    if (titleSaveTimer.current) clearTimeout(titleSaveTimer.current);
+    titleSaveTimer.current = setTimeout(() => {
+      persistServiceField(selectedService.id, { title: editForm.title ?? "" });
+    }, 500);
+    return () => {
+      if (titleSaveTimer.current) clearTimeout(titleSaveTimer.current);
+    };
+  }, [editForm.title, isEditingInfo, selectedService?.id, persistServiceField]);
 
   const fetchServices = useCallback(async () => {
     setLoading(true);
@@ -196,13 +233,15 @@ function CoachServicesManager({ allSports }: { allSports: any[] }) {
 
     const newServicePayload = {
       coach_id: user.id,
-      title: "新課程專案 (點擊編輯)",
-      sport_category: allSports[0]?.name || "Football / Soccer",
-      hourly_rate: 500,
-      location: "九龍區 (Kowloon)",
-      description: "請填寫詳細授課內容與教學目標...",
+      title: "",
+      sport_category: "volleyball",
+      hourly_rate: 0,
+      districts: [],
+      subdistricts: [],
+      description: "",
       photos: [],
-      is_active: true
+      is_active: false,
+      teaching_experience_years: null,
     };
 
     const { data, error } = await supabase.from("coach_services").insert(newServicePayload).select().single();
@@ -211,7 +250,7 @@ function CoachServicesManager({ allSports }: { allSports: any[] }) {
     } else if (data) {
       setServices([data, ...services]);
       setSelectedService(data);
-      setEditForm(data);
+      setEditForm({ ...data, districts: [], subdistricts: [], teaching_experience_years: "" });
       setIsEditingInfo(true);
       setDetailTab("info");
     }
@@ -223,7 +262,12 @@ function CoachServicesManager({ allSports }: { allSports: any[] }) {
   //    so the dot never comes back on refresh unless a NEW enquiry arrives
   const handleOpenDetail = async (srv: any) => {
     setSelectedService(srv);
-    setEditForm(srv);
+    setEditForm({
+      ...srv,
+      districts: normalizeDistrictIds(srv.districts, srv.location),
+      subdistricts: normalizeSubdistrictIds(srv.subdistricts),
+      teaching_experience_years: srv.teaching_experience_years ?? "",
+    });
     setIsEditingInfo(false);
     setDetailTab("info");
   
@@ -242,26 +286,42 @@ function CoachServicesManager({ allSports }: { allSports: any[] }) {
       .eq("status", "pending");
   };
 
-  const handleSaveCourseInfo = async () => {
-    if (!editForm.title?.trim()) return alert("請填寫課程標題");
+  const handleSaveCourseInfo = async (publish: boolean) => {
     setIsSavingInfo(true);
+    const districts = Array.isArray(editForm.districts) ? editForm.districts : [];
+    if (publish && !districts.length) {
+      setIsSavingInfo(false);
+      alert("發佈前請至少選擇一個授課地區");
+      return;
+    }
+    if (publish && !editForm.sport_category) {
+      setIsSavingInfo(false);
+      alert("發佈前請選擇專項類別");
+      return;
+    }
 
-    const { error } = await supabase.from("coach_services").update({
-      title: editForm.title,
+    const payload = {
+      title: (editForm.title ?? "").trim(),
       sport_category: editForm.sport_category,
       hourly_rate: Number(editForm.hourly_rate) || 0,
-      location: editForm.location,
-      description: editForm.description,
-      is_active: editForm.is_active
-    }).eq("id", editForm.id);
+      districts,
+      subdistricts: normalizeSubdistrictIds(editForm.subdistricts),
+      description: editForm.description || "",
+      is_active: publish,
+      teaching_experience_years: editForm.teaching_experience_years
+        ? Number(editForm.teaching_experience_years)
+        : null,
+    };
+
+    const { error } = await supabase.from("coach_services").update(payload).eq("id", editForm.id);
 
     setIsSavingInfo(false);
     if (error) {
       alert("更新失敗: " + error.message);
     } else {
-      alert("🎉 課程資訊已更新！");
-      setSelectedService(editForm);
-      setServices(services.map(s => s.id === editForm.id ? editForm : s));
+      const updated = { ...editForm, ...payload };
+      setSelectedService(updated);
+      setServices(services.map(s => s.id === editForm.id ? updated : s));
       setIsEditingInfo(false);
     }
   };
@@ -331,7 +391,7 @@ function CoachServicesManager({ allSports }: { allSports: any[] }) {
           type="button" 
           className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-black px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-1.5 shrink-0 cursor-pointer active:scale-95"
         >
-          <Plus className="w-4 h-4" /> ＋ 新增獨立課程
+          <Plus className="w-4 h-4" />新增獨立課程
         </button>
       </div>
 
@@ -359,10 +419,11 @@ function CoachServicesManager({ allSports }: { allSports: any[] }) {
               )}
             
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="px-3 py-1 rounded-full text-xs font-black uppercase bg-amber-500/15 text-amber-400 border border-amber-500/30 tracking-wider">
-                      {srv.sport_category}
-                    </span>
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <SportCategoryBadge category={srv.sport_category} variant="amber" size="xs" />
+                      <ServicePublishBadge isActive={!!srv.is_active} />
+                    </div>
                     <span className="text-base font-black text-emerald-400">
                       HK$ {srv.hourly_rate} <span className="text-xs text-zinc-500 font-normal">/小時</span>
                     </span>
@@ -373,13 +434,15 @@ function CoachServicesManager({ allSports }: { allSports: any[] }) {
                       {srv.title}
                     </h4>
                     <p className="text-xs text-zinc-400 font-medium mt-1.5 line-clamp-2 h-8 leading-snug">
-                      {srv.description || "尚無詳細大綱介紹。"}
+                      {stripHtml(srv.description) || "尚無詳細大綱介紹。"}
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-300 bg-slate-950/60 p-2.5 rounded-xl border border-slate-800">
+                  <div className="inline-flex items-center gap-1.5 text-xs font-bold text-zinc-300">
                     <MapPin className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                    <span className="truncate">{srv.location}</span>
+                    <span className="truncate">
+                      {formatDistrictList(normalizeDistrictIds(srv.districts, srv.location), 2) || "未設定地區"}
+                    </span>
                   </div>
                 </div>
 
@@ -426,7 +489,7 @@ function CoachServicesManager({ allSports }: { allSports: any[] }) {
               <span className="text-[10px] uppercase font-black px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
                 課程管理後台
               </span>
-              <h2 className="text-2xl font-black text-white mt-1">{selectedService.title}</h2>
+              <h2 className="text-2xl font-black text-white mt-1">{selectedService.title || "未命名課程"}</h2>
             </div>
             {!isEditingInfo && detailTab === "info" && (
               <button 
@@ -458,56 +521,93 @@ function CoachServicesManager({ allSports }: { allSports: any[] }) {
               <div className="space-y-4 pt-2 animate-fadeIn">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="sm:col-span-2">
-                    <label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">課程標題 *</label>
-                    <input type="text" value={editForm.title || ""} onChange={(e) => setEditForm({...editForm, title: e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-sm text-white font-bold" />
+                    <label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">課程標題</label>
+                    <input
+                      type="text"
+                      value={editForm.title ?? ""}
+                      onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                      placeholder="例如：成人籃球基礎班"
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-sm text-white font-bold placeholder:text-zinc-600"
+                    />
+                    <p className="text-[10px] text-zinc-600 mt-1">輸入時自動儲存</p>
                   </div>
-                  <div>
-                    <label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">專項類別</label>
-                    <select value={editForm.sport_category} onChange={(e) => setEditForm({...editForm, sport_category: e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-sm text-white font-bold cursor-pointer">
-                      {allSports.map(s => <option key={s.id || s.name} value={s.name}>{s.name}</option>)}
-                    </select>
-                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] text-zinc-500 font-bold uppercase block mb-2">專項類別</label>
+                  <SportCategoryPicker
+                    value={editForm.sport_category || ""}
+                    onChange={(id: SportCategoryId) => setEditForm({ ...editForm, sport_category: id })}
+                  />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">授課時薪 (HKD/小時)</label>
-                    <input type="number" value={editForm.hourly_rate ?? ""} onChange={(e) => setEditForm({...editForm, hourly_rate: e.target.value === "" ? "" : Number(e.target.value)})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-sm text-emerald-400 font-black" />
+                    <input type="number" value={editForm.hourly_rate ?? ""} onChange={(e) => setEditForm({...editForm, hourly_rate: e.target.value === "" ? "" : Number(e.target.value)})} placeholder="500" className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-sm text-emerald-400 font-black placeholder:text-zinc-600" />
                   </div>
                   <div>
-                    <label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">授課區域</label>
-                    <select value={editForm.location || ""} onChange={(e) => setEditForm({...editForm, location: e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-sm text-white font-bold cursor-pointer">
-                      <option value="港島區 (Hong Kong Island)">港島區 (Hong Kong Island)</option>
-                      <option value="九龍區 (Kowloon)">九龍區 (Kowloon)</option>
-                      <option value="新界區 (New Territories)">新界區 (New Territories)</option>
-                      <option value="離島區 (Outlying Islands)">離島區 (Outlying Islands)</option>
-                      <option value="全港 / 現場可議">全港 / 現場可議</option>
-                    </select>
+                    <label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">教學年資（年）</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={editForm.teaching_experience_years ?? ""}
+                      onChange={(e) => setEditForm({ ...editForm, teaching_experience_years: e.target.value === "" ? "" : Number(e.target.value) })}
+                      placeholder="例如：8"
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-sm text-white font-bold placeholder:text-zinc-600"
+                    />
                   </div>
+                </div>
+
+                <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4">
+                  <label className="text-[10px] text-zinc-500 font-bold uppercase block mb-3">授課地區</label>
+                  <HKDistrictPicker
+                    districts={editForm.districts || []}
+                    subdistricts={editForm.subdistricts || []}
+                    onDistrictsChange={() => {}}
+                    onSubdistrictsChange={() => {}}
+                    onSelectionChange={(d, s) => setEditForm((prev: any) => ({ ...prev, districts: d, subdistricts: s }))}
+                    hideSectionTitle
+                  />
                 </div>
 
                 <div>
                   <label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">課程大綱與介紹</label>
-                  <textarea rows={4} value={editForm.description || ""} onChange={(e) => setEditForm({...editForm, description: e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-zinc-200" />
+                  <RichTextEditor
+                    value={editForm.description ?? ""}
+                    onChange={(html) => setEditForm({ ...editForm, description: html })}
+                    placeholder="描述教學目標、適合對象、課堂內容..."
+                  />
                 </div>
 
-                <div className="flex justify-end gap-3 pt-2">
+                <label className="flex items-center gap-3 p-3 bg-slate-900/60 border border-slate-800 rounded-xl">
+                  <ServicePublishBadge isActive={!!editForm.is_active} />
+                  <span className="text-xs font-bold text-zinc-400">
+                    {editForm.is_active ? "此課程目前為發佈狀態" : "此課程目前為草稿"}
+                  </span>
+                </label>
+
+                <div className="flex flex-wrap justify-end gap-3 pt-2">
                   <button onClick={() => setIsEditingInfo(false)} type="button" className="px-5 py-2.5 rounded-xl bg-slate-800 text-zinc-400 font-bold text-xs cursor-pointer">取消</button>
-                  <button onClick={handleSaveCourseInfo} disabled={isSavingInfo} type="button" className="px-6 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-black text-xs transition flex items-center gap-1.5 cursor-pointer">
-                    {isSavingInfo ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} 儲存修改
+                  <button onClick={() => handleSaveCourseInfo(false)} disabled={isSavingInfo} type="button" className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-zinc-200 font-black text-xs transition cursor-pointer">儲存草稿</button>
+                  <button onClick={() => handleSaveCourseInfo(true)} disabled={isSavingInfo} type="button" className="px-6 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-black text-xs transition flex items-center gap-1.5 cursor-pointer">
+                    {isSavingInfo ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} 儲存並發佈
                   </button>
                 </div>
               </div>
             ) : (
               <div className="space-y-4 pt-2 text-sm">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
-                  <div><span className="text-xs text-zinc-500 block font-bold">專項類別</span><span className="font-extrabold text-amber-400">{selectedService.sport_category}</span></div>
+                  <div><span className="text-xs text-zinc-500 block font-bold">專項類別</span><SportCategoryBadge category={selectedService.sport_category} variant="amber" /></div>
                   <div><span className="text-xs text-zinc-500 block font-bold">授課收費</span><span className="font-extrabold text-emerald-400">${selectedService.hourly_rate} HKD / 小時</span></div>
-                  <div><span className="text-xs text-zinc-500 block font-bold">授課區域</span><span className="font-extrabold text-white">{selectedService.location}</span></div>
+                  <div><span className="text-xs text-zinc-500 block font-bold">授課地區</span><span className="font-extrabold text-white">{formatDistrictList(normalizeDistrictIds(selectedService.districts, selectedService.location), 4) || "未設定"}</span></div>
                 </div>
+                {selectedService.teaching_experience_years > 0 && (
+                  <div className="text-sm"><span className="text-xs text-zinc-500 font-bold">教學年資 </span><span className="font-extrabold text-blue-400">{selectedService.teaching_experience_years} 年</span></div>
+                )}
                 <div className="bg-slate-900/60 p-4 rounded-2xl border border-slate-800 space-y-1">
                   <span className="text-xs text-zinc-500 block font-bold">詳細課程說明</span>
-                  <p className="text-zinc-300 whitespace-pre-wrap leading-relaxed">{selectedService.description || "未填寫說明。"}</p>
+                  <RichBody html={selectedService.description} emptyText="未填寫說明。" className="text-zinc-300 text-sm leading-relaxed" />
                 </div>
               </div>
             )
@@ -613,7 +713,6 @@ function CoachServicesManager({ allSports }: { allSports: any[] }) {
 
 // 3. 主組件 CoachTab
 export function CoachTab({ 
-  allSports = [], 
   onSaveGlobal,  
   isSaving,       
   editForm,
@@ -706,10 +805,31 @@ export function CoachTab({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
-            <div className="space-y-1.5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
+            <div className="space-y-1.5 md:col-span-2">
               <label className="text-[10px] text-zinc-500 font-bold uppercase block pl-1">主要服務地區</label>
-              <input type="text" value={editForm.city_region || ""} onChange={(e) => onFieldChange("city_region", e.target.value)} placeholder="例如：九龍區 / 港島東" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-amber-500 transition outline-none" />
+              <HKDistrictPicker
+                districts={editForm.coach_districts || []}
+                subdistricts={editForm.coach_subdistricts || []}
+                onDistrictsChange={() => {}}
+                onSubdistrictsChange={() => {}}
+                onSelectionChange={(d, s) => {
+                  onFieldChange("coach_districts", d);
+                  onFieldChange("coach_subdistricts", s);
+                }}
+                hideSectionTitle
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] text-zinc-500 font-bold uppercase block pl-1">教學年資（年）</label>
+              <input
+                type="number"
+                min={0}
+                value={editForm.coach_teaching_experience_years ?? ""}
+                onChange={(e) => onFieldChange("coach_teaching_experience_years", e.target.value === "" ? "" : Number(e.target.value))}
+                placeholder="例如：10"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-amber-500 transition outline-none placeholder:text-zinc-600"
+              />
             </div>
             <div className="space-y-1.5">
               <label className="text-[10px] text-zinc-500 font-bold uppercase block pl-1">詳細地址 (場館/工作室)</label>
@@ -736,7 +856,7 @@ export function CoachTab({
 
       {subTab === "services" && (
         <div className="animate-fadeIn">
-          <CoachServicesManager allSports={allSports} />
+          <CoachServicesManager />
         </div>
       )}
 

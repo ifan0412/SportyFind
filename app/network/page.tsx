@@ -5,6 +5,7 @@ import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { BackButton } from "@/components/BackButton";
 import { SportFilterModal } from "@/components/SportFilterModal";
+import { sportMatchesFilter } from "@/lib/sports-categories";
 
 interface ProfileRow {
   id: string;
@@ -25,11 +26,6 @@ interface ProfileRow {
   all_sport_names?: string[];
 }
 
-interface Sport {
-  id: string;
-  name: string;
-}
-
 function PlayerStatusBadge({ tag }: { tag: string | null }) {
   if (tag === "recruiting")
     return <div className="inline-flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] md:text-xs px-2.5 py-1 rounded-full font-black tracking-widest whitespace-nowrap shadow"><div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> 尋找新血</div>;
@@ -44,7 +40,6 @@ export default function NetworkPage() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
   const [profiles, setProfiles] = useState<ProfileRow[]>([]);
-  const [allSports, setAllSports] = useState<Sport[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -74,21 +69,14 @@ export default function NetworkPage() {
         profilesQuery = profilesQuery.neq("id", currentUserId);
       }
 
-      const [profilesRes, sportsRes] = await Promise.all([
-        profilesQuery,
-        supabase.from("sports").select("id, name").order("name", { ascending: true }),
-      ]);
+      const { data: profilesData, error: profilesError } = await profilesQuery;
 
-      if (!profilesRes.error && profilesRes.data) {
-        const formattedProfiles = profilesRes.data.map((p: any) => ({
+      if (!profilesError && profilesData) {
+        const formattedProfiles = profilesData.map((p: any) => ({
           ...p,
           all_sport_names: p.user_sports?.map((us: any) => us.sports?.name).filter(Boolean) || [],
         }));
         setProfiles(formattedProfiles as ProfileRow[]);
-      }
-
-      if (!sportsRes.error && sportsRes.data) {
-        setAllSports(sportsRes.data as Sport[]);
       }
 
       setIsLoading(false);
@@ -96,11 +84,12 @@ export default function NetworkPage() {
     fetchData();
   }, [supabase]);
 
-  const sportNames = allSports.map((s) => s.name);
-
   const filteredProfiles = profiles.filter((p) => {
     const matchSearch = (p.full_name || "").toLowerCase().includes(searchTerm.toLowerCase()) || (p.location || "").toLowerCase().includes(searchTerm.toLowerCase());
-    const matchSport = selectedSports.length === 0 ? true : selectedSports.some((sport) => p.all_sport_names?.includes(sport));
+    const matchSport =
+      selectedSports.length === 0
+        ? true
+        : (p.all_sport_names || []).some((name) => sportMatchesFilter(name, selectedSports));
     const matchStatus = filterStatus ? p.status_tag === filterStatus : true;
     return matchSearch && matchSport && matchStatus;
   });
@@ -147,8 +136,16 @@ export default function NetworkPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6 lg:gap-8 animate-fadeIn">
               {filteredProfiles.map((p) => (
                 <div key={p.id} className="bg-slate-900/60 border border-slate-800 hover:border-slate-700 rounded-3xl p-6 flex flex-col justify-between transition duration-300 group hover:-translate-y-1 shadow-md hover:shadow-2xl relative overflow-hidden">
-                  {p.is_coach && p.coach_status !== "hidden" && <span className="absolute top-4 left-4 z-10 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/15 text-amber-400 border border-amber-500/30 shadow-sm flex items-center gap-1">🎓 教練</span>}
-                  {p.is_physio && p.physio_status !== "hidden" && <span className="absolute top-4 right-4 z-10 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shadow-sm flex items-center gap-1">⚕️ 物理治療</span>}
+                  {p.is_coach && p.coach_status !== "hidden" && (
+                    <span className="absolute top-4 left-4 z-10 px-3.5 py-1.5 rounded-full text-xs font-black uppercase tracking-wider bg-amber-500/15 text-amber-400 border border-amber-500/30 shadow-sm flex items-center gap-1.5">
+                      🎓 教練
+                    </span>
+                  )}
+                  {p.is_physio && p.physio_status !== "hidden" && (
+                    <span className="absolute top-4 right-4 z-10 px-3.5 py-1.5 rounded-full text-xs font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shadow-sm flex items-center gap-1.5">
+                      ⚕️ 物理治療
+                    </span>
+                  )}
 
                   <div className="flex flex-col items-center text-center mt-4">
                     <div className="relative w-20 h-20 md:w-24 md:h-24 mb-4">
@@ -187,7 +184,7 @@ export default function NetworkPage() {
         </div>
       </div>
 
-      <SportFilterModal isOpen={isSportModalOpen} onClose={() => setIsSportModalOpen(false)} allSports={sportNames} selectedSports={selectedSports} onApply={setSelectedSports} />
+      <SportFilterModal isOpen={isSportModalOpen} onClose={() => setIsSportModalOpen(false)} selectedSports={selectedSports} onApply={setSelectedSports} />
     </div>
   );
 }

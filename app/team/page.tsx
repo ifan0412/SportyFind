@@ -8,17 +8,14 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { BackButton } from "@/components/BackButton";
 import type { SportCategory } from "@/types/team";
+import { SPORT_CATEGORIES } from "@/lib/sports-categories";
 
-const SPORT_OPTIONS: { value: SportCategory; emoji: string; label: string; labelZh: string }[] = [
-  { value: "volleyball",  emoji: "🏐", label: "Volleyball",  labelZh: "排球" },
-  { value: "basketball",  emoji: "🏀", label: "Basketball",  labelZh: "籃球" },
-  { value: "soccer",      emoji: "⚽", label: "Soccer",      labelZh: "足球" },
-  { value: "tennis",      emoji: "🎾", label: "Tennis",      labelZh: "網球" },
-  { value: "badminton",   emoji: "🏸", label: "Badminton",   labelZh: "羽毛球" },
-  { value: "pickleball",  emoji: "🏓", label: "Pickleball",  labelZh: "匹克球" },
-  { value: "gym",         emoji: "🏋️", label: "Gym",         labelZh: "健身" },
-  { value: "running",     emoji: "🏃", label: "Running",     labelZh: "路跑" },
-];
+const SPORT_OPTIONS: { value: SportCategory; emoji: string; label: string; labelZh: string }[] = SPORT_CATEGORIES.map((s) => ({
+  value: s.id as SportCategory,
+  emoji: s.emoji,
+  label: s.labelEn.charAt(0) + s.labelEn.slice(1).toLowerCase(),
+  labelZh: s.labelZh,
+}));
 
 function getSportOption(category: string) {
   return SPORT_OPTIONS.find((s) => s.value.toLowerCase() === category?.toLowerCase());

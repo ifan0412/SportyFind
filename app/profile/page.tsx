@@ -12,7 +12,17 @@ import { FeedTab } from "@/components/profile/FeedTab";
 import { ExpertiseTab } from "@/components/profile/ExpertiseTab";
 import { HighlightsTab } from "@/components/profile/HighlightsTab";
 import { AccountManagementTab } from "@/components/profile/AccountManagementTab";
-import { PRO_SPORT_SCHEMA } from "@/constants/sportsSchema";
+import { ProfileRolePreview, type AthleteSubTab, type ProfileRole } from "@/components/profile/ProfileRolePreview";
+import { getSportSchema } from "@/constants/sportsSchema";
+import { getSportCategory, normalizeSportCategory, type SportCategoryId } from "@/lib/sports-categories";
+import { SportCategoryPicker } from "@/components/sports/SportCategoryPicker";
+import { HKDistrictPicker } from "@/components/location/HKDistrictPicker";
+import {
+  formatDistrictList,
+  isHongKongCountry,
+  normalizeDistrictIds,
+  normalizeSubdistrictIds,
+} from "@/lib/hk-locations";
 
 interface Profile {
   id: string;
@@ -22,6 +32,7 @@ interface Profile {
   handle: string | null;
   headline: string | null;
   bio: string | null;
+  coach_bio?: string | null;
   location: string | null;
   country: string | null;
   region: string | null;
@@ -38,6 +49,7 @@ interface Profile {
   contact_phone: string | null;
   address: string | null;
   city_region: string | null;
+  coach_teaching_experience_years?: number | null;
   is_address_public: boolean | null;
   instagram_url: string | null;
   facebook_url: string | null;
@@ -76,16 +88,20 @@ interface UserTeamRow {
   } | null;
 }
 
-const TEAM_SPORT_EMOJI: Record<string, string> = {
-  volleyball: "🏐", basketball: "🏀", soccer: "⚽", tennis: "🎾",
-  badminton: "🏸", pickleball: "🏓", gym: "🏋️", running: "🏃",
-};
-const TEAM_SPORT_ZH: Record<string, string> = {
-  volleyball: "排球", basketball: "籃球", soccer: "足球", tennis: "網球",
-  badminton: "羽毛球", pickleball: "匹克球", gym: "健身", running: "路跑",
-};
+const TEAM_SPORT_EMOJI: Record<string, string> = Object.fromEntries(
+  ["volleyball", "basketball", "soccer", "tennis", "badminton", "pickleball", "gym", "running", "boxing", "yoga"].map((id) => [
+    id,
+    getSportCategory(id)?.emoji ?? "🏅",
+  ])
+);
+const TEAM_SPORT_ZH: Record<string, string> = Object.fromEntries(
+  ["volleyball", "basketball", "soccer", "tennis", "badminton", "pickleball", "gym", "running", "boxing", "yoga"].map((id) => [
+    id,
+    getSportCategory(id)?.labelZh ?? id,
+  ])
+);
 
-type TabId = "dashboard" | "expertise" | "highlights" | "feed" | "friends" | "teams" | "account";
+type PrivateTabId = "dashboard" | "friends" | "teams" | "account";
 
 const DEFAULT_FORM = {
   first_name: "", last_name: "", handle: "", full_name: "", headline: "", location: "", country: "", region: "", bio: "", avatar_url: "", status_tag: "committed", display_sports: [] as string[],
@@ -119,6 +135,13 @@ const DEFAULT_FORM = {
   physio_instagram_url: "",
   physio_facebook_url: "",
   physio_threads_url: "",
+  districts: [] as string[],
+  subdistricts: [] as string[],
+  coach_districts: [] as string[],
+  coach_subdistricts: [] as string[],
+  coach_teaching_experience_years: "" as number | string,
+  physio_districts: [] as string[],
+  physio_subdistricts: [] as string[],
 };
 
 const compressImage = (file: File | Blob): Promise<File | Blob> => new Promise((resolve) => { if (file.size <= 1.5 * 1024 * 1024) return resolve(file); const reader = new FileReader(); reader.onload = (e) => { const img = new Image(); img.onload = () => { const MAX = 1200; let w = img.width, h = img.height; if (w > h) { if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; } } else { if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; } } const canvas = document.createElement("canvas"); canvas.width = w; canvas.height = h; const ctx = canvas.getContext("2d"); if (!ctx) return resolve(file); ctx.drawImage(img, 0, 0, w, h); canvas.toBlob((blob) => resolve(blob ? new File([blob], file instanceof File ? file.name : "cropped.jpg", { type: "image/jpeg" }) : file), "image/jpeg", 0.8); }; img.src = e.target?.result as string; }; reader.readAsDataURL(file); });
@@ -152,7 +175,9 @@ function ProfilePageContent() {
   const [allSports, setAllSports] = useState<Sport[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const [activeTab, setActiveTab] = useState<TabId>("expertise");
+  const [privateTab, setPrivateTab] = useState<PrivateTabId | null>(null);
+  const [activeRole, setActiveRole] = useState<ProfileRole>("athlete");
+  const [activeAthleteTab, setActiveAthleteTab] = useState<AthleteSubTab>("expertise");
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [editForm, setEditForm] = useState<any>(DEFAULT_FORM);
@@ -166,7 +191,7 @@ function ProfilePageContent() {
   const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
 
   const [isSportModalOpen, setIsSportModalOpen] = useState(false);
-  const [selectedSportId, setSelectedSportId] = useState("");
+  const [selectedSportSlug, setSelectedSportSlug] = useState<SportCategoryId | "">("");
   const [sportDynamicData, setSportDynamicData] = useState<{ [key: string]: string }>({});
   const [editingUserSportId, setEditingUserSportId] = useState<string | null>(null);
 
@@ -176,46 +201,70 @@ function ProfilePageContent() {
   const [galleryMedia, setGalleryMedia] = useState<MediaItem[]>([]);
   const [selectedPost, setSelectedPost] = useState<MediaItem | null>(null);
   const [userTeams, setUserTeams] = useState<UserTeamRow[]>([]);
+  const [coachServices, setCoachServices] = useState<any[]>([]);
+  const [physioServices, setPhysioServices] = useState<any[]>([]);
+  const [coachReviews, setCoachReviews] = useState<{ rating: number }[]>([]);
 
   useEffect(() => {
-    const tabParam = (searchParams?.get("tab") || searchParams?.get("view")) as TabId | null;
-    if (tabParam && ["dashboard", "expertise", "highlights", "feed", "friends", "teams", "account"].includes(tabParam)) {
-      setActiveTab(tabParam);
+    const tabParam = searchParams?.get("tab") || searchParams?.get("view");
+    if (tabParam && ["dashboard", "friends", "teams", "account"].includes(tabParam)) {
+      setPrivateTab(tabParam as PrivateTabId);
+    } else if (tabParam === "coach") {
+      setPrivateTab(null);
+      setActiveRole("coach");
+    } else if (tabParam === "physio") {
+      setPrivateTab(null);
+      setActiveRole("physio");
+    } else if (tabParam === "expertise" || tabParam === "highlights" || tabParam === "feed") {
+      setPrivateTab(null);
+      setActiveRole("athlete");
+      setActiveAthleteTab(tabParam as AthleteSubTab);
     }
   }, [searchParams]);
 
-  const publicTabs = useMemo(() => {
-    const base: { id: TabId; icon: string; label: string }[] = [];
-    if (profile?.is_player !== false || editForm.is_player) {
-      base.push({ id: "expertise", icon: "📋", label: "技術特長" });
-      base.push({ id: "highlights", icon: "🎞️", label: "賽場圖庫" });
-    }
-    base.push({ id: "feed", icon: "📰", label: "個人動態" });
-    return base;
-  }, [profile?.is_player, editForm.is_player]);
+  const showPlayer = profile?.is_player !== false || editForm.is_player;
+  const showCoach = !!(profile?.is_coach || editForm.is_coach);
+  const showPhysio = !!(profile?.is_physio || editForm.is_physio);
 
   useEffect(() => {
-    if (profile && profile.is_player === false && (activeTab === "expertise" || activeTab === "highlights")) {
-      setActiveTab("feed");
+    if (!showPlayer && activeRole === "athlete") {
+      if (showCoach) setActiveRole("coach");
+      else if (showPhysio) setActiveRole("physio");
     }
-  }, [profile, activeTab]);
+  }, [showPlayer, showCoach, showPhysio, activeRole]);
 
-  const handleTabSwitch = useCallback((tab: TabId) => {
-    setActiveTab(tab);
+  const handlePrivateTabSwitch = useCallback((tab: PrivateTabId) => {
+    setPrivateTab(tab);
     if (window.innerWidth < 1024 && contentRef.current) {
       const y = contentRef.current.getBoundingClientRect().top + window.scrollY - 80;
       window.scrollTo({ top: y, behavior: "smooth" });
     }
   }, []);
 
+  const handleReturnToPreview = useCallback(() => {
+    setPrivateTab(null);
+  }, []);
+
   const loadProfileData = useCallback(async (userId: string) => {
     try {
-      const [{ data: prof }, { data: usData }, { data: sData }, { data: locData }, { data: teamsData }] = await Promise.all([
+      const [
+        { data: prof },
+        { data: usData },
+        { data: sData },
+        { data: locData },
+        { data: teamsData },
+        { data: coachSvc },
+        { data: physioSvc },
+        { data: reviewsData },
+      ] = await Promise.all([
         supabase.from("profiles").select("*").eq("id", userId).single(),
         supabase.from("user_sports").select("id, sport_id, metadata, sports(name)").eq("user_id", userId),
         supabase.from("sports").select("*").order("name", { ascending: true }),
         supabase.from("locations").select("country, region"),
         supabase.from("team_members").select("role, joined_at, teams(id, name_en, name_zh, sport_category, recruitment_status, logo_url)").eq("user_id", userId),
+        supabase.from("coach_services").select("*").eq("coach_id", userId).order("created_at", { ascending: false }),
+        supabase.from("physio_services").select("*").eq("physio_id", userId).order("created_at", { ascending: false }),
+        supabase.from("coach_reviews").select("rating").eq("coach_id", userId),
       ]);
       if (locData) {
         const locMap: Record<string, string[]> = {};
@@ -267,11 +316,21 @@ function ProfilePageContent() {
           physio_instagram_url: prof.physio_instagram_url ?? "",
           physio_facebook_url: prof.physio_facebook_url ?? "",
           physio_threads_url: prof.physio_threads_url ?? "",
+          districts: normalizeDistrictIds(prof.districts, prof.region),
+          subdistricts: normalizeSubdistrictIds(prof.subdistricts),
+          coach_districts: normalizeDistrictIds(prof.coach_districts, prof.city_region),
+          coach_subdistricts: normalizeSubdistrictIds(prof.coach_subdistricts),
+          coach_teaching_experience_years: prof.coach_teaching_experience_years ?? "",
+          physio_districts: normalizeDistrictIds(prof.physio_districts, prof.physio_city_region),
+          physio_subdistricts: normalizeSubdistrictIds(prof.physio_subdistricts),
         });
       }
       if (usData) setUserSports(usData as unknown as UserSport[]);
       if (sData) setAllSports(sData);
       if (teamsData) setUserTeams(teamsData as unknown as UserTeamRow[]);
+      if (coachSvc) setCoachServices(coachSvc);
+      if (physioSvc) setPhysioServices(physioSvc);
+      if (reviewsData) setCoachReviews(reviewsData);
       const { data: files } = await supabase.storage.from("highlights").list(`${userId}/`, { limit: 20, sortBy: { column: "created_at", order: "desc" } });
       if (files && files.length > 0) {
         setGalleryMedia(files.filter(f => f.name !== ".emptyFolderPlaceholder").map(file => { const { data: urlData } = supabase.storage.from("highlights").getPublicUrl(`${userId}/${file.name}`); return { id: file.id || file.name, sportName: "Highlight", type: "image" as const, url: urlData.publicUrl, fileName: file.name, createdAt: file.created_at ? new Date(file.created_at).toLocaleDateString() : "最近上傳" }; }));
@@ -331,6 +390,9 @@ function ProfilePageContent() {
     }
     const fullName = `${editForm.first_name} ${editForm.last_name}`.trim();
     const physioRateVal = Number(editForm.physio_rate) || 0;
+    const hkCountry = isHongKongCountry(editForm.country);
+    const profileDistricts = hkCountry ? (Array.isArray(editForm.districts) ? editForm.districts : []) : [];
+    const profileDistrictLabel = formatDistrictList(profileDistricts, 3);
     const { error } = await supabase.from("profiles").upsert({
       id: user.id,
       is_player: editForm.is_player,
@@ -342,8 +404,17 @@ function ProfilePageContent() {
       full_name: fullName,
       headline: editForm.headline,
       country: editForm.country,
-      region: editForm.region,
-      location: editForm.region ? `${editForm.region}, ${editForm.country}` : editForm.country,
+      region: hkCountry ? (profileDistrictLabel || editForm.region) : editForm.region,
+      location: hkCountry
+        ? (profileDistrictLabel ? `${profileDistrictLabel}, ${editForm.country}` : editForm.country)
+        : (editForm.region ? `${editForm.region}, ${editForm.country}` : editForm.country),
+      districts: profileDistricts,
+      subdistricts: normalizeSubdistrictIds(editForm.subdistricts),
+      coach_districts: Array.isArray(editForm.coach_districts) ? editForm.coach_districts : [],
+      coach_subdistricts: normalizeSubdistrictIds(editForm.coach_subdistricts),
+      coach_teaching_experience_years: editForm.coach_teaching_experience_years
+        ? Number(editForm.coach_teaching_experience_years)
+        : null,
       bio: editForm.bio,
       avatar_url: finalAvatarUrl,
       status_tag: editForm.status_tag,
@@ -354,7 +425,7 @@ function ProfilePageContent() {
       contact_email: editForm.contact_email || null,
       contact_phone: editForm.contact_phone || null,
       address: editForm.address || null,
-      city_region: editForm.city_region || null,
+      city_region: formatDistrictList(Array.isArray(editForm.coach_districts) ? editForm.coach_districts : [], 3) || editForm.city_region || null,
       is_address_public: editForm.is_address_public ?? true,
       instagram_url: editForm.instagram_url || null,
       facebook_url: editForm.facebook_url || null,
@@ -369,7 +440,9 @@ function ProfilePageContent() {
       physio_services_offered: editForm.physio_services_offered || null,
       physio_contact_email: editForm.physio_contact_email || null,
       physio_contact_phone: editForm.physio_contact_phone || null,
-      physio_city_region: editForm.physio_city_region || null,
+      physio_city_region: formatDistrictList(Array.isArray(editForm.physio_districts) ? editForm.physio_districts : [], 3) || editForm.physio_city_region || null,
+      physio_districts: Array.isArray(editForm.physio_districts) ? editForm.physio_districts : [],
+      physio_subdistricts: normalizeSubdistrictIds(editForm.physio_subdistricts),
       physio_address: editForm.physio_address || null,
       physio_is_address_public: editForm.physio_is_address_public ?? true,
       physio_instagram_url: editForm.physio_instagram_url || null,
@@ -379,6 +452,7 @@ function ProfilePageContent() {
     if (!error) {
       setProfile(prev => ({ ...prev!, ...editForm, avatar_url: finalAvatarUrl, full_name: fullName, location: `${editForm.region}, ${editForm.country}` }));
       setIsEditing(false);
+      await loadProfileData(user.id);
       alert("✅ 儲存成功！您的個人資料已更新。");
       router.refresh();
     } else {
@@ -392,16 +466,35 @@ function ProfilePageContent() {
     setEditForm((prev: any) => { let current = [...prev.display_sports]; if (current.includes(sportName)) current = current.filter(s => s !== sportName); else { if (current.length >= 3) current.shift(); current.push(sportName); } return { ...prev, display_sports: current }; });
   };
 
+  const resolveSportId = useCallback(
+    (slug: SportCategoryId) =>
+      allSports.find((s) => normalizeSportCategory(s.name) === slug)?.id ?? null,
+    [allSports]
+  );
+
   const handleOpenSportModal = useCallback((us?: UserSport) => {
-    if (us) { setSelectedSportId(us.sport_id); setSportDynamicData(us.metadata || {}); setEditingUserSportId(us.id); }
-    else { setSelectedSportId(""); setSportDynamicData({}); setEditingUserSportId(null); }
+    if (us) {
+      setSelectedSportSlug(normalizeSportCategory(us.sports?.name) || "");
+      setSportDynamicData(us.metadata || {});
+      setEditingUserSportId(us.id);
+    } else {
+      setSelectedSportSlug("");
+      setSportDynamicData({});
+      setEditingUserSportId(null);
+    }
     setIsSportModalOpen(true);
   }, []);
 
   const handleSaveSport = async (e: React.FormEvent) => {
-    e.preventDefault(); if (!selectedSportId || !user) return;
-    if (editingUserSportId) await supabase.from("user_sports").update({ sport_id: selectedSportId, metadata: sportDynamicData }).eq("id", editingUserSportId);
-    else await supabase.from("user_sports").insert({ user_id: user.id, sport_id: selectedSportId, metadata: sportDynamicData });
+    e.preventDefault();
+    if (!selectedSportSlug || !user) return;
+    const sportId = resolveSportId(selectedSportSlug);
+    if (!sportId) {
+      alert("此運動項目尚未在資料庫中設定，請聯絡管理員或執行最新 migration。");
+      return;
+    }
+    if (editingUserSportId) await supabase.from("user_sports").update({ sport_id: sportId, metadata: sportDynamicData }).eq("id", editingUserSportId);
+    else await supabase.from("user_sports").insert({ user_id: user.id, sport_id: sportId, metadata: sportDynamicData });
     await loadProfileData(user.id); setIsSportModalOpen(false); router.refresh();
   };
 
@@ -429,10 +522,6 @@ function ProfilePageContent() {
 
   if (isLoading) return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-zinc-500 font-mono">載入總部中...</div>;
   const avatarSrc = editForm.avatar_url || profile?.avatar_url || "";
-
-  // Determine which role dashboards to show
-  const showCoachDashboard = profile?.is_coach || editForm.is_coach;
-  const showPhysioDashboard = profile?.is_physio || editForm.is_physio;
 
   return (
     <div className="bg-slate-950 min-h-screen text-zinc-200 font-sans selection:bg-blue-500/30">
@@ -463,9 +552,25 @@ function ProfilePageContent() {
                     <div className="space-y-1"><label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">體重 (kg)</label><input type="number" className="w-full bg-slate-950/50 border border-slate-800 rounded-xl p-3 text-white text-sm" value={editForm.weight_kg} onChange={e => setEditForm({ ...editForm, weight_kg: e.target.value })} placeholder="例: 70" /></div>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1"><label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">國家</label><select className="w-full bg-slate-950/50 border border-slate-800 rounded-xl p-3 text-white text-sm" value={editForm.country} onChange={e => setEditForm({ ...editForm, country: e.target.value, region: "" })}><option value="">選擇國家</option>{Object.keys(locationData).map(c => <option key={c} value={c}>{c}</option>)}</select></div>
-                    <div className="space-y-1"><label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">地區</label><select className="w-full bg-slate-950/50 border border-slate-800 rounded-xl p-3 text-white text-sm" value={editForm.region} onChange={e => setEditForm({ ...editForm, region: e.target.value })}><option value="">選擇區域</option>{editForm.country && locationData[editForm.country]?.map(r => <option key={r} value={r}>{r}</option>)}</select></div>
+                    <div className="space-y-1"><label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">國家</label><select className="w-full bg-slate-950/50 border border-slate-800 rounded-xl p-3 text-white text-sm" value={editForm.country} onChange={e => setEditForm({ ...editForm, country: e.target.value, region: "", districts: [], subdistricts: [] })}><option value="">選擇國家</option>{Object.keys(locationData).map(c => <option key={c} value={c}>{c}</option>)}</select></div>
+                    {!isHongKongCountry(editForm.country) && (
+                      <div className="space-y-1"><label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">地區</label><select className="w-full bg-slate-950/50 border border-slate-800 rounded-xl p-3 text-white text-sm" value={editForm.region} onChange={e => setEditForm({ ...editForm, region: e.target.value })}><option value="">選擇區域</option>{editForm.country && locationData[editForm.country]?.map(r => <option key={r} value={r}>{r}</option>)}</select></div>
+                    )}
                   </div>
+                  {isHongKongCountry(editForm.country) && (
+                    <div className="space-y-1.5 p-3 bg-slate-950/40 border border-slate-800 rounded-xl">
+                      <label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">香港地區（可多選）</label>
+                      <HKDistrictPicker
+                        districts={editForm.districts || []}
+                        subdistricts={editForm.subdistricts || []}
+                        onDistrictsChange={() => {}}
+                        onSubdistrictsChange={() => {}}
+                        onSelectionChange={(d, s) => setEditForm((prev: any) => ({ ...prev, districts: d, subdistricts: s }))}
+                        hideSectionTitle
+                        minDistricts={0}
+                      />
+                    </div>
+                  )}
                   <div className="space-y-1"><label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">Bio</label><textarea className="w-full bg-slate-950/50 border border-slate-800 rounded-xl p-3 text-white text-sm h-24 resize-none" value={editForm.bio} onChange={e => setEditForm({ ...editForm, bio: e.target.value })} placeholder="訓練哲學..." /></div>
                   <div className="p-4 bg-slate-950/50 rounded-2xl border border-slate-800/80 space-y-4 mt-2">
                     <div>
@@ -522,39 +627,17 @@ function ProfilePageContent() {
                   <div className="mt-6 pt-6 border-t border-slate-800/80 space-y-3">
                     <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider pl-1 text-left">專屬後台 (Backend)</p>
 
-                    <button onClick={() => handleTabSwitch("friends")} className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold transition ${activeTab === "friends" ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20" : "bg-slate-900/50 text-zinc-400 hover:bg-slate-800 hover:text-white"}`}>
+                    <button onClick={() => handlePrivateTabSwitch("friends")} className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold transition ${privateTab === "friends" ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20" : "bg-slate-900/50 text-zinc-400 hover:bg-slate-800 hover:text-white"}`}>
                       <span className="flex items-center gap-3"><span className="text-lg">👥</span> 好友管理</span><span className="text-xs">→</span>
                     </button>
 
-                    <button onClick={() => handleTabSwitch("account")} className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold transition ${activeTab === "account" ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20" : "bg-slate-900/50 text-zinc-400 hover:bg-slate-800 hover:text-white"}`}>
+                    <button onClick={() => handlePrivateTabSwitch("account")} className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold transition ${privateTab === "account" ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20" : "bg-slate-900/50 text-zinc-400 hover:bg-slate-800 hover:text-white"}`}>
                       <span className="flex items-center gap-3"><span className="text-lg">⚙️</span> 帳戶管理</span><span className="text-xs">→</span>
                     </button>
 
                     {userTeams.length > 0 && (
-                      <button onClick={() => handleTabSwitch("teams")} className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold transition ${activeTab === "teams" ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20" : "bg-slate-900/50 text-zinc-400 hover:bg-slate-800 hover:text-white"}`}>
+                      <button onClick={() => handlePrivateTabSwitch("teams")} className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold transition ${privateTab === "teams" ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20" : "bg-slate-900/50 text-zinc-400 hover:bg-slate-800 hover:text-white"}`}>
                         <span className="flex items-center gap-3"><span className="text-lg">🛡️</span> 我的團隊</span><span className="text-xs">→</span>
-                      </button>
-                    )}
-
-                    {/* ✅ Coach Dashboard entry — only visible when is_coach is true */}
-                    {showCoachDashboard && (
-                      <button
-                        onClick={() => router.push("/dashboard/coach")}
-                        className="w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold transition bg-amber-600/20 border border-amber-500/30 text-amber-400 hover:bg-amber-600 hover:text-white hover:border-amber-600"
-                      >
-                        <span className="flex items-center gap-3"><span className="text-lg">🎓</span> 教練專屬後台</span>
-                        <span className="text-xs">→</span>
-                      </button>
-                    )}
-
-                    {/* ✅ Physio Dashboard entry — only visible when is_physio is true */}
-                    {showPhysioDashboard && (
-                      <button
-                        onClick={() => router.push("/dashboard/physio")}
-                        className="w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold transition bg-emerald-600/20 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-600 hover:text-white hover:border-emerald-600"
-                      >
-                        <span className="flex items-center gap-3"><span className="text-lg">⚕️</span> 治療師專屬後台</span>
-                        <span className="text-xs">→</span>
                       </button>
                     )}
                   </div>
@@ -565,117 +648,143 @@ function ProfilePageContent() {
 
           {/* ── Right content ── */}
           <div className="lg:col-span-8 xl:col-span-9 flex flex-col" ref={contentRef}>
-            {(() => {
-              const isPrivateTab = ["dashboard", "friends", "teams", "account"].includes(activeTab);
-              if (isPrivateTab) {
-                const tabMeta: Record<string, { icon: string; title: string; subtitle: string }> = {
-                  dashboard: { icon: "📊", title: "數據後台", subtitle: "專屬私密空間" },
-                  friends: { icon: "👥", title: "好友管理", subtitle: "專屬私密空間" },
-                  teams: { icon: "🛡️", title: "我的團隊", subtitle: "專屬私密空間" },
-                  account: { icon: "⚙️", title: "帳戶管理", subtitle: "安全與帳戶設定" },
-                };
-                const meta = tabMeta[activeTab];
-                return (
-                  <div className="bg-slate-900 border border-slate-800 p-3 md:p-4 rounded-2xl flex items-center justify-between w-full mb-8 shadow-sm">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-xl">{meta.icon}</div>
-                      <div>
-                        <h2 className="text-sm md:text-base font-black text-white leading-tight">{meta.title}</h2>
-                        <p className="text-[10px] text-zinc-400 font-bold tracking-wider mt-0.5">{meta.subtitle}</p>
-                      </div>
+            {privateTab ? (
+              <>
+                <div className="bg-slate-900 border border-slate-800 p-3 md:p-4 rounded-2xl flex items-center justify-between w-full mb-8 shadow-sm">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-xl">
+                      {privateTab === "friends" && "👥"}
+                      {privateTab === "teams" && "🛡️"}
+                      {privateTab === "account" && "⚙️"}
+                      {privateTab === "dashboard" && "📊"}
                     </div>
-                    <button onClick={() => handleTabSwitch("expertise")} className="bg-slate-800 hover:bg-slate-700 border border-slate-600 text-zinc-300 hover:text-white text-xs md:text-sm font-bold px-3 py-2 md:px-4 md:py-2.5 rounded-xl transition flex items-center gap-1.5 shadow-sm">
-                      <span className="hidden sm:inline">返回公開檔案</span><span className="sm:hidden">返回</span> ↗
-                    </button>
+                    <div>
+                      <h2 className="text-sm md:text-base font-black text-white leading-tight">
+                        {privateTab === "friends" && "好友管理"}
+                        {privateTab === "teams" && "我的團隊"}
+                        {privateTab === "account" && "帳戶管理"}
+                        {privateTab === "dashboard" && "數據後台"}
+                      </h2>
+                      <p className="text-[10px] text-zinc-400 font-bold tracking-wider mt-0.5">專屬私密空間</p>
+                    </div>
                   </div>
-                );
-              }
-              return (
-                <div className="bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 p-1 rounded-2xl flex w-full sticky top-16 z-30 mb-8 shadow-sm overflow-x-auto [&::-webkit-scrollbar]:hidden">
-                  {publicTabs.map((t) => (
-                    <button key={t.id} onClick={() => handleTabSwitch(t.id as TabId)} className={`flex-1 flex flex-col items-center justify-center py-2 px-3 rounded-xl transition-all duration-300 min-w-[70px] ${activeTab === t.id ? "bg-slate-50 text-black shadow-lg scale-[1.02]" : "text-zinc-500 hover:text-white hover:bg-slate-800/50"}`}>
-                      <span className="text-lg md:text-xl mb-0.5">{t.icon}</span>
-                      <span className="text-[10px] md:text-xs font-black leading-tight truncate w-full text-center">{t.label}</span>
-                    </button>
-                  ))}
+                  <button
+                    type="button"
+                    onClick={handleReturnToPreview}
+                    className="bg-slate-800 hover:bg-slate-700 border border-slate-600 text-zinc-300 hover:text-white text-xs md:text-sm font-bold px-3 py-2 md:px-4 md:py-2.5 rounded-xl transition flex items-center gap-1.5 shadow-sm"
+                  >
+                    <span className="hidden sm:inline">返回公開預覽</span><span className="sm:hidden">返回</span> ↗
+                  </button>
                 </div>
-              );
-            })()}
 
-            <div className="flex-1">
-              {activeTab === "dashboard" && <DashboardTab profile={profile} avatarSrc={avatarSrc} />}
-              {activeTab === "expertise" && <ExpertiseTab userSports={userSports} editFormDisplaySports={editForm.display_sports} onToggleDisplaySport={toggleDisplaySport} onOpenSportModal={handleOpenSportModal} onRemoveSport={handleRemoveSport} onSaveDisplaySports={handleSaveProfile} />}
-              {activeTab === "highlights" && <HighlightsTab galleryMedia={galleryMedia} userSports={userSports} onSelectPost={setSelectedPost} onOpenMediaModal={() => setIsMediaModalOpen(true)} />}
-              {activeTab === "feed" && <FeedTab profile={profile} avatarSrc={avatarSrc} />}
-              {activeTab === "friends" && user && (
-                <div className="animate-fadeIn">
-                  <div className="mb-6 px-2"><h2 className="text-lg md:text-xl font-black text-white">好友管理</h2><p className="text-xs text-zinc-500 mt-1">管理你的好友、待接受請求與已發送請求。</p></div>
-                  <FriendsTab currentUserId={user.id} />
-                </div>
-              )}
-              {activeTab === "account" && user && (
-                <AccountManagementTab userEmail={user.email} identities={user.identities} />
-              )}
-              {activeTab === "teams" && (() => {
-                const managedTeams = userTeams.filter(t => t.role === "admin" && t.teams);
-                const joinedTeams = userTeams.filter(t => t.role !== "admin" && t.teams);
-                const hasBoth = managedTeams.length > 0 || joinedTeams.length > 0;
-                return (
-                  <div className="animate-fadeIn space-y-8">
-                    <div className="flex items-center justify-between mb-2">
-                      <div><h2 className="text-lg md:text-xl font-black text-white">我的團隊</h2><p className="text-xs text-zinc-500 mt-1">管理你建立或加入的所有團隊。</p></div>
-                      <a href="/team/create" className="flex-shrink-0 flex items-center gap-1.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-black px-4 py-2.5 rounded-xl shadow-[0_0_10px_rgba(217,119,6,0.2)] transition-all active:scale-95">＋ 建立團隊</a>
+                <div className="flex-1">
+                  {privateTab === "dashboard" && <DashboardTab profile={profile} avatarSrc={avatarSrc} />}
+                  {privateTab === "friends" && user && (
+                    <div className="animate-fadeIn">
+                      <div className="mb-6 px-2"><h2 className="text-lg md:text-xl font-black text-white">好友管理</h2><p className="text-xs text-zinc-500 mt-1">管理你的好友、待接受請求與已發送請求。</p></div>
+                      <FriendsTab currentUserId={user.id} />
                     </div>
-                    {!hasBoth && <div className="bg-slate-900/30 border border-dashed border-slate-700/50 rounded-3xl py-16 text-center px-6"><p className="text-4xl mb-4">🛡️</p><p className="text-zinc-400 font-bold text-sm mb-2">你尚未加入或建立任何團隊</p><a href="/team/create" className="inline-flex items-center gap-2 bg-amber-600 hover:bg-amber-500 text-white text-sm font-black px-6 py-3 rounded-xl transition-all shadow-[0_0_15px_rgba(217,119,6,0.2)]">＋ Create Team / Group</a></div>}
-                    {managedTeams.length > 0 && (
-                      <div>
-                        <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest mb-4 pl-1">我管理的團隊 (Admin)</p>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {managedTeams.map(({ teams: t }) => {
-                            if (!t) return null;
-                            const emoji = TEAM_SPORT_EMOJI[t.sport_category] ?? "🏅";
-                            const zh = TEAM_SPORT_ZH[t.sport_category] ?? t.sport_category;
-                            const name = t.name_en || t.name_zh || "Unnamed";
-                            return (
-                              <div key={t.id} className="bg-slate-900/50 border border-amber-500/20 rounded-2xl p-4 flex gap-4 items-start">
-                                <div className="w-14 h-14 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-2xl font-black text-zinc-500 flex-shrink-0 overflow-hidden bg-cover bg-center" style={t.logo_url ? { backgroundImage: `url(${t.logo_url})` } : undefined}>{!t.logo_url && (name[0] || "T")}</div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-black text-white truncate">{name}</p>
-                                  <div className="flex flex-wrap gap-1.5 mt-1.5 mb-3"><span className="text-[10px] font-black text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded-full">{emoji} {zh}</span></div>
-                                  <div className="flex gap-2">
-                                    <a href={`/team/${t.id}`} className="flex-1 text-center text-xs font-bold py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-zinc-200 transition">查看頁面</a>
-                                    <a href={`/team/${t.id}/admin`} className="flex-1 text-center text-xs font-black py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white transition">⚙️ 管理</a>
+                  )}
+                  {privateTab === "account" && user && (
+                    <AccountManagementTab userEmail={user.email} identities={user.identities} />
+                  )}
+                  {privateTab === "teams" && (() => {
+                    const managedTeams = userTeams.filter(t => t.role === "admin" && t.teams);
+                    const joinedTeams = userTeams.filter(t => t.role !== "admin" && t.teams);
+                    const hasBoth = managedTeams.length > 0 || joinedTeams.length > 0;
+                    return (
+                      <div className="animate-fadeIn space-y-8">
+                        <div className="flex items-center justify-between mb-2">
+                          <div><h2 className="text-lg md:text-xl font-black text-white">我的團隊</h2><p className="text-xs text-zinc-500 mt-1">管理你建立或加入的所有團隊。</p></div>
+                          <a href="/team/create" className="flex-shrink-0 flex items-center gap-1.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-black px-4 py-2.5 rounded-xl shadow-[0_0_10px_rgba(217,119,6,0.2)] transition-all active:scale-95">＋ 建立團隊</a>
+                        </div>
+                        {!hasBoth && <div className="bg-slate-900/30 border border-dashed border-slate-700/50 rounded-3xl py-16 text-center px-6"><p className="text-4xl mb-4">🛡️</p><p className="text-zinc-400 font-bold text-sm mb-2">你尚未加入或建立任何團隊</p><a href="/team/create" className="inline-flex items-center gap-2 bg-amber-600 hover:bg-amber-500 text-white text-sm font-black px-6 py-3 rounded-xl transition-all shadow-[0_0_15px_rgba(217,119,6,0.2)]">＋ Create Team / Group</a></div>}
+                        {managedTeams.length > 0 && (
+                          <div>
+                            <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest mb-4 pl-1">我管理的團隊 (Admin)</p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {managedTeams.map(({ teams: t }) => {
+                                if (!t) return null;
+                                const emoji = TEAM_SPORT_EMOJI[t.sport_category] ?? "🏅";
+                                const zh = TEAM_SPORT_ZH[t.sport_category] ?? t.sport_category;
+                                const name = t.name_en || t.name_zh || "Unnamed";
+                                return (
+                                  <div key={t.id} className="bg-slate-900/50 border border-amber-500/20 rounded-2xl p-4 flex gap-4 items-start">
+                                    <div className="w-14 h-14 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-2xl font-black text-zinc-500 flex-shrink-0 overflow-hidden bg-cover bg-center" style={t.logo_url ? { backgroundImage: `url(${t.logo_url})` } : undefined}>{!t.logo_url && (name[0] || "T")}</div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm font-black text-white truncate">{name}</p>
+                                      <div className="flex flex-wrap gap-1.5 mt-1.5 mb-3"><span className="text-[10px] font-black text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded-full">{emoji} {zh}</span></div>
+                                      <div className="flex gap-2">
+                                        <a href={`/team/${t.id}`} className="flex-1 text-center text-xs font-bold py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-zinc-200 transition">查看頁面</a>
+                                        <a href={`/team/${t.id}/admin`} className="flex-1 text-center text-xs font-black py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white transition">⚙️ 管理</a>
+                                      </div>
+                                    </div>
                                   </div>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                        {joinedTeams.length > 0 && (
+                          <div>
+                            <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-4 pl-1">我加入的團隊</p>
+                            <div className="space-y-3">
+                              {joinedTeams.map(({ teams: t }) => {
+                                if (!t) return null;
+                                const emoji = TEAM_SPORT_EMOJI[t.sport_category] ?? "🏅";
+                                const zh = TEAM_SPORT_ZH[t.sport_category] ?? t.sport_category;
+                                const name = t.name_en || t.name_zh || "Unnamed";
+                                return (
+                                  <a key={t.id} href={`/team/${t.id}`} className="flex items-center gap-4 bg-slate-900/40 border border-slate-800 hover:border-slate-600 rounded-2xl p-4 transition group">
+                                    <div className="w-11 h-11 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-xl font-black text-zinc-500 flex-shrink-0 overflow-hidden bg-cover bg-center" style={t.logo_url ? { backgroundImage: `url(${t.logo_url})` } : undefined}>{!t.logo_url && (name[0] || "T")}</div>
+                                    <div className="flex-1 min-w-0"><p className="text-sm font-black text-white truncate group-hover:text-amber-400 transition">{name}</p><p className="text-xs text-zinc-500">{emoji} {zh}</p></div>
+                                  </a>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    )}
-                    {joinedTeams.length > 0 && (
-                      <div>
-                        <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-4 pl-1">我加入的團隊</p>
-                        <div className="space-y-3">
-                          {joinedTeams.map(({ teams: t }) => {
-                            if (!t) return null;
-                            const emoji = TEAM_SPORT_EMOJI[t.sport_category] ?? "🏅";
-                            const zh = TEAM_SPORT_ZH[t.sport_category] ?? t.sport_category;
-                            const name = t.name_en || t.name_zh || "Unnamed";
-                            return (
-                              <a key={t.id} href={`/team/${t.id}`} className="flex items-center gap-4 bg-slate-900/40 border border-slate-800 hover:border-slate-600 rounded-2xl p-4 transition group">
-                                <div className="w-11 h-11 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-xl font-black text-zinc-500 flex-shrink-0 overflow-hidden bg-cover bg-center" style={t.logo_url ? { backgroundImage: `url(${t.logo_url})` } : undefined}>{!t.logo_url && (name[0] || "T")}</div>
-                                <div className="flex-1 min-w-0"><p className="text-sm font-black text-white truncate group-hover:text-amber-400 transition">{name}</p><p className="text-xs text-zinc-500">{emoji} {zh}</p></div>
-                              </a>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
-            </div>
+                    );
+                  })()}
+                </div>
+              </>
+            ) : profile ? (
+              <ProfileRolePreview
+                profile={profile}
+                activeRole={activeRole}
+                onRoleChange={setActiveRole}
+                activeAthleteTab={activeAthleteTab}
+                onAthleteTabChange={setActiveAthleteTab}
+                showPlayer={showPlayer}
+                showCoach={showCoach}
+                showPhysio={showPhysio}
+                coachServices={coachServices}
+                physioServices={physioServices}
+                coachReviews={coachReviews}
+                onCoachBackend={showCoach ? () => router.push("/dashboard/coach") : undefined}
+                onPhysioBackend={showPhysio ? () => router.push("/dashboard/physio") : undefined}
+                athleteExpertise={
+                  <ExpertiseTab
+                    userSports={userSports}
+                    editFormDisplaySports={editForm.display_sports}
+                    onToggleDisplaySport={toggleDisplaySport}
+                    onOpenSportModal={handleOpenSportModal}
+                    onRemoveSport={handleRemoveSport}
+                    onSaveDisplaySports={handleSaveProfile}
+                  />
+                }
+                athleteHighlights={
+                  <HighlightsTab
+                    galleryMedia={galleryMedia}
+                    userSports={userSports}
+                    onSelectPost={setSelectedPost}
+                    onOpenMediaModal={() => setIsMediaModalOpen(true)}
+                  />
+                }
+                athleteFeed={<FeedTab profile={profile} avatarSrc={avatarSrc} />}
+              />
+            ) : null}
           </div>
         </div>
       </div>
@@ -694,14 +803,20 @@ function ProfilePageContent() {
           <div className="bg-slate-950 border border-slate-800 w-full max-w-sm rounded-3xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-black text-white mb-6">{editingUserSportId ? "編輯技術特長" : "添入技術特長"}</h3>
             <form onSubmit={handleSaveSport} className="space-y-5 text-sm">
-              <div><label className="block text-[10px] font-bold text-zinc-500 uppercase mb-2">選擇運動項目</label><select value={selectedSportId} onChange={e => { setSelectedSportId(e.target.value); setSportDynamicData({}); }} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3.5 text-white font-bold outline-none" required><option value="">-- 選擇項目 --</option>{allSports.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
-              {allSports.find(s => s.id === selectedSportId) && (PRO_SPORT_SCHEMA[allSports.find(s => s.id === selectedSportId)!.name] || PRO_SPORT_SCHEMA["default"]).map(field => (
+              <div>
+                <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-2">選擇運動項目</label>
+                <SportCategoryPicker
+                  value={selectedSportSlug}
+                  onChange={(id: SportCategoryId) => { setSelectedSportSlug(id); setSportDynamicData({}); }}
+                />
+              </div>
+              {selectedSportSlug && getSportSchema(selectedSportSlug).map(field => (
                 <div key={field.key} className="animate-fadeIn">
                   <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-2">{field.label} {field.unit && `(${field.unit})`}</label>
                   {field.type === "select" ? <select value={sportDynamicData[field.key] || ""} onChange={e => setSportDynamicData({ ...sportDynamicData, [field.key]: e.target.value })} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white font-bold outline-none" required><option value="">-- 請選擇 --</option>{field.options?.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select> : <input type={field.type} value={sportDynamicData[field.key] || ""} onChange={e => setSportDynamicData({ ...sportDynamicData, [field.key]: e.target.value })} placeholder={field.placeholder} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white font-bold outline-none" required />}
                 </div>
               ))}
-              <div className="flex gap-3 pt-2"><button type="button" onClick={() => setIsSportModalOpen(false)} className="flex-1 bg-slate-900 text-zinc-400 font-bold py-3 rounded-xl">取消</button><button type="submit" disabled={!selectedSportId} className="flex-1 bg-slate-50 text-black font-black py-3 rounded-xl">{editingUserSportId ? "儲存" : "加入"}</button></div>
+              <div className="flex gap-3 pt-2"><button type="button" onClick={() => setIsSportModalOpen(false)} className="flex-1 bg-slate-900 text-zinc-400 font-bold py-3 rounded-xl">取消</button><button type="submit" disabled={!selectedSportSlug} className="flex-1 bg-slate-50 text-black font-black py-3 rounded-xl">{editingUserSportId ? "儲存" : "加入"}</button></div>
             </form>
           </div>
         </div>

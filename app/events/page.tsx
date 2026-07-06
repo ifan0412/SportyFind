@@ -7,18 +7,16 @@ import {
   Plus, Loader2, User as UserIcon, Filter, Clock
 } from "lucide-react";
 import Link from "next/link";
+import { SPORT_CATEGORIES, getSportCategory, sportMatchesFilter } from "@/lib/sports-categories";
+import { SportFilterModal } from "@/components/SportFilterModal";
+import { LocationFilterModal } from "@/components/LocationFilterModal";
+import {
+  districtsForFilterModal,
+  formatDistrictList,
+  normalizeDistrictIds,
+  serviceMatchesDistrictFilter,
+} from "@/lib/hk-locations";
 
-const SPORT_OPTIONS = [
-  { id: "all", label: "⚡ 全部項目" },
-  { id: "volleyball", label: "🏐 排球" },
-  { id: "tennis", label: "🎾 網球" },
-  { id: "badminton", label: "🏸 羽毛球" },
-  { id: "basketball", label: "🏀 籃球" },
-  { id: "football", label: "⚽ 足球" },
-  { id: "table_tennis", label: "🏓 乒乓球" },
-];
-
-// 🔥 修正：簡化篩選器標籤字眼
 const REG_TYPE_OPTIONS = [
   { id: "all", label: "全部" },
   { id: "individual", label: "個人" },
@@ -42,9 +40,14 @@ export default function EventsLobbyPage() {
   
   // 篩選器狀態
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedSport, setSelectedSport] = useState("all");
+  const [selectedSports, setSelectedSports] = useState<string[]>([]);
+  const [isSportModalOpen, setIsSportModalOpen] = useState(false);
+  const [selectedDistricts, setSelectedDistricts] = useState<string[]>([]);
+  const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
   const [selectedRegType, setSelectedRegType] = useState("all");
   const [selectedAvailability, setSelectedAvailability] = useState("all");
+
+  const locationOptions = useMemo(() => districtsForFilterModal(), []);
 
   const fetchEvents = useCallback(async () => {
     setIsLoading(true);
@@ -61,10 +64,6 @@ export default function EventsLobbyPage() {
         .gte("start_time", new Date().toISOString())
         .order("start_time", { ascending: true });
 
-      if (selectedSport !== "all") {
-        query = query.eq("sport_category", selectedSport);
-      }
-
       if (selectedRegType !== "all") {
         query = query.eq("registration_type", selectedRegType);
       }
@@ -77,13 +76,25 @@ export default function EventsLobbyPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [supabase, selectedSport, selectedRegType]);
+  }, [supabase, selectedRegType]);
 
   useEffect(() => {
     fetchEvents();
   }, [fetchEvents]);
 
   const filteredEvents = events.filter(ev => {
+    if (selectedSports.length > 0 && !sportMatchesFilter(ev.sport_category, selectedSports)) {
+      return false;
+    }
+
+    const eventDistricts = normalizeDistrictIds(ev.districts, null);
+    if (
+      selectedDistricts.length > 0 &&
+      !serviceMatchesDistrictFilter(eventDistricts, null, selectedDistricts)
+    ) {
+      return false;
+    }
+
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       const matchTitle = ev.title?.toLowerCase().includes(q);
@@ -164,22 +175,30 @@ export default function EventsLobbyPage() {
             />
           </div>
 
-          {/* 運動分類切換標籤 */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-2 pt-1 no-scrollbar">
-            {SPORT_OPTIONS.map(sport => (
-              <button
-                key={sport.id}
-                type="button"
-                onClick={() => setSelectedSport(sport.id)}
-                className={`px-4 py-2 rounded-xl text-xs font-black transition shrink-0 cursor-pointer border ${
-                  selectedSport === sport.id
-                    ? "bg-blue-600 border-blue-500 text-white shadow-md"
-                    : "bg-slate-900 border-slate-800 text-zinc-400 hover:border-slate-700 hover:text-white"
-                }`}
-              >
-                {sport.label}
-              </button>
-            ))}
+          {/* 運動 + 地區篩選 */}
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsSportModalOpen(true)}
+              className={`px-4 py-2 rounded-xl text-xs font-bold border transition shrink-0 cursor-pointer ${
+                selectedSports.length > 0
+                  ? "bg-blue-600/15 border-blue-500 text-blue-300"
+                  : "bg-slate-900 border-slate-800 text-zinc-400 hover:border-slate-700"
+              }`}
+            >
+              項目 {selectedSports.length > 0 ? `(${selectedSports.length})` : "(全部)"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsLocationModalOpen(true)}
+              className={`px-4 py-2 rounded-xl text-xs font-bold border transition shrink-0 cursor-pointer ${
+                selectedDistricts.length > 0
+                  ? "bg-amber-600/15 border-amber-500 text-amber-300"
+                  : "bg-slate-900 border-slate-800 text-zinc-400 hover:border-slate-700"
+              }`}
+            >
+              地區 {selectedDistricts.length > 0 ? `(${selectedDistricts.length})` : "(全部)"}
+            </button>
           </div>
 
           {/* 次級篩選列：報名維度 + 名額狀態 */}
@@ -273,13 +292,10 @@ export default function EventsLobbyPage() {
                     {/* 卡片頂部標籤列 */}
                     <div className="flex items-center justify-between gap-2">
                       <span className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-blue-950 text-blue-400 border border-blue-500/30">
-                        {ev.sport_category === "volleyball" && "🏐 排球"}
-                        {ev.sport_category === "tennis" && "🎾 網球"}
-                        {ev.sport_category === "badminton" && "🏸 羽毛球"}
-                        {ev.sport_category === "basketball" && "🏀 籃球"}
-                        {ev.sport_category === "football" && "⚽ 足球"}
-                        {ev.sport_category === "table_tennis" && "🏓 乒乓球"}
-                        {!ev.sport_category && "⚡ 運動"}
+                        {(() => {
+                          const sport = getSportCategory(ev.sport_category);
+                          return sport ? `${sport.emoji} ${sport.labelZh}` : "⚡ 運動";
+                        })()}
                       </span>
 
                       <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black border ${
@@ -304,7 +320,9 @@ export default function EventsLobbyPage() {
                       </div>
                       <div className="flex items-center gap-2">
                         <MapPin className="w-4 h-4 text-amber-400 shrink-0" />
-                        <span className="truncate">{ev.location_name}</span>
+                        <span className="truncate">
+                          {formatDistrictList(normalizeDistrictIds(ev.districts, null), 2) || ev.location_name}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -346,6 +364,20 @@ export default function EventsLobbyPage() {
         )}
 
       </div>
+
+      <SportFilterModal
+        isOpen={isSportModalOpen}
+        onClose={() => setIsSportModalOpen(false)}
+        selectedSports={selectedSports}
+        onApply={setSelectedSports}
+      />
+      <LocationFilterModal
+        isOpen={isLocationModalOpen}
+        onClose={() => setIsLocationModalOpen(false)}
+        allLocations={locationOptions}
+        selectedLocations={selectedDistricts}
+        onApply={setSelectedDistricts}
+      />
     </div>
   );
 }

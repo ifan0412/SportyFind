@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, Suspense } from "react";
+import { useEffect, useState, useCallback, Suspense, useRef } from "react";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -11,6 +11,18 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
+import { HKDistrictPicker } from "@/components/location/HKDistrictPicker";
+import {
+  formatDistrictList,
+  normalizeDistrictIds,
+  normalizeSubdistrictIds,
+} from "@/lib/hk-locations";
+import { RichTextEditor } from "@/components/admin/RichTextEditor";
+import { RichBody } from "@/components/content/RichBody";
+import { stripHtml } from "@/lib/content/body";
+import { ServicePublishBadge } from "@/components/services/ServicePublishBadge";
+import { PhysioServiceTypePicker, PhysioServiceTypeBadges } from "@/components/physio/PhysioServiceTypePicker";
+import { normalizePhysioServiceTypes } from "@/lib/physio-service-types";
 
 // ─── Physio Enquiries Inbox ───────────────────────────────────────────────────
 function PhysioEnquiriesInbox({ physioId }: { physioId: string }) {
@@ -97,6 +109,9 @@ function PhysioEnquiriesInbox({ physioId }: { physioId: string }) {
 // ─── Physio Services Manager ──────────────────────────────────────────────────
 function PhysioServicesManager({ physioId }: { physioId: string }) {
   const supabase = createSupabaseBrowserClient();
+  const searchParams = useSearchParams();
+  const deepLinkServiceId = searchParams.get("service");
+  const openedDeepLinkRef = useRef<string | null>(null);
   const [services, setServices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedService, setSelectedService] = useState<any | null>(null);
@@ -109,9 +124,32 @@ function PhysioServicesManager({ physioId }: { physioId: string }) {
   const [loadingSubData, setLoadingSubData] = useState(false);
   const [uploadingMedia, setUploadingMedia] = useState(false);
   const [pendingServiceIds, setPendingServiceIds] = useState<Set<string>>(new Set());
+  const titleSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const SERVICE_TYPES = ["運動復健", "傷患評估", "手法治療", "痛症管理", "術後復康", "體能訓練", "其他診療"];
-  const LOCATIONS = ["港島區 (Hong Kong Island)", "九龍區 (Kowloon)", "新界區 (New Territories)", "離島區 (Outlying Islands)", "全港 / 現場可議"];
+  const persistServiceField = useCallback(
+    async (id: string, patch: Record<string, unknown>) => {
+      const { error } = await supabase.from("physio_services").update(patch).eq("id", id);
+      if (error) {
+        console.error("Auto-save failed:", error.message);
+        return false;
+      }
+      setSelectedService((prev: any) => (prev?.id === id ? { ...prev, ...patch } : prev));
+      setServices((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
+      return true;
+    },
+    [supabase]
+  );
+
+  useEffect(() => {
+    if (!isEditingInfo || !selectedService?.id) return;
+    if (titleSaveTimer.current) clearTimeout(titleSaveTimer.current);
+    titleSaveTimer.current = setTimeout(() => {
+      persistServiceField(selectedService.id, { title: editForm.title ?? "" });
+    }, 500);
+    return () => {
+      if (titleSaveTimer.current) clearTimeout(titleSaveTimer.current);
+    };
+  }, [editForm.title, isEditingInfo, selectedService?.id, persistServiceField]);
 
   const fetchServices = useCallback(async () => {
     setLoading(true);
@@ -125,6 +163,50 @@ function PhysioServicesManager({ physioId }: { physioId: string }) {
   }, [physioId, supabase]);
 
   useEffect(() => { fetchServices(); }, [fetchServices]);
+
+  const handleOpenDetail = useCallback(async (srv: any) => {
+    setSelectedService(srv);
+    setEditForm({
+      ...srv,
+      districts: normalizeDistrictIds(srv.districts, srv.location),
+      subdistricts: normalizeSubdistrictIds(srv.subdistricts),
+      service_types: normalizePhysioServiceTypes(srv.service_types, srv.service_type),
+    });
+    setIsEditingInfo(false);
+    setDetailTab("info");
+    setPendingServiceIds((prev) => {
+      const next = new Set(prev);
+      next.delete(srv.id);
+      return next;
+    });
+    await supabase.from("physio_enquiries").update({ status: "seen" }).eq("service_id", srv.id).eq("status", "pending");
+  }, [supabase]);
+
+  useEffect(() => {
+    if (!deepLinkServiceId || loading) return;
+    if (openedDeepLinkRef.current === deepLinkServiceId) return;
+
+    const openDeepLinkedService = async () => {
+      const fromList = services.find((s) => s.id === deepLinkServiceId);
+      if (fromList) {
+        openedDeepLinkRef.current = deepLinkServiceId;
+        await handleOpenDetail(fromList);
+        return;
+      }
+      const { data } = await supabase
+        .from("physio_services")
+        .select("*")
+        .eq("id", deepLinkServiceId)
+        .eq("physio_id", physioId)
+        .single();
+      if (data) {
+        openedDeepLinkRef.current = deepLinkServiceId;
+        await handleOpenDetail(data);
+      }
+    };
+
+    openDeepLinkedService();
+  }, [deepLinkServiceId, loading, services, physioId, supabase, handleOpenDetail]);
 
   useEffect(() => {
     if (!selectedService) return;
@@ -141,28 +223,44 @@ function PhysioServicesManager({ physioId }: { physioId: string }) {
     fetchSubData();
   }, [selectedService, supabase]);
 
-  const handleOpenDetail = async (srv: any) => {
-    setSelectedService(srv); setEditForm(srv); setIsEditingInfo(false); setDetailTab("info");
-    setPendingServiceIds(prev => { const next = new Set(prev); next.delete(srv.id); return next; });
-    await supabase.from("physio_enquiries").update({ status: "seen" }).eq("service_id", srv.id).eq("status", "pending");
-  };
-
   const handleCreateNewService = async () => {
-    const payload = { physio_id: physioId, title: "新診療項目 (點擊編輯)", service_type: "運動復健", session_rate: 800, location: "九龍區 (Kowloon)", description: "請填寫詳細診療內容與適合對象...", photos: [], is_active: true };
+    const payload = { physio_id: physioId, title: "", service_type: "運動復健", service_types: [] as string[], session_rate: 0, districts: [], subdistricts: [], description: "", photos: [], is_active: false };
     const { data, error } = await supabase.from("physio_services").insert(payload).select().single();
     if (error) { alert("新增失敗: " + error.message); return; }
-    if (data) { setServices([data, ...services]); setSelectedService(data); setEditForm(data); setIsEditingInfo(true); setDetailTab("info"); }
+    if (data) { setServices([data, ...services]); setSelectedService(data); setEditForm({ ...data, districts: [], subdistricts: [] }); setIsEditingInfo(true); setDetailTab("info"); }
   };
 
-  const handleSaveServiceInfo = async () => {
-    if (!editForm.title?.trim()) return alert("請填寫項目名稱");
+  const handleSaveServiceInfo = async (publish: boolean) => {
     setIsSavingInfo(true);
-    const { error } = await supabase.from("physio_services").update({ title: editForm.title, service_type: editForm.service_type, session_rate: Number(editForm.session_rate) || 0, location: editForm.location, description: editForm.description, is_active: editForm.is_active }).eq("id", editForm.id);
+    const districts = Array.isArray(editForm.districts) ? editForm.districts : [];
+    if (publish && !districts.length) {
+      setIsSavingInfo(false);
+      alert("發佈前請至少選擇一個診療地區");
+      return;
+    }
+    const serviceTypes = normalizePhysioServiceTypes(editForm.service_types, editForm.service_type);
+    if (publish && !serviceTypes.length) {
+      setIsSavingInfo(false);
+      alert("發佈前請至少選擇一個診療類別");
+      return;
+    }
+    const payload = {
+      title: (editForm.title ?? "").trim(),
+      service_types: serviceTypes,
+      service_type: serviceTypes[0] || "運動復健",
+      session_rate: Number(editForm.session_rate) || 0,
+      districts,
+      subdistricts: normalizeSubdistrictIds(editForm.subdistricts),
+      description: editForm.description || "",
+      is_active: publish,
+      location: formatDistrictList(districts, 4) || null,
+    };
+    const { error } = await supabase.from("physio_services").update(payload).eq("id", editForm.id);
     setIsSavingInfo(false);
     if (error) { alert("更新失敗: " + error.message); return; }
-    alert("🎉 診療項目已更新！");
-    setSelectedService(editForm);
-    setServices(services.map(s => s.id === editForm.id ? editForm : s));
+    const updated = { ...editForm, ...payload };
+    setSelectedService(updated);
+    setServices(services.map(s => s.id === editForm.id ? updated : s));
     setIsEditingInfo(false);
   };
 
@@ -211,7 +309,7 @@ function PhysioServicesManager({ physioId }: { physioId: string }) {
           <p className="text-xs text-zinc-400 mt-1">建立的診療項目將展示於物理治療師名錄與個人檔案，供運動員預約諮詢。</p>
         </div>
         <button onClick={handleCreateNewService} type="button" className="bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-black px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-1.5 shrink-0 cursor-pointer active:scale-95">
-          <Plus className="w-4 h-4" /> ＋ 新增診療項目
+          <Plus className="w-4 h-4" />新增診療項目
         </button>
       </div>
 
@@ -229,16 +327,20 @@ function PhysioServicesManager({ physioId }: { physioId: string }) {
               <div key={srv.id} onClick={() => handleOpenDetail(srv)} className="relative bg-slate-900/90 border border-slate-800 hover:border-emerald-500/50 rounded-3xl p-6 flex flex-col justify-between transition duration-300 group hover:-translate-y-1 shadow-md hover:shadow-2xl cursor-pointer overflow-hidden">
                 {pendingServiceIds.has(srv.id) && <span className="absolute top-4 right-4 w-3 h-3 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)] z-10 animate-pulse" />}
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="px-3 py-1 rounded-full text-xs font-black uppercase bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">{srv.service_type}</span>
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <PhysioServiceTypeBadges types={normalizePhysioServiceTypes(srv.service_types, srv.service_type)} size="xs" />
+                      <ServicePublishBadge isActive={!!srv.is_active} />
+                    </div>
                     <span className="text-base font-black text-emerald-400">HK$ {srv.session_rate} <span className="text-xs text-zinc-500 font-normal">/節</span></span>
                   </div>
                   <div>
                     <h4 className="text-lg font-black text-white group-hover:text-emerald-400 transition line-clamp-1">{srv.title}</h4>
-                    <p className="text-xs text-zinc-400 mt-1.5 line-clamp-2 h-8 leading-snug">{srv.description || "尚無詳細說明。"}</p>
+                    <p className="text-xs text-zinc-400 mt-1.5 line-clamp-2 h-8 leading-snug">{stripHtml(srv.description || "") || "尚無詳細說明。"}</p>
                   </div>
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-300 bg-slate-950/60 p-2.5 rounded-xl border border-slate-800">
-                    <MapPin className="w-3.5 h-3.5 text-emerald-400 shrink-0" /><span className="truncate">{srv.location}</span>
+                  <div className="inline-flex items-center gap-1.5 text-xs font-bold text-zinc-300">
+                    <MapPin className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span className="truncate">{formatDistrictList(normalizeDistrictIds(srv.districts, srv.location), 2) || "未設定地區"}</span>
                   </div>
                 </div>
                 <div className="pt-4 mt-5 border-t border-slate-800/80 flex items-center justify-between">
@@ -256,7 +358,7 @@ function PhysioServicesManager({ physioId }: { physioId: string }) {
               <ArrowLeft className="w-4 h-4" /> 返回項目列表
             </button>
             <div className="flex items-center gap-3">
-              <Link href={`/physio/services/${selectedService.id}`} target="_blank" className="text-xs font-bold text-blue-400 hover:underline">↗ 預覽公開頁面</Link>
+              <Link href={`/physio/services/${selectedService.id}`} target="_blank" className="text-xs font-bold text-emerald-400 hover:underline">↗ 預覽公開頁面</Link>
               <button onClick={() => handleDeleteService(selectedService.id)} className="p-2 rounded-xl bg-slate-900 hover:bg-red-500/20 text-zinc-400 hover:text-red-400 transition cursor-pointer"><Trash2 className="w-4 h-4" /></button>
             </div>
           </div>
@@ -264,7 +366,7 @@ function PhysioServicesManager({ physioId }: { physioId: string }) {
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <span className="text-[10px] uppercase font-black px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">診療項目後台</span>
-              <h2 className="text-2xl font-black text-white mt-1">{selectedService.title}</h2>
+              <h2 className="text-2xl font-black text-white mt-1">{selectedService.title || "未命名項目"}</h2>
             </div>
             {!isEditingInfo && detailTab === "info" && (
               <button onClick={() => setIsEditingInfo(true)} className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-black transition flex items-center gap-1.5 cursor-pointer">
@@ -285,52 +387,80 @@ function PhysioServicesManager({ physioId }: { physioId: string }) {
           </div>
 
           {detailTab === "info" && (isEditingInfo ? (
-            <div className="space-y-4 pt-2">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="sm:col-span-2">
-                  <label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">項目名稱 *</label>
-                  <input type="text" value={editForm.title || ""} onChange={e => setEditForm({ ...editForm, title: e.target.value })} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-sm text-white font-bold" />
-                </div>
-                <div>
-                  <label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">診療類別</label>
-                  <select value={editForm.service_type || ""} onChange={e => setEditForm({ ...editForm, service_type: e.target.value })} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-sm text-white font-bold cursor-pointer">
-                    {SERVICE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                </div>
+            <div className="space-y-5 pt-2">
+              <div>
+                <label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">項目名稱</label>
+                <input
+                  type="text"
+                  value={editForm.title ?? ""}
+                  onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                  placeholder="例如：運動傷患評估與復健"
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-sm text-white font-bold placeholder:text-zinc-600"
+                />
+                <p className="text-[10px] text-zinc-600 mt-1">輸入時自動儲存</p>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">每節收費 (HKD/節)</label>
-                  <input type="number" value={editForm.session_rate ?? ""} onChange={e => setEditForm({ ...editForm, session_rate: e.target.value === "" ? "" : Number(e.target.value) })} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-sm text-emerald-400 font-black" />
-                </div>
-                <div>
-                  <label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">診療地點</label>
-                  <select value={editForm.location || ""} onChange={e => setEditForm({ ...editForm, location: e.target.value })} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-sm text-white font-bold cursor-pointer">
-                    {LOCATIONS.map(l => <option key={l} value={l}>{l}</option>)}
-                  </select>
-                </div>
+              <div className="space-y-2">
+                <label className="text-[10px] text-zinc-500 font-bold uppercase block">診療類別（可多選）</label>
+                <PhysioServiceTypePicker
+                  value={normalizePhysioServiceTypes(editForm.service_types, editForm.service_type)}
+                  onChange={(types) => setEditForm({ ...editForm, service_types: types, service_type: types[0] || "" })}
+                />
               </div>
               <div>
-                <label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">項目詳細說明</label>
-                <textarea rows={4} value={editForm.description || ""} onChange={e => setEditForm({ ...editForm, description: e.target.value })} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-zinc-200" />
+                <label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">每節收費 (HKD/節)</label>
+                <input
+                  type="number"
+                  value={editForm.session_rate ?? ""}
+                  onChange={(e) => setEditForm({ ...editForm, session_rate: e.target.value === "" ? "" : Number(e.target.value) })}
+                  placeholder="800"
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-sm text-emerald-400 font-black placeholder:text-zinc-600"
+                />
               </div>
-              <div className="flex justify-end gap-3 pt-2">
+              <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4">
+                <label className="text-[10px] text-zinc-500 font-bold uppercase block mb-3">診療地區</label>
+                <HKDistrictPicker
+                  districts={editForm.districts || []}
+                  subdistricts={editForm.subdistricts || []}
+                  onDistrictsChange={() => {}}
+                  onSubdistrictsChange={() => {}}
+                  onSelectionChange={(d, s) => setEditForm((prev: any) => ({ ...prev, districts: d, subdistricts: s }))}
+                  hideSectionTitle
+                />
+              </div>
+              <div>
+                <label className="text-[10px] text-zinc-500 font-bold uppercase block mb-2">項目詳細說明</label>
+                <RichTextEditor
+                  value={editForm.description ?? ""}
+                  onChange={(html) => setEditForm({ ...editForm, description: html })}
+                  placeholder="描述適合對象、治療流程、注意事項…"
+                />
+              </div>
+              <label className="flex items-center gap-3 p-3 bg-slate-900/60 border border-slate-800 rounded-xl">
+                <ServicePublishBadge isActive={!!editForm.is_active} />
+                <span className="text-xs font-bold text-zinc-400">
+                  {editForm.is_active ? "此項目目前為發佈狀態" : "此項目目前為草稿（不會顯示於個人檔案）"}
+                </span>
+              </label>
+              <div className="flex flex-wrap justify-end gap-3 pt-2">
                 <button onClick={() => setIsEditingInfo(false)} type="button" className="px-5 py-2.5 rounded-xl bg-slate-800 text-zinc-400 font-bold text-xs cursor-pointer">取消</button>
-                <button onClick={handleSaveServiceInfo} disabled={isSavingInfo} type="button" className="px-6 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-black text-xs transition flex items-center gap-1.5 cursor-pointer">
-                  {isSavingInfo ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} 儲存修改
+                <button onClick={() => handleSaveServiceInfo(false)} disabled={isSavingInfo} type="button" className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-zinc-200 font-black text-xs transition cursor-pointer">
+                  儲存草稿
+                </button>
+                <button onClick={() => handleSaveServiceInfo(true)} disabled={isSavingInfo} type="button" className="px-6 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-black text-xs transition flex items-center gap-1.5 cursor-pointer">
+                  {isSavingInfo ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} 儲存並發佈
                 </button>
               </div>
             </div>
           ) : (
             <div className="space-y-4 pt-2">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
-                <div><span className="text-xs text-zinc-500 block font-bold">診療類別</span><span className="font-extrabold text-emerald-400">{selectedService.service_type}</span></div>
+                <div><span className="text-xs text-zinc-500 block font-bold mb-1">診療類別</span><PhysioServiceTypeBadges types={normalizePhysioServiceTypes(selectedService.service_types, selectedService.service_type)} size="xs" /></div>
                 <div><span className="text-xs text-zinc-500 block font-bold">每節收費</span><span className="font-extrabold text-emerald-400">${selectedService.session_rate} HKD / 節</span></div>
-                <div><span className="text-xs text-zinc-500 block font-bold">診療地點</span><span className="font-extrabold text-white">{selectedService.location}</span></div>
+                <div><span className="text-xs text-zinc-500 block font-bold">診療地區</span><span className="font-extrabold text-white">{formatDistrictList(normalizeDistrictIds(selectedService.districts, selectedService.location), 4) || "未設定"}</span></div>
               </div>
               <div className="bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
                 <span className="text-xs text-zinc-500 block font-bold mb-1">詳細說明</span>
-                <p className="text-zinc-300 whitespace-pre-wrap leading-relaxed text-sm">{selectedService.description || "未填寫說明。"}</p>
+                <RichBody html={selectedService.description} emptyText="未填寫說明。" />
               </div>
             </div>
           ))}
@@ -411,12 +541,12 @@ function PhysioSettingsPanel({ profile, onSaved }: { profile: any; onSaved: () =
   const [form, setForm] = useState({
     physio_qualifications: profile?.physio_qualifications || "",
     clinic_name: profile?.clinic_name || "",
-    physio_rate: profile?.physio_rate || "",
     physio_experience_years: profile?.physio_experience_years || "",
     physio_services_offered: profile?.physio_services_offered || "",
     physio_contact_email: profile?.physio_contact_email || "",
     physio_contact_phone: profile?.physio_contact_phone || "",
-    physio_city_region: profile?.physio_city_region || "",
+    physio_districts: normalizeDistrictIds(profile?.physio_districts, profile?.physio_city_region),
+    physio_subdistricts: normalizeSubdistrictIds(profile?.physio_subdistricts),
     physio_address: profile?.physio_address || "",
     physio_is_address_public: profile?.physio_is_address_public ?? true,
   });
@@ -427,12 +557,13 @@ function PhysioSettingsPanel({ profile, onSaved }: { profile: any; onSaved: () =
     const { error } = await supabase.from("profiles").update({
       physio_qualifications: form.physio_qualifications || null,
       clinic_name: form.clinic_name || null,
-      physio_rate: Number(form.physio_rate) || 0,
       physio_experience_years: form.physio_experience_years || null,
       physio_services_offered: form.physio_services_offered || null,
       physio_contact_email: form.physio_contact_email || null,
       physio_contact_phone: form.physio_contact_phone || null,
-      physio_city_region: form.physio_city_region || null,
+      physio_districts: form.physio_districts,
+      physio_subdistricts: form.physio_subdistricts,
+      physio_city_region: formatDistrictList(form.physio_districts, 3) || null,
       physio_address: form.physio_address || null,
       physio_is_address_public: form.physio_is_address_public,
     }).eq("id", profile.id);
@@ -451,23 +582,19 @@ function PhysioSettingsPanel({ profile, onSaved }: { profile: any; onSaved: () =
         <textarea rows={4} placeholder="例如：持有香港物理治療師執照，專注運動創傷復健超過 8 年..." value={form.physio_qualifications} onChange={e => setForm({ ...form, physio_qualifications: e.target.value })} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3.5 text-sm text-white focus:border-emerald-500 transition outline-none" />
       </div>
 
-      {/* Clinic & Rate */}
+      {/* Clinic info */}
       <div>
-        <h3 className="text-sm md:text-base font-black text-white mb-4">診所資訊與收費</h3>
+        <h3 className="text-sm md:text-base font-black text-white mb-4">診所資訊</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <div className="space-y-1.5">
             <label className="text-[10px] text-zinc-500 font-bold uppercase block pl-1">診所 / 機構名稱</label>
             <input type="text" value={form.clinic_name} onChange={e => setForm({ ...form, clinic_name: e.target.value })} placeholder="例如：運動復健中心" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-emerald-500 transition outline-none" />
           </div>
           <div className="space-y-1.5">
-            <label className="text-[10px] text-zinc-500 font-bold uppercase block pl-1">每節收費 (HKD)</label>
-            <input type="number" value={form.physio_rate} onChange={e => setForm({ ...form, physio_rate: e.target.value })} placeholder="例如：800" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-emerald-400 font-black focus:border-emerald-500 transition outline-none" />
-          </div>
-          <div className="space-y-1.5">
             <label className="text-[10px] text-zinc-500 font-bold uppercase block pl-1">執業年資</label>
             <input type="text" value={form.physio_experience_years} onChange={e => setForm({ ...form, physio_experience_years: e.target.value })} placeholder="例如：8 年" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-emerald-500 transition outline-none" />
           </div>
-          <div className="space-y-1.5">
+          <div className="space-y-1.5 md:col-span-2">
             <label className="text-[10px] text-zinc-500 font-bold uppercase block pl-1">主要服務項目 (簡列)</label>
             <input type="text" value={form.physio_services_offered} onChange={e => setForm({ ...form, physio_services_offered: e.target.value })} placeholder="例如：運動復健、手法治療、痛症管理" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-emerald-500 transition outline-none" />
           </div>
@@ -488,11 +615,18 @@ function PhysioSettingsPanel({ profile, onSaved }: { profile: any; onSaved: () =
           </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
-          <div className="space-y-1.5">
+          <div className="space-y-1.5 md:col-span-2">
             <label className="text-[10px] text-zinc-500 font-bold uppercase block pl-1">主要服務地區</label>
-            <input type="text" value={form.physio_city_region} onChange={e => setForm({ ...form, physio_city_region: e.target.value })} placeholder="例如：九龍區 / 港島東" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-emerald-500 transition outline-none" />
+            <HKDistrictPicker
+              districts={form.physio_districts}
+              subdistricts={form.physio_subdistricts}
+              onDistrictsChange={() => {}}
+              onSubdistrictsChange={() => {}}
+              onSelectionChange={(d, s) => setForm((prev) => ({ ...prev, physio_districts: d, physio_subdistricts: s }))}
+              hideSectionTitle
+            />
           </div>
-          <div className="space-y-1.5">
+          <div className="space-y-1.5 md:col-span-2">
             <label className="text-[10px] text-zinc-500 font-bold uppercase block pl-1">詳細地址 (診所)</label>
             <input type="text" value={form.physio_address} onChange={e => setForm({ ...form, physio_address: e.target.value })} placeholder="例如：彌敦道 123 號 4 樓" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-emerald-500 transition outline-none" />
           </div>
@@ -533,7 +667,9 @@ function PhysioDashboardContent() {
 
   useEffect(() => {
     const s = searchParams.get("subtab");
-    if (s === "inbox" || s === "services" || s === "settings") setSubTab(s);
+    const serviceId = searchParams.get("service");
+    if (serviceId) setSubTab("services");
+    else if (s === "inbox" || s === "services" || s === "settings") setSubTab(s);
   }, [searchParams]);
 
   useEffect(() => {
@@ -560,7 +696,7 @@ function PhysioDashboardContent() {
           <button onClick={() => router.push("/profile")} className="inline-flex items-center gap-2 text-sm font-bold text-zinc-400 hover:text-white transition cursor-pointer">
             <ArrowLeft className="w-4 h-4" /> 返回個人檔案
           </button>
-          <Link href={`/p/${profile.id}`} target="_blank" className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-400 hover:text-blue-300 transition">
+          <Link href={`/p/${profile.id}?tab=physio`} target="_blank" className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-400 hover:text-blue-300 transition">
             預覽公開名片 <ArrowUpRight className="w-3.5 h-3.5" />
           </Link>
         </div>

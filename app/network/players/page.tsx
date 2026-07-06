@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useRef, useEffect } from "react";
 import Link from "next/link";
+import { SPORT_CATEGORIES, getSportCategory } from "@/lib/sports-categories";
 
 // ==========================================
 // 1. Interfaces
@@ -38,7 +39,7 @@ const MOCK_PLAYERS: MockPlayer[] = [
     id: "p1",
     name: "Alex Chen",
     avatar: "⚡",
-    primarySport: "Tennis",
+    primarySport: "tennis",
     skillLevel: "高階 Advanced",
     positionOrStyle: "底線型 / 慣用右手",
     district: "港島區 Island",
@@ -49,7 +50,7 @@ const MOCK_PLAYERS: MockPlayer[] = [
     id: "p2",
     name: "Sarah Wong",
     avatar: "🏐",
-    primarySport: "Volleyball",
+    primarySport: "volleyball",
     skillLevel: "進階 Intermediate",
     positionOrStyle: "二傳手 (Setter)",
     district: "九龍區 Kowloon",
@@ -60,7 +61,7 @@ const MOCK_PLAYERS: MockPlayer[] = [
     id: "p3",
     name: "Marcus Lau",
     avatar: "🏀",
-    primarySport: "Basketball",
+    primarySport: "basketball",
     skillLevel: "校隊/專業 Pro",
     positionOrStyle: "控球後衛 (PG)",
     district: "新界區 N.T.",
@@ -71,7 +72,7 @@ const MOCK_PLAYERS: MockPlayer[] = [
     id: "p4",
     name: "David Pak",
     avatar: "🎾",
-    primarySport: "Tennis",
+    primarySport: "tennis",
     skillLevel: "進階 Intermediate",
     positionOrStyle: "發球上網型",
     district: "港島區 Island",
@@ -82,7 +83,7 @@ const MOCK_PLAYERS: MockPlayer[] = [
     id: "p5",
     name: "Elena Rostova",
     avatar: "🏸",
-    primarySport: "Badminton",
+    primarySport: "badminton",
     skillLevel: "高階 Advanced",
     positionOrStyle: "單打 / 拉吊突擊",
     district: "九龍區 Kowloon",
@@ -93,7 +94,7 @@ const MOCK_PLAYERS: MockPlayer[] = [
     id: "p6",
     name: "Kenji Sato",
     avatar: "⚽",
-    primarySport: "Football",
+    primarySport: "soccer",
     skillLevel: "初學者 Beginner",
     positionOrStyle: "右後衛 (RB)",
     district: "港島區 Island",
@@ -102,13 +103,10 @@ const MOCK_PLAYERS: MockPlayer[] = [
   },
 ];
 
-const SPORT_OPTIONS: OptionItem[] = [
-  { label: "🎾 網球 Tennis", value: "Tennis" },
-  { label: "🏐 排球 Volleyball", value: "Volleyball" },
-  { label: "🏀 籃球 Basketball", value: "Basketball" },
-  { label: "🏸 羽毛球 Badminton", value: "Badminton" },
-  { label: "⚽ 足球 Football", value: "Football" },
-];
+const SPORT_OPTIONS: OptionItem[] = SPORT_CATEGORIES.map((s) => ({
+  label: `${s.emoji} ${s.labelZh} ${s.labelEn}`,
+  value: s.id,
+}));
 
 const LEVEL_OPTIONS: OptionItem[] = [
   { label: "初學者 Beginner", value: "Beginner" },
@@ -384,7 +382,10 @@ export default function PlayersPage() {
                     <div>
                       <h3 className="font-bold text-white text-lg">{player.name}</h3>
                       <p className="text-xs font-medium text-blue-400 mt-0.5">
-                        {player.primarySport}{" "}
+                        {(() => {
+                          const sport = getSportCategory(player.primarySport);
+                          return sport ? `${sport.emoji} ${sport.labelZh}` : player.primarySport;
+                        })()}{" "}
                         <span className="text-slate-500 font-normal ml-1">{player.skillLevel}</span>
                       </p>
                     </div>

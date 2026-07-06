@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, Suspense } from "react";
+import { useEffect, useState, useCallback, Suspense, useRef } from "react";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -11,6 +11,20 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
+import { HKDistrictPicker } from "@/components/location/HKDistrictPicker";
+import {
+  formatDistrictList,
+  formatSubdistrictList,
+  normalizeDistrictIds,
+  normalizeSubdistrictIds,
+} from "@/lib/hk-locations";
+import { RichTextEditor } from "@/components/admin/RichTextEditor";
+import { RichBody } from "@/components/content/RichBody";
+import { SportCategoryBadge } from "@/components/sports/SportCategoryBadge";
+import { SportCategoryPicker } from "@/components/sports/SportCategoryPicker";
+import type { SportCategoryId } from "@/lib/sports-categories";
+import { stripHtml } from "@/lib/content/body";
+import { ServicePublishBadge } from "@/components/services/ServicePublishBadge";
 
 // ─── Enquiries Inbox ──────────────────────────────────────────────────────────
 function CoachEnquiriesInbox({ coachId }: { coachId: string }) {
@@ -105,8 +119,11 @@ function CoachEnquiriesInbox({ coachId }: { coachId: string }) {
 }
 
 // ─── Services Manager ─────────────────────────────────────────────────────────
-function CoachServicesManager({ coachId, allSports }: { coachId: string; allSports: any[] }) {
+function CoachServicesManager({ coachId }: { coachId: string }) {
   const supabase = createSupabaseBrowserClient();
+  const searchParams = useSearchParams();
+  const deepLinkServiceId = searchParams.get("service");
+  const openedDeepLinkRef = useRef<string | null>(null);
   const [services, setServices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedService, setSelectedService] = useState<any | null>(null);
@@ -119,6 +136,32 @@ function CoachServicesManager({ coachId, allSports }: { coachId: string; allSpor
   const [loadingSubData, setLoadingSubData] = useState(false);
   const [uploadingMedia, setUploadingMedia] = useState(false);
   const [pendingServiceIds, setPendingServiceIds] = useState<Set<string>>(new Set());
+  const titleSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const persistServiceField = useCallback(
+    async (id: string, patch: Record<string, unknown>) => {
+      const { error } = await supabase.from("coach_services").update(patch).eq("id", id);
+      if (error) {
+        console.error("Auto-save failed:", error.message);
+        return false;
+      }
+      setSelectedService((prev: any) => (prev?.id === id ? { ...prev, ...patch } : prev));
+      setServices((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
+      return true;
+    },
+    [supabase]
+  );
+
+  useEffect(() => {
+    if (!isEditingInfo || !selectedService?.id) return;
+    if (titleSaveTimer.current) clearTimeout(titleSaveTimer.current);
+    titleSaveTimer.current = setTimeout(() => {
+      persistServiceField(selectedService.id, { title: editForm.title ?? "" });
+    }, 500);
+    return () => {
+      if (titleSaveTimer.current) clearTimeout(titleSaveTimer.current);
+    };
+  }, [editForm.title, isEditingInfo, selectedService?.id, persistServiceField]);
 
   const fetchServices = useCallback(async () => {
     setLoading(true);
@@ -132,6 +175,50 @@ function CoachServicesManager({ coachId, allSports }: { coachId: string; allSpor
   }, [coachId, supabase]);
 
   useEffect(() => { fetchServices(); }, [fetchServices]);
+
+  const handleOpenDetail = useCallback(async (srv: any) => {
+    setSelectedService(srv);
+    setEditForm({
+      ...srv,
+      districts: normalizeDistrictIds(srv.districts, srv.location),
+      subdistricts: normalizeSubdistrictIds(srv.subdistricts),
+      teaching_experience_years: srv.teaching_experience_years ?? "",
+    });
+    setIsEditingInfo(false);
+    setDetailTab("info");
+    setPendingServiceIds((prev) => {
+      const next = new Set(prev);
+      next.delete(srv.id);
+      return next;
+    });
+    await supabase.from("coach_enquiries").update({ status: "seen" }).eq("service_id", srv.id).eq("status", "pending");
+  }, [supabase]);
+
+  useEffect(() => {
+    if (!deepLinkServiceId || loading) return;
+    if (openedDeepLinkRef.current === deepLinkServiceId) return;
+
+    const openDeepLinkedService = async () => {
+      const fromList = services.find((s) => s.id === deepLinkServiceId);
+      if (fromList) {
+        openedDeepLinkRef.current = deepLinkServiceId;
+        await handleOpenDetail(fromList);
+        return;
+      }
+      const { data } = await supabase
+        .from("coach_services")
+        .select("*")
+        .eq("id", deepLinkServiceId)
+        .eq("coach_id", coachId)
+        .single();
+      if (data) {
+        openedDeepLinkRef.current = deepLinkServiceId;
+        await handleOpenDetail(data);
+      }
+    };
+
+    openDeepLinkedService();
+  }, [deepLinkServiceId, loading, services, coachId, supabase, handleOpenDetail]);
 
   const fetchCourseLeads = useCallback(async (serviceId: string) => {
     const { data: rawLeads, error } = await supabase
@@ -184,28 +271,62 @@ function CoachServicesManager({ coachId, allSports }: { coachId: string; allSpor
     fetchCourseLeads(selectedService.id);
   }, [detailTab, selectedService, fetchCourseLeads]);
 
-  const handleOpenDetail = async (srv: any) => {
-    setSelectedService(srv); setEditForm(srv); setIsEditingInfo(false); setDetailTab("info");
-    setPendingServiceIds(prev => { const next = new Set(prev); next.delete(srv.id); return next; });
-    await supabase.from("coach_enquiries").update({ status: "seen" }).eq("service_id", srv.id).eq("status", "pending");
-  };
-
   const handleCreateNewService = async () => {
-    const payload = { coach_id: coachId, title: "新課程專案 (點擊編輯)", sport_category: allSports[0]?.name || "Football / Soccer", hourly_rate: 500, location: "九龍區 (Kowloon)", description: "請填寫詳細授課內容與教學目標...", photos: [], is_active: true };
+    const payload = {
+      coach_id: coachId,
+      title: "",
+      sport_category: "volleyball",
+      hourly_rate: 0,
+      districts: [],
+      subdistricts: [],
+      description: "",
+      photos: [],
+      is_active: false,
+      teaching_experience_years: null,
+    };
     const { data, error } = await supabase.from("coach_services").insert(payload).select().single();
     if (error) { alert("新增失敗: " + error.message); return; }
-    if (data) { setServices([data, ...services]); setSelectedService(data); setEditForm(data); setIsEditingInfo(true); setDetailTab("info"); }
+    if (data) {
+      setServices([data, ...services]);
+      setSelectedService(data);
+      setEditForm({ ...data, districts: [], subdistricts: [], teaching_experience_years: "" });
+      setIsEditingInfo(true);
+      setDetailTab("info");
+    }
   };
 
-  const handleSaveCourseInfo = async () => {
-    if (!editForm.title?.trim()) return alert("請填寫課程標題");
+  const handleSaveCourseInfo = async (publish: boolean) => {
     setIsSavingInfo(true);
-    const { error } = await supabase.from("coach_services").update({ title: editForm.title, sport_category: editForm.sport_category, hourly_rate: Number(editForm.hourly_rate) || 0, location: editForm.location, description: editForm.description, is_active: editForm.is_active }).eq("id", editForm.id);
+    const districts = Array.isArray(editForm.districts) ? editForm.districts : [];
+    if (publish && !districts.length) {
+      setIsSavingInfo(false);
+      alert("發佈前請至少選擇一個授課地區");
+      return;
+    }
+    if (publish && !editForm.sport_category) {
+      setIsSavingInfo(false);
+      alert("發佈前請選擇專項類別");
+      return;
+    }
+    const payload = {
+      title: (editForm.title ?? "").trim(),
+      sport_category: editForm.sport_category,
+      hourly_rate: Number(editForm.hourly_rate) || 0,
+      districts,
+      subdistricts: normalizeSubdistrictIds(editForm.subdistricts),
+      description: editForm.description || "",
+      is_active: publish,
+      teaching_experience_years: editForm.teaching_experience_years
+        ? Number(editForm.teaching_experience_years)
+        : null,
+      location: formatDistrictList(districts, 4) || null,
+    };
+    const { error } = await supabase.from("coach_services").update(payload).eq("id", editForm.id);
     setIsSavingInfo(false);
     if (error) { alert("更新失敗: " + error.message); return; }
-    alert("🎉 課程資訊已更新！");
-    setSelectedService(editForm);
-    setServices(services.map(s => s.id === editForm.id ? editForm : s));
+    const updated = { ...editForm, ...payload };
+    setSelectedService(updated);
+    setServices(services.map((s) => (s.id === editForm.id ? updated : s)));
     setIsEditingInfo(false);
   };
 
@@ -286,16 +407,22 @@ function CoachServicesManager({ coachId, allSports }: { coachId: string; allSpor
               <div key={srv.id} onClick={() => handleOpenDetail(srv)} className="relative bg-slate-900/90 border border-slate-800 hover:border-amber-500/50 rounded-3xl p-6 flex flex-col justify-between transition duration-300 group hover:-translate-y-1 shadow-md hover:shadow-2xl cursor-pointer overflow-hidden">
                 {pendingServiceIds.has(srv.id) && <span className="absolute top-4 right-4 w-3 h-3 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)] z-10 animate-pulse" />}
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="px-3 py-1 rounded-full text-xs font-black uppercase bg-amber-500/15 text-amber-400 border border-amber-500/30">{srv.sport_category}</span>
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <SportCategoryBadge category={srv.sport_category} variant="amber" size="xs" />
+                      <ServicePublishBadge isActive={!!srv.is_active} />
+                    </div>
                     <span className="text-base font-black text-emerald-400">HK$ {srv.hourly_rate} <span className="text-xs text-zinc-500 font-normal">/小時</span></span>
                   </div>
                   <div>
                     <h4 className="text-lg font-black text-white group-hover:text-amber-400 transition line-clamp-1">{srv.title}</h4>
-                    <p className="text-xs text-zinc-400 mt-1.5 line-clamp-2 h-8 leading-snug">{srv.description || "尚無詳細大綱介紹。"}</p>
+                    <p className="text-xs text-zinc-400 mt-1.5 line-clamp-2 h-8 leading-snug">{stripHtml(srv.description || "") || "尚無詳細大綱介紹。"}</p>
                   </div>
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-300 bg-slate-950/60 p-2.5 rounded-xl border border-slate-800">
-                    <MapPin className="w-3.5 h-3.5 text-amber-400 shrink-0" /><span className="truncate">{srv.location}</span>
+                  <div className="inline-flex items-center gap-1.5 text-xs font-bold text-zinc-300">
+                    <MapPin className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    <span className="truncate">
+                      {formatDistrictList(normalizeDistrictIds(srv.districts, srv.location), 2) || "未設定地區"}
+                    </span>
                   </div>
                 </div>
                 <div className="pt-4 mt-5 border-t border-slate-800/80 flex items-center justify-between">
@@ -321,7 +448,7 @@ function CoachServicesManager({ coachId, allSports }: { coachId: string; allSpor
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <span className="text-[10px] uppercase font-black px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">課程管理後台</span>
-              <h2 className="text-2xl font-black text-white mt-1">{selectedService.title}</h2>
+              <h2 className="text-2xl font-black text-white mt-1">{selectedService.title || "未命名課程"}</h2>
             </div>
             {!isEditingInfo && detailTab === "info" && (
               <button onClick={() => setIsEditingInfo(true)} className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-black transition flex items-center gap-1.5 cursor-pointer">
@@ -352,56 +479,110 @@ function CoachServicesManager({ coachId, allSports }: { coachId: string; allSpor
 </div>
 
           {detailTab === "info" && (isEditingInfo ? (
-            <div className="space-y-4 pt-2">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="sm:col-span-2">
-                  <label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">課程標題 *</label>
-                  <input type="text" value={editForm.title || ""} onChange={e => setEditForm({ ...editForm, title: e.target.value })} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-sm text-white font-bold" />
-                </div>
-                <div>
-                  <label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">專項類別</label>
-                  <select value={editForm.sport_category} onChange={e => setEditForm({ ...editForm, sport_category: e.target.value })} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-sm text-white font-bold cursor-pointer">
-                    {allSports.map(s => <option key={s.id || s.name} value={s.name}>{s.name}</option>)}
-                  </select>
-                </div>
+            <div className="space-y-5 pt-2">
+              <div>
+                <label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">課程標題</label>
+                <input
+                  type="text"
+                  value={editForm.title ?? ""}
+                  onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                  placeholder="例如：成人籃球基礎班"
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-sm text-white font-bold placeholder:text-zinc-600"
+                />
+                <p className="text-[10px] text-zinc-600 mt-1">輸入時自動儲存</p>
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] text-zinc-500 font-bold uppercase block">專項類別</label>
+                <SportCategoryPicker
+                  value={editForm.sport_category || ""}
+                  onChange={(id: SportCategoryId) => setEditForm({ ...editForm, sport_category: id })}
+                  accent="amber"
+                />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">授課時薪 (HKD/小時)</label>
-                  <input type="number" value={editForm.hourly_rate ?? ""} onChange={e => setEditForm({ ...editForm, hourly_rate: e.target.value === "" ? "" : Number(e.target.value) })} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-sm text-emerald-400 font-black" />
+                  <input
+                    type="number"
+                    value={editForm.hourly_rate ?? ""}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        hourly_rate: e.target.value === "" ? "" : Number(e.target.value),
+                      })
+                    }
+                    placeholder="500"
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-sm text-emerald-400 font-black placeholder:text-zinc-600"
+                  />
                 </div>
                 <div>
-                  <label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">授課區域</label>
-                  <select value={editForm.location || ""} onChange={e => setEditForm({ ...editForm, location: e.target.value })} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-sm text-white font-bold cursor-pointer">
-                    <option value="港島區 (Hong Kong Island)">港島區 (Hong Kong Island)</option>
-                    <option value="九龍區 (Kowloon)">九龍區 (Kowloon)</option>
-                    <option value="新界區 (New Territories)">新界區 (New Territories)</option>
-                    <option value="離島區 (Outlying Islands)">離島區 (Outlying Islands)</option>
-                    <option value="全港 / 現場可議">全港 / 現場可議</option>
-                  </select>
+                  <label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">教學年資（年）</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={editForm.teaching_experience_years ?? ""}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        teaching_experience_years: e.target.value === "" ? "" : Number(e.target.value),
+                      })
+                    }
+                    placeholder="例如：8"
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-sm text-white font-bold placeholder:text-zinc-600"
+                  />
                 </div>
               </div>
-              <div>
-                <label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">課程大綱與介紹</label>
-                <textarea rows={4} value={editForm.description || ""} onChange={e => setEditForm({ ...editForm, description: e.target.value })} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-zinc-200" />
+              <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4">
+                <label className="text-[10px] text-zinc-500 font-bold uppercase block mb-3">授課地區</label>
+                <HKDistrictPicker
+                  districts={editForm.districts || []}
+                  subdistricts={editForm.subdistricts || []}
+                  onDistrictsChange={() => {}}
+                  onSubdistrictsChange={() => {}}
+                  onSelectionChange={(d, s) => setEditForm((prev: any) => ({ ...prev, districts: d, subdistricts: s }))}
+                  hideSectionTitle
+                />
               </div>
-              <div className="flex justify-end gap-3 pt-2">
+              <div>
+                <label className="text-[10px] text-zinc-500 font-bold uppercase block mb-2">課程大綱與介紹</label>
+                <RichTextEditor
+                  value={editForm.description ?? ""}
+                  onChange={(html) => setEditForm({ ...editForm, description: html })}
+                  placeholder="描述教學目標、適合對象、課堂內容…"
+                />
+              </div>
+              <label className="flex items-center gap-3 p-3 bg-slate-900/60 border border-slate-800 rounded-xl">
+                <ServicePublishBadge isActive={!!editForm.is_active} />
+                <span className="text-xs font-bold text-zinc-400">
+                  {editForm.is_active ? "此課程目前為發佈狀態" : "此課程目前為草稿（不會顯示於名師榜）"}
+                </span>
+              </label>
+              <div className="flex flex-wrap justify-end gap-3 pt-2">
                 <button onClick={() => setIsEditingInfo(false)} type="button" className="px-5 py-2.5 rounded-xl bg-slate-800 text-zinc-400 font-bold text-xs cursor-pointer">取消</button>
-                <button onClick={handleSaveCourseInfo} disabled={isSavingInfo} type="button" className="px-6 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-black text-xs transition flex items-center gap-1.5 cursor-pointer">
-                  {isSavingInfo ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} 儲存修改
+                <button onClick={() => handleSaveCourseInfo(false)} disabled={isSavingInfo} type="button" className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-zinc-200 font-black text-xs transition cursor-pointer">
+                  {isSavingInfo ? <Loader2 className="w-3.5 h-3.5 animate-spin inline" /> : null} 儲存草稿
+                </button>
+                <button onClick={() => handleSaveCourseInfo(true)} disabled={isSavingInfo} type="button" className="px-6 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-black text-xs transition flex items-center gap-1.5 cursor-pointer">
+                  {isSavingInfo ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} 儲存並發佈
                 </button>
               </div>
             </div>
           ) : (
             <div className="space-y-4 pt-2">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
-                <div><span className="text-xs text-zinc-500 block font-bold">專項類別</span><span className="font-extrabold text-amber-400">{selectedService.sport_category}</span></div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
+                <div><span className="text-xs text-zinc-500 block font-bold mb-1">專項類別</span><SportCategoryBadge category={selectedService.sport_category} variant="amber" /></div>
                 <div><span className="text-xs text-zinc-500 block font-bold">授課收費</span><span className="font-extrabold text-emerald-400">${selectedService.hourly_rate} HKD / 小時</span></div>
-                <div><span className="text-xs text-zinc-500 block font-bold">授課區域</span><span className="font-extrabold text-white">{selectedService.location}</span></div>
+                <div><span className="text-xs text-zinc-500 block font-bold">授課地區</span><span className="font-extrabold text-white">{formatDistrictList(normalizeDistrictIds(selectedService.districts, selectedService.location), 4) || "—"}</span></div>
+                {selectedService.subdistricts?.length > 0 && (
+                  <div><span className="text-xs text-zinc-500 block font-bold">細分區域</span><span className="font-extrabold text-zinc-300 text-sm">{formatSubdistrictList(normalizeSubdistrictIds(selectedService.subdistricts), 5)}</span></div>
+                )}
+                {selectedService.teaching_experience_years > 0 && (
+                  <div><span className="text-xs text-zinc-500 block font-bold">教學年資</span><span className="font-extrabold text-blue-400">{selectedService.teaching_experience_years} 年</span></div>
+                )}
               </div>
               <div className="bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
                 <span className="text-xs text-zinc-500 block font-bold mb-1">詳細課程說明</span>
-                <p className="text-zinc-300 whitespace-pre-wrap leading-relaxed text-sm">{selectedService.description || "未填寫說明。"}</p>
+                <RichBody html={selectedService.description} emptyText="未填寫說明。" />
               </div>
             </div>
           ))}
@@ -497,7 +678,9 @@ function CoachSettingsPanel({ profile, onSaved }: { profile: any; onSaved: () =>
     coach_bio: profile?.coach_bio || "",
     contact_email: profile?.contact_email || "",
     contact_phone: profile?.contact_phone || "",
-    city_region: profile?.city_region || "",
+    coach_districts: normalizeDistrictIds(profile?.coach_districts, profile?.city_region),
+    coach_subdistricts: normalizeSubdistrictIds(profile?.coach_subdistricts),
+    coach_teaching_experience_years: profile?.coach_teaching_experience_years ?? "",
     address: profile?.address || "",
     is_address_public: profile?.is_address_public ?? true,
   });
@@ -509,7 +692,12 @@ function CoachSettingsPanel({ profile, onSaved }: { profile: any; onSaved: () =>
       coach_bio: form.coach_bio || null,
       contact_email: form.contact_email || null,
       contact_phone: form.contact_phone || null,
-      city_region: form.city_region || null,
+      coach_districts: form.coach_districts,
+      coach_subdistricts: form.coach_subdistricts,
+      coach_teaching_experience_years: form.coach_teaching_experience_years
+        ? Number(form.coach_teaching_experience_years)
+        : null,
+      city_region: formatDistrictList(form.coach_districts, 3) || null,
       address: form.address || null,
       is_address_public: form.is_address_public,
     }).eq("id", profile.id);
@@ -539,14 +727,38 @@ function CoachSettingsPanel({ profile, onSaved }: { profile: any; onSaved: () =>
             <input type="tel" value={form.contact_phone} onChange={e => setForm({ ...form, contact_phone: e.target.value })} placeholder="+852 9876 5432" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-amber-500 transition outline-none" />
           </div>
         </div>
+        <div className="mb-5">
+          <label className="text-[10px] text-zinc-500 font-bold uppercase block pl-1 mb-3">主要服務地區</label>
+          <HKDistrictPicker
+            districts={form.coach_districts}
+            subdistricts={form.coach_subdistricts}
+            onDistrictsChange={() => {}}
+            onSubdistrictsChange={() => {}}
+            onSelectionChange={(d, s) => setForm((prev) => ({ ...prev, coach_districts: d, coach_subdistricts: s }))}
+            hideSectionTitle
+          />
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
           <div className="space-y-1.5">
-            <label className="text-[10px] text-zinc-500 font-bold uppercase block pl-1">主要服務地區</label>
-            <input type="text" value={form.city_region} onChange={e => setForm({ ...form, city_region: e.target.value })} placeholder="例如：九龍區 / 港島東" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-amber-500 transition outline-none" />
+            <label className="text-[10px] text-zinc-500 font-bold uppercase block pl-1">教學年資（年）</label>
+            <input
+              type="number"
+              min={0}
+              value={form.coach_teaching_experience_years}
+              onChange={(e) => setForm({ ...form, coach_teaching_experience_years: e.target.value })}
+              placeholder="例如：10"
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-amber-500 transition outline-none placeholder:text-zinc-600"
+            />
           </div>
           <div className="space-y-1.5">
             <label className="text-[10px] text-zinc-500 font-bold uppercase block pl-1">詳細地址 (場館/工作室)</label>
-            <input type="text" value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} placeholder="例如：彌敦道 123 號 4 樓" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-amber-500 transition outline-none" />
+            <input
+              type="text"
+              value={form.address}
+              onChange={(e) => setForm({ ...form, address: e.target.value })}
+              placeholder="例如：彌敦道 123 號 4 樓"
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-amber-500 transition outline-none placeholder:text-zinc-600"
+            />
           </div>
         </div>
         <label className="flex items-center gap-3.5 p-4 bg-slate-950/60 border border-slate-800 rounded-2xl cursor-pointer hover:bg-slate-900 transition-colors">
@@ -574,7 +786,6 @@ function CoachDashboardContent() {
   const supabase = createSupabaseBrowserClient();
 
   const [profile, setProfile] = useState<any>(null);
-  const [allSports, setAllSports] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [subTab, setSubTab] = useState<"settings" | "services" | "inbox">(() => {
@@ -585,20 +796,18 @@ function CoachDashboardContent() {
 
   useEffect(() => {
     const s = searchParams.get("subtab");
-    if (s === "inbox" || s === "services" || s === "settings") setSubTab(s);
+    const serviceId = searchParams.get("service");
+    if (serviceId) setSubTab("services");
+    else if (s === "inbox" || s === "services" || s === "settings") setSubTab(s);
   }, [searchParams]);
 
   useEffect(() => {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push("/login"); return; }
-      const [{ data: prof }, { data: sports }] = await Promise.all([
-        supabase.from("profiles").select("*").eq("id", user.id).single(),
-        supabase.from("sports").select("*").order("name", { ascending: true })
-      ]);
+      const { data: prof } = await supabase.from("profiles").select("*").eq("id", user.id).single();
       if (!prof?.is_coach) { router.push("/profile"); return; }
       setProfile(prof);
-      setAllSports(sports || []);
       setLoading(false);
     };
     init();
@@ -660,7 +869,7 @@ function CoachDashboardContent() {
     }}
   />
 )}
-        {subTab === "services" && <CoachServicesManager coachId={profile.id} allSports={allSports} />}
+        {subTab === "services" && <CoachServicesManager coachId={profile.id} />}
         {subTab === "inbox"    && <CoachEnquiriesInbox coachId={profile.id} />}
       </div>
     </div>

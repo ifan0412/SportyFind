@@ -1,5 +1,7 @@
 "use client";
 
+import { getSportCategory } from "@/lib/sports-categories";
+
 interface Sport { id: string; name: string; }
 interface UserSport { id: string; sport_id: string; metadata: { position?: string; [key: string]: any }; sports: { name: string } | null; }
 
@@ -40,7 +42,12 @@ export function ExpertiseTab({
             <div key={us.id} className="bg-slate-900/50 border border-slate-800 rounded-3xl p-5 md:p-6 flex flex-col justify-between">
               <div>
                 <div className="flex justify-between items-start mb-4">
-                  <span className="text-lg md:text-xl font-black text-white block">{us.sports?.name}</span>
+                  <span className="text-lg md:text-xl font-black text-white block">
+                    {(() => {
+                      const sport = getSportCategory(us.sports?.name);
+                      return sport ? `${sport.emoji} ${sport.labelZh}` : us.sports?.name;
+                    })()}
+                  </span>
                   <label className="flex items-center gap-2 cursor-pointer bg-slate-950 p-1.5 md:p-2 rounded-lg border border-slate-800">
                     <input type="checkbox" checked={editFormDisplaySports.includes(us.sports?.name || "")} onChange={() => onToggleDisplaySport(us.sports?.name || "")} className="rounded" />
                     <span className="text-[10px] text-zinc-400 font-bold whitespace-nowrap">顯示於名片</span>
