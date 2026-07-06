@@ -1,14 +1,23 @@
 "use client";
 
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
 import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
 import Underline from "@tiptap/extension-underline";
+import TextAlign from "@tiptap/extension-text-align";
+import { FontSize, TextStyle } from "@tiptap/extension-text-style";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { plainTextLength } from "@/lib/content/body";
+import { normalizeRichHtml } from "@/lib/content/rich-html";
+import { PreserveEmptyParagraph } from "@/lib/tiptap/preserve-paragraph";
+import { FONT_SIZE_OPTIONS } from "@/lib/tiptap/font-size";
 import {
+  AlignCenter,
+  AlignLeft,
+  AlignRight,
   Bold,
   Heading2,
   ImagePlus,
@@ -28,6 +37,12 @@ interface RichTextEditorProps {
   value: string;
   onChange: (html: string) => void;
   placeholder?: string;
+  /** Smaller editor without image upload — suited for bios */
+  variant?: "default" | "compact";
+  enableImages?: boolean;
+  minHeight?: string;
+  showCharCount?: boolean;
+  suggestedLength?: number;
 }
 
 function ToolbarButton({
@@ -60,10 +75,22 @@ function ToolbarButton({
   );
 }
 
-export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorProps) {
+export function RichTextEditor({
+  value,
+  onChange,
+  placeholder,
+  variant = "default",
+  enableImages,
+  minHeight,
+  showCharCount = false,
+  suggestedLength,
+}: RichTextEditorProps) {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const uploadingRef = useRef(false);
+  const [charCount, setCharCount] = useState(() => plainTextLength(value || ""));
+  const imagesEnabled = enableImages ?? variant === "default";
+  const editorMinHeight = minHeight ?? (variant === "compact" ? "140px" : "280px");
 
   const uploadImage = useCallback(
     async (file: File): Promise<string | null> => {
@@ -82,63 +109,91 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
 
   const editor = useEditor({
     extensions: [
-      StarterKit.configure({ heading: { levels: [2, 3] } }),
+      StarterKit.configure({
+        heading: { levels: [2, 3] },
+        hardBreak: { keepMarks: true },
+        paragraph: false,
+        bulletList: { keepMarks: true, keepAttributes: false },
+        orderedList: { keepMarks: true, keepAttributes: false },
+      }),
+      PreserveEmptyParagraph,
       Underline,
+      TextStyle,
+      FontSize,
+      TextAlign.configure({ types: ["heading", "paragraph"] }),
       Link.configure({ openOnClick: false, HTMLAttributes: { class: "text-blue-400 underline" } }),
-      Image.configure({ HTMLAttributes: { class: "rounded-xl max-w-full h-auto my-4" } }),
+      ...(imagesEnabled
+        ? [Image.configure({ HTMLAttributes: { class: "rounded-xl max-w-full h-auto my-4" } })]
+        : []),
       Placeholder.configure({ placeholder: placeholder || "開始撰寫內容…" }),
     ],
     content: value || "",
     immediatelyRender: false,
     editorProps: {
       attributes: {
-        class:
-          "prose prose-invert max-w-none min-h-[280px] px-4 py-3 focus:outline-none text-[15px] leading-relaxed text-zinc-200",
+        class: `tiptap rich-body max-w-none px-4 py-3 focus:outline-none text-[15px] leading-relaxed text-zinc-200`,
+        style: `min-height: ${editorMinHeight}`,
       },
-      handleDrop: (view, event, _slice, moved) => {
-        if (moved || !event.dataTransfer?.files?.length) return false;
-        const file = event.dataTransfer.files[0];
-        if (!file?.type.startsWith("image/")) return false;
-        event.preventDefault();
-        uploadImage(file).then((url) => {
-          if (url) {
-            const { schema } = view.state;
-            const coordinates = view.posAtCoords({ left: event.clientX, top: event.clientY });
-            if (coordinates) {
-              const node = schema.nodes.image.create({ src: url });
-              const transaction = view.state.tr.insert(coordinates.pos, node);
-              view.dispatch(transaction);
-            }
-          }
-        });
-        return true;
-      },
-      handlePaste: (view, event) => {
-        const items = event.clipboardData?.items;
-        if (!items) return false;
-        for (const item of items) {
-          if (item.type.startsWith("image/")) {
-            const file = item.getAsFile();
-            if (!file) continue;
+      handleDrop: imagesEnabled
+        ? (view, event, _slice, moved) => {
+            if (moved || !event.dataTransfer?.files?.length) return false;
+            const file = event.dataTransfer.files[0];
+            if (!file?.type.startsWith("image/")) return false;
             event.preventDefault();
             uploadImage(file).then((url) => {
               if (url) {
                 const { schema } = view.state;
-                const node = schema.nodes.image.create({ src: url });
-                const transaction = view.state.tr.replaceSelectionWith(node);
-                view.dispatch(transaction);
+                const coordinates = view.posAtCoords({ left: event.clientX, top: event.clientY });
+                if (coordinates) {
+                  const node = schema.nodes.image.create({ src: url });
+                  const transaction = view.state.tr.insert(coordinates.pos, node);
+                  view.dispatch(transaction);
+                }
               }
             });
             return true;
           }
-        }
-        return false;
-      },
+        : undefined,
+      handlePaste: imagesEnabled
+        ? (view, event) => {
+            const items = event.clipboardData?.items;
+            if (!items) return false;
+            for (const item of items) {
+              if (item.type.startsWith("image/")) {
+                const file = item.getAsFile();
+                if (!file) continue;
+                event.preventDefault();
+                uploadImage(file).then((url) => {
+                  if (url) {
+                    const { schema } = view.state;
+                    const node = schema.nodes.image.create({ src: url });
+                    const transaction = view.state.tr.replaceSelectionWith(node);
+                    view.dispatch(transaction);
+                  }
+                });
+                return true;
+              }
+            }
+            return false;
+          }
+        : undefined,
     },
     onUpdate: ({ editor: ed }) => {
-      onChange(ed.getHTML());
+      const html = normalizeRichHtml(ed.getHTML());
+      onChange(html);
+      setCharCount(ed.getText().length);
     },
   });
+
+  useEffect(() => {
+    if (!editor) return;
+    const current = editor.getHTML();
+    const next = value || "";
+    if (current !== next) {
+      editor.commands.setContent(normalizeRichHtml(next), { emitUpdate: false });
+      setCharCount(editor.getText().length);
+    }
+  }, [editor, value]);
 
   const setLink = () => {
     if (!editor) return;
@@ -160,7 +215,12 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
     if (url) editor.chain().focus().setImage({ src: url }).run();
   };
 
+  const currentFontSize =
+    (editor?.getAttributes("textStyle").fontSize as string | undefined) || "1rem";
+
   if (!editor) return null;
+
+  const counterOverSuggested = suggestedLength != null && charCount > suggestedLength;
 
   return (
     <div className="border border-slate-800 rounded-2xl overflow-hidden bg-slate-950">
@@ -176,6 +236,37 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
         </ToolbarButton>
         <ToolbarButton onClick={() => editor.chain().focus().toggleStrike().run()} active={editor.isActive("strike")} title="刪除線">
           <Strikethrough className="w-4 h-4" />
+        </ToolbarButton>
+
+        <div className="w-px h-6 bg-slate-700 mx-1" />
+
+        <select
+          title="字體大小"
+          value={currentFontSize}
+          onChange={(e) => {
+            const size = e.target.value;
+            if (size === "1rem") editor.chain().focus().unsetFontSize().run();
+            else editor.chain().focus().setFontSize(size).run();
+          }}
+          className="h-8 px-2 rounded-lg bg-slate-950 border border-slate-800 text-xs text-zinc-300 focus:outline-none focus:border-blue-500"
+        >
+          {FONT_SIZE_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+
+        <div className="w-px h-6 bg-slate-700 mx-1" />
+
+        <ToolbarButton onClick={() => editor.chain().focus().setTextAlign("left").run()} active={editor.isActive({ textAlign: "left" })} title="靠左對齊">
+          <AlignLeft className="w-4 h-4" />
+        </ToolbarButton>
+        <ToolbarButton onClick={() => editor.chain().focus().setTextAlign("center").run()} active={editor.isActive({ textAlign: "center" })} title="置中對齊">
+          <AlignCenter className="w-4 h-4" />
+        </ToolbarButton>
+        <ToolbarButton onClick={() => editor.chain().focus().setTextAlign("right").run()} active={editor.isActive({ textAlign: "right" })} title="靠右對齊">
+          <AlignRight className="w-4 h-4" />
         </ToolbarButton>
 
         <div className="w-px h-6 bg-slate-700 mx-1" />
@@ -198,13 +289,15 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
         <ToolbarButton onClick={setLink} active={editor.isActive("link")} title="連結">
           <Link2 className="w-4 h-4" />
         </ToolbarButton>
-        <ToolbarButton
-          onClick={() => fileInputRef.current?.click()}
-          disabled={uploadingRef.current}
-          title="插入圖片"
-        >
-          {uploadingRef.current ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />}
-        </ToolbarButton>
+        {imagesEnabled && (
+          <ToolbarButton
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploadingRef.current}
+            title="插入圖片"
+          >
+            {uploadingRef.current ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />}
+          </ToolbarButton>
+        )}
 
         <div className="w-px h-6 bg-slate-700 mx-1" />
 
@@ -218,17 +311,32 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
 
       <EditorContent editor={editor} />
 
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) handleImageUpload(file);
-          e.target.value = "";
-        }}
-      />
+      {showCharCount && (
+        <div className="flex justify-end px-4 py-2 border-t border-slate-800/80 bg-slate-900/40">
+          <span
+            className={`text-[11px] font-bold tabular-nums ${
+              counterOverSuggested ? "text-amber-400/90" : "text-zinc-600"
+            }`}
+          >
+            {charCount}
+            {suggestedLength != null ? ` / 建議 ${suggestedLength} 字內` : " 字"}
+          </span>
+        </div>
+      )}
+
+      {imagesEnabled && (
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) handleImageUpload(file);
+            e.target.value = "";
+          }}
+        />
+      )}
     </div>
   );
 }

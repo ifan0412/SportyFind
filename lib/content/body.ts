@@ -7,3 +7,20 @@ export function isHtmlBody(body: string): boolean {
 export function stripHtml(html: string): string {
   return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 }
+
+/** Plain-text length for character counters (preserves line breaks as single chars) */
+export function plainTextLength(html: string): number {
+  if (!html?.trim()) return 0;
+  if (!isHtmlBody(html)) return html.length;
+  return html
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>\s*<p[^>]*>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\u200b/g, "")
+    .length;
+}
+
+/** Suggested bio length guidance shown in placeholders */
+export const BIO_CHAR_SUGGESTED_RANGE = "150–250";
+export const BIO_CHAR_SUGGESTED_MAX = 250;

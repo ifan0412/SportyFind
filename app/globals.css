@@ -152,30 +152,156 @@
   }
 }
 
-/* Rich text article body (public content pages) */
-.content-article-body h2 {
-  @apply text-xl font-black text-white mt-8 mb-3;
+/* Shared rich-text output + TipTap editor (Tailwind preflight resets lists/margins) */
+.rich-body,
+.tiptap {
+  color: #d4d4d8;
+  line-height: 1.625;
+  word-break: break-word;
 }
-.content-article-body h3 {
-  @apply text-lg font-bold text-white mt-6 mb-2;
+
+.rich-body > * + *,
+.tiptap > * + * {
+  margin-top: 0.75rem;
 }
+
+.rich-body p,
+.tiptap p,
 .content-article-body p {
-  @apply mb-4 leading-relaxed;
+  white-space: pre-wrap;
+  margin: 0;
 }
+
+.rich-body p + p,
+.tiptap p + p,
+.content-article-body p + p {
+  margin-top: 0.75rem;
+}
+
+.rich-body p:empty::before,
+.tiptap p:empty::before,
+.content-article-body p:empty::before {
+  content: "\00a0";
+  white-space: pre-wrap;
+}
+
+.rich-body p:has(> br:only-child),
+.tiptap p:has(> br:only-child),
+.content-article-body p:has(> br:only-child) {
+  min-height: 1.625em;
+}
+
+.rich-body h2,
+.tiptap h2,
+.content-article-body h2 {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #fff;
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.rich-body h3,
+.tiptap h3,
+.content-article-body h3 {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #fff;
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.rich-body ul,
+.tiptap ul,
 .content-article-body ul {
-  @apply list-disc pl-6 mb-4 space-y-1;
+  list-style-type: disc;
+  list-style-position: outside;
+  padding-left: 1.5rem;
+  margin: 0.75rem 0;
 }
+
+.rich-body ol,
+.tiptap ol,
 .content-article-body ol {
-  @apply list-decimal pl-6 mb-4 space-y-1;
+  list-style-type: decimal;
+  list-style-position: outside;
+  padding-left: 1.5rem;
+  margin: 0.75rem 0;
 }
+
+.rich-body li,
+.tiptap li,
+.content-article-body li {
+  display: list-item;
+  margin: 0.25rem 0;
+  padding-left: 0.25rem;
+}
+
+.rich-body li p,
+.tiptap li p,
+.content-article-body li p {
+  margin: 0;
+}
+
+.rich-body li > ul,
+.rich-body li > ol,
+.tiptap li > ul,
+.tiptap li > ol,
+.content-article-body li > ul,
+.content-article-body li > ol {
+  margin-top: 0.25rem;
+  margin-bottom: 0;
+}
+
+.rich-body blockquote,
+.tiptap blockquote,
 .content-article-body blockquote {
-  @apply border-l-4 border-blue-500/50 pl-4 italic text-zinc-400 my-6;
+  border-left: 4px solid rgb(59 130 246 / 0.5);
+  padding-left: 1rem;
+  font-style: italic;
+  color: #a1a1aa;
+  margin: 1rem 0;
 }
-.content-article-body img {
-  @apply rounded-xl max-w-full h-auto my-6 border border-slate-800;
-}
+
+.rich-body a,
+.tiptap a,
 .content-article-body a {
-  @apply text-blue-400 underline hover:text-blue-300;
+  color: #60a5fa;
+  text-decoration: underline;
+}
+
+.rich-body a:hover,
+.tiptap a:hover,
+.content-article-body a:hover {
+  color: #93c5fd;
+}
+
+.rich-body img,
+.tiptap img,
+.content-article-body img {
+  border-radius: 0.75rem;
+  max-width: 100%;
+  height: auto;
+  margin: 1rem 0;
+  border: 1px solid #1e293b;
+}
+
+.rich-body [style*="text-align: center"],
+.tiptap [style*="text-align: center"],
+.content-article-body [style*="text-align: center"] {
+  text-align: center;
+}
+
+.rich-body [style*="text-align: right"],
+.tiptap [style*="text-align: right"],
+.content-article-body [style*="text-align: right"] {
+  text-align: right;
+}
+
+.rich-body [style*="text-align: left"],
+.tiptap [style*="text-align: left"],
+.content-article-body [style*="text-align: left"] {
+  text-align: left;
 }
 
 /* TipTap editor placeholder */

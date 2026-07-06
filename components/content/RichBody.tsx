@@ -1,4 +1,7 @@
 import { isHtmlBody } from "@/lib/content/body";
+import { normalizeRichHtml } from "@/lib/content/rich-html";
+
+const richBodyClass = "rich-body max-w-none text-sm text-zinc-300 leading-relaxed";
 
 export function RichBody({
   html,
@@ -17,8 +20,8 @@ export function RichBody({
   if (isHtmlBody(body)) {
     return (
       <div
-        className={`prose prose-invert prose-sm max-w-none prose-p:text-zinc-300 prose-headings:text-white prose-a:text-blue-400 prose-img:rounded-xl ${className}`}
-        dangerouslySetInnerHTML={{ __html: body }}
+        className={`${richBodyClass} ${className}`}
+        dangerouslySetInnerHTML={{ __html: normalizeRichHtml(body) }}
       />
     );
   }

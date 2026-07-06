@@ -1,6 +1,8 @@
 "use client";
 
 import { HKDistrictPicker } from "@/components/location/HKDistrictPicker";
+import { RichTextEditor } from "@/components/admin/RichTextEditor";
+import { BIO_CHAR_SUGGESTED_MAX, BIO_CHAR_SUGGESTED_RANGE } from "@/lib/content/body";
 
 interface PhysioTabProps {
   editForm?: any;
@@ -82,13 +84,15 @@ export function PhysioTab({
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-[10px] text-zinc-500 font-bold uppercase block pl-1">專業證照與資格 (Certifications)</label>
-              <textarea
+              <label className="text-[10px] text-zinc-500 font-bold uppercase block pl-1">治療師專業簡介 (Physio Bio)</label>
+              <RichTextEditor
+                variant="compact"
+                enableImages={false}
                 value={editForm.physio_qualifications || ""}
-                onChange={(e) => onFieldChange("physio_qualifications", e.target.value)}
-                placeholder="例如：香港註冊物理治療師、運動按摩認證..."
-                rows={3}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-emerald-500 transition-colors outline-none resize-none"
+                onChange={(html) => onFieldChange("physio_qualifications", html)}
+                placeholder={`建議 ${BIO_CHAR_SUGGESTED_RANGE} 字，簡潔有力地介紹您的專業資歷與治療專長…`}
+                showCharCount
+                suggestedLength={BIO_CHAR_SUGGESTED_MAX}
               />
             </div>
             <div className="space-y-1.5">

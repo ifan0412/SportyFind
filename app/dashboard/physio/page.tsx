@@ -19,7 +19,7 @@ import {
 } from "@/lib/hk-locations";
 import { RichTextEditor } from "@/components/admin/RichTextEditor";
 import { RichBody } from "@/components/content/RichBody";
-import { stripHtml } from "@/lib/content/body";
+import { BIO_CHAR_SUGGESTED_MAX, BIO_CHAR_SUGGESTED_RANGE, stripHtml } from "@/lib/content/body";
 import { ServicePublishBadge } from "@/components/services/ServicePublishBadge";
 import { PhysioServiceTypePicker, PhysioServiceTypeBadges } from "@/components/physio/PhysioServiceTypePicker";
 import { normalizePhysioServiceTypes } from "@/lib/physio-service-types";
@@ -579,7 +579,15 @@ function PhysioSettingsPanel({ profile, onSaved }: { profile: any; onSaved: () =
       <div className="pb-6 border-b border-slate-800">
         <h3 className="text-sm md:text-base font-black text-white mb-1">治療師專業簡介 (Physio Bio)</h3>
         <p className="text-[10px] md:text-xs text-zinc-500 mb-3">此自介獨立於運動員自介，將對外顯示在您的治療師名片頂端。</p>
-        <textarea rows={4} placeholder="例如：持有香港物理治療師執照，專注運動創傷復健超過 8 年..." value={form.physio_qualifications} onChange={e => setForm({ ...form, physio_qualifications: e.target.value })} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3.5 text-sm text-white focus:border-emerald-500 transition outline-none" />
+        <RichTextEditor
+          variant="compact"
+          enableImages={false}
+          value={form.physio_qualifications}
+          onChange={(html) => setForm({ ...form, physio_qualifications: html })}
+          placeholder={`建議 ${BIO_CHAR_SUGGESTED_RANGE} 字，簡潔有力地介紹您的專業資歷與治療專長…`}
+          showCharCount
+          suggestedLength={BIO_CHAR_SUGGESTED_MAX}
+        />
       </div>
 
       {/* Clinic info */}

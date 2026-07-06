@@ -20,6 +20,7 @@ import {
 } from "@/lib/hk-locations";
 import { RichTextEditor } from "@/components/admin/RichTextEditor";
 import { RichBody } from "@/components/content/RichBody";
+import { BIO_CHAR_SUGGESTED_MAX, BIO_CHAR_SUGGESTED_RANGE } from "@/lib/content/body";
 import { SportCategoryBadge } from "@/components/sports/SportCategoryBadge";
 import { SportCategoryPicker } from "@/components/sports/SportCategoryPicker";
 import type { SportCategoryId } from "@/lib/sports-categories";
@@ -712,7 +713,15 @@ function CoachSettingsPanel({ profile, onSaved }: { profile: any; onSaved: () =>
       <div className="pb-6 border-b border-slate-800">
         <h3 className="text-sm md:text-base font-black text-white mb-1">專業教學導讀 (Coach Bio)</h3>
         <p className="text-[10px] md:text-xs text-zinc-500 mb-3">此自介獨立於您的運動員自介，將對外顯示在您的教練名片頂端。</p>
-        <textarea rows={4} placeholder="例如：超過 10 年教學資歷，擅長針對不同程度學員客製化訓練課表..." value={form.coach_bio} onChange={e => setForm({ ...form, coach_bio: e.target.value })} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3.5 text-sm text-white focus:border-amber-500 transition outline-none" />
+        <RichTextEditor
+          variant="compact"
+          enableImages={false}
+          value={form.coach_bio}
+          onChange={(html) => setForm({ ...form, coach_bio: html })}
+          placeholder={`建議 ${BIO_CHAR_SUGGESTED_RANGE} 字，簡潔有力地介紹您的教學專長與資歷…`}
+          showCharCount
+          suggestedLength={BIO_CHAR_SUGGESTED_MAX}
+        />
       </div>
       <div>
         <h3 className="text-sm md:text-base font-black text-white mb-1">對外聯絡與服務地點</h3>

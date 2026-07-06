@@ -435,9 +435,11 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
                           <h3 className="text-sm font-black text-amber-400 uppercase tracking-wider flex items-center gap-2">
                             <span>🎓</span> 專業教學導讀 (Coach Bio)
                           </h3>
-                          <p className="text-sm text-zinc-300 leading-relaxed">
-                            {profile.coach_bio || "目前尚未填寫專屬的專業教學導讀。"}
-                          </p>
+                          <RichBody
+                            html={profile.coach_bio}
+                            emptyText="目前尚未填寫專屬的專業教學導讀。"
+                            className="text-sm leading-relaxed"
+                          />
                         </div>
 
                         <div className="bg-slate-950 px-6 py-4 rounded-2xl border border-slate-800/80 text-center shrink-0 w-full md:w-auto">
@@ -558,9 +560,11 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
                           <h3 className="text-sm font-black text-emerald-400 uppercase tracking-wider flex items-center gap-2">
                             <span>⚕️</span> 治療師專業簡介
                           </h3>
-                          <p className="text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap">
-                            {profile.physio_qualifications || "目前尚未填寫專業資歷與簡介。"}
-                          </p>
+                          <RichBody
+                            html={profile.physio_qualifications}
+                            emptyText="目前尚未填寫專業資歷與簡介。"
+                            className="text-sm leading-relaxed"
+                          />
                           {profile.clinic_name && (
                             <p className="text-xs text-zinc-500 font-bold">
                               所屬：{profile.clinic_name}
