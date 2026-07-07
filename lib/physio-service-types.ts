@@ -36,3 +36,34 @@ export function aggregatePhysioServiceTypes(
   }
   return [...new Set(all)];
 }
+
+/** Profile-level service tags (array column or legacy text) */
+export function normalizePhysioProfileTags(
+  tags: unknown,
+  legacyText?: string | null
+): string[] {
+  const fromArray = normalizePhysioServiceTypes(tags);
+  if (fromArray.length) return fromArray;
+  if (legacyText?.trim()) {
+    return [
+      ...new Set(
+        legacyText
+          .split(/[,、，]/)
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0)
+      ),
+    ];
+  }
+  return [];
+}
+
+/** Merge profile tags with per-service types for listing cards */
+export function physioCardServiceTags(
+  profileTags: unknown,
+  legacyText: string | null | undefined,
+  services: { service_types?: unknown; service_type?: string | null }[]
+): string[] {
+  const profile = normalizePhysioProfileTags(profileTags, legacyText);
+  const fromServices = aggregatePhysioServiceTypes(services);
+  return [...new Set([...profile, ...fromServices])];
+}

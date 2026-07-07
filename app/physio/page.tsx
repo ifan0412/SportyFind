@@ -6,7 +6,8 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { BackButton } from "@/components/BackButton";
 import { LocationFilterModal } from "@/components/LocationFilterModal";
 import { PhysioServiceTypeBadges } from "@/components/physio/PhysioServiceTypePicker";
-import { aggregatePhysioServiceTypes } from "@/lib/physio-service-types";
+import { PhysioServiceTypeFilterModal } from "@/components/physio/PhysioServiceTypeFilterModal";
+import { normalizePhysioProfileTags, physioCardServiceTags } from "@/lib/physio-service-types";
 import {
   districtsForFilterModal,
   formatDistrictList,
@@ -20,16 +21,22 @@ interface PhysioProfile {
   physio_region: string;
   physio_districts: string[] | null;
   physio_status: string;
-  clinic_name: string;
+  clinic_name: string | null;
   physio_rate: number;
   avatar_url: string | null;
+  physio_experience_years: string | null;
+  physio_service_tags?: string[] | null;
+  physio_services_offered: string | null;
 }
 
 function PhysioStatusBadge({ tag }: { tag: string | null }) {
   if (tag === "available") return <div className="inline-flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] md:text-xs px-2.5 py-1 rounded-full font-black tracking-widest whitespace-nowrap"><div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> 開放預約</div>;
-  if (tag === "busy") return <div className="inline-flex items-center gap-1.5 bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] md:text-xs px-2.5 py-1 rounded-full font-black tracking-widest whitespace-nowrap"><div className="w-1.5 h-1.5 rounded-full bg-red-400" /> 滿診中</div>;
+  if (tag === "busy" || tag === "full") return <div className="inline-flex items-center gap-1.5 bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] md:text-xs px-2.5 py-1 rounded-full font-black tracking-widest whitespace-nowrap"><div className="w-1.5 h-1.5 rounded-full bg-red-400" /> 滿診中</div>;
   return null;
 }
+
+const PROFILE_SELECT =
+  "id, full_name, physio_region, physio_districts, physio_status, clinic_name, physio_rate, avatar_url, physio_experience_years, physio_services_offered";
 
 export default function PhysioPage() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
@@ -38,7 +45,8 @@ export default function PhysioPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterStatus, setFilterStatus] = useState<string>("");
+  const [selectedServiceTypes, setSelectedServiceTypes] = useState<string[]>([]);
+  const [isServiceTypeModalOpen, setIsServiceTypeModalOpen] = useState(false);
 
   const [selectedDistricts, setSelectedDistricts] = useState<string[]>([]);
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
@@ -51,7 +59,7 @@ export default function PhysioPage() {
 
       let query = supabase
         .from("profiles")
-        .select("id, full_name, physio_region, physio_districts, physio_status, clinic_name, physio_rate, avatar_url")
+        .select(PROFILE_SELECT)
         .eq("is_physio", true)
         .neq("physio_status", "hidden");
 
@@ -60,7 +68,15 @@ export default function PhysioPage() {
       }
 
       const { data, error } = await query;
-      if (!error && data) {
+
+      if (error) {
+        console.error("Failed to load physios:", error.message);
+        setPhysios([]);
+        setIsLoading(false);
+        return;
+      }
+
+      if (data) {
         setPhysios(data as PhysioProfile[]);
         const physioIds = data.map((p) => p.id);
         if (physioIds.length) {
@@ -76,7 +92,12 @@ export default function PhysioPage() {
           }
           const typesMap: Record<string, string[]> = {};
           for (const [physioId, srvList] of Object.entries(byPhysio)) {
-            typesMap[physioId] = aggregatePhysioServiceTypes(srvList);
+            const profile = (data as PhysioProfile[]).find((p) => p.id === physioId);
+            typesMap[physioId] = physioCardServiceTags(
+              null,
+              profile?.physio_services_offered,
+              srvList
+            );
           }
           setServiceTypesByPhysio(typesMap);
         }
@@ -86,18 +107,22 @@ export default function PhysioPage() {
     fetchPhysios();
   }, [supabase]);
 
-  const filteredPhysios = physios.filter(p => {
-    const matchSearch = (p.full_name || "").toLowerCase().includes(searchTerm.toLowerCase()) || (p.clinic_name || "").toLowerCase().includes(searchTerm.toLowerCase());
+  const filteredPhysios = physios.filter((p) => {
+    const matchSearch =
+      (p.full_name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (p.clinic_name || "").toLowerCase().includes(searchTerm.toLowerCase());
     const districts = normalizeDistrictIds(p.physio_districts, p.physio_region);
     const matchLocation = profileMatchesDistrictFilter(districts, p.physio_region, selectedDistricts);
-    const matchStatus = filterStatus ? p.physio_status === filterStatus : true;
-    return matchSearch && matchLocation && matchStatus;
+    const types = serviceTypesByPhysio[p.id] || [];
+    const matchType =
+      selectedServiceTypes.length === 0 ||
+      selectedServiceTypes.some((t) => types.includes(t));
+    return matchSearch && matchLocation && matchType;
   });
 
   return (
     <div className="bg-slate-950 min-h-screen text-zinc-200 font-sans selection:bg-emerald-500/30 pb-24 relative">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10">
-        
         <BackButton label="返回上一頁" />
 
         <div className="mb-6 md:mb-8 text-center md:text-left mt-2">
@@ -106,21 +131,18 @@ export default function PhysioPage() {
         </div>
 
         <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-800 p-4 md:p-5 rounded-3xl mb-8 shadow-lg flex flex-col md:flex-row gap-4 items-center">
-          
           <div className="relative w-full md:flex-1">
             <span className="absolute left-3 top-3 text-zinc-500">🔍</span>
             <input type="text" placeholder="搜尋專家名稱、診所..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-xl py-3 pl-10 pr-4 text-sm text-white focus:outline-none focus:border-emerald-500 transition" />
           </div>
 
-          <button onClick={() => setIsLocationModalOpen(true)} className={`w-full md:w-auto flex items-center justify-between gap-3 px-5 py-3 rounded-xl border text-sm font-bold transition flex-shrink-0 ${selectedDistricts.length > 0 ? "bg-emerald-600/10 border-emerald-500 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.2)]" : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"}`}>
+          <button type="button" onClick={() => setIsLocationModalOpen(true)} className={`w-full md:w-auto flex items-center justify-between gap-3 px-5 py-3 rounded-xl border text-sm font-bold transition flex-shrink-0 ${selectedDistricts.length > 0 ? "bg-emerald-600/10 border-emerald-500 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.2)]" : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"}`}>
             <span>地區 {selectedDistricts.length > 0 ? `(${selectedDistricts.length})` : "(全區)"}</span><span className="text-[10px]">▼</span>
           </button>
 
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden w-full md:w-auto">
-            <button onClick={() => setFilterStatus("")} className={`whitespace-nowrap px-4 py-2.5 rounded-xl text-xs font-bold border transition ${!filterStatus ? "bg-slate-100 border-slate-200 text-black shadow-[0_0_10px_rgba(255,255,255,0.2)]" : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"}`}>全部狀態</button>
-            <button onClick={() => setFilterStatus("available")} className={`whitespace-nowrap px-4 py-2.5 rounded-xl text-xs font-bold border transition ${filterStatus === "available" ? "bg-slate-100 border-slate-200 text-black shadow-[0_0_10px_rgba(255,255,255,0.2)]" : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"}`}>🟢 開放預約</button>
-            <button onClick={() => setFilterStatus("busy")} className={`whitespace-nowrap px-4 py-2.5 rounded-xl text-xs font-bold border transition ${filterStatus === "busy" ? "bg-slate-100 border-slate-200 text-black shadow-[0_0_10px_rgba(255,255,255,0.2)]" : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"}`}>🔴 滿診中</button>
-          </div>
+          <button type="button" onClick={() => setIsServiceTypeModalOpen(true)} className={`w-full md:w-auto flex items-center justify-between gap-3 px-5 py-3 rounded-xl border text-sm font-bold transition flex-shrink-0 ${selectedServiceTypes.length > 0 ? "bg-emerald-600/10 border-emerald-500 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.2)]" : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"}`}>
+            <span>診療類別 {selectedServiceTypes.length > 0 ? `(${selectedServiceTypes.length})` : "(全部)"}</span><span className="text-[10px]">▼</span>
+          </button>
         </div>
 
         <div>
@@ -142,7 +164,12 @@ export default function PhysioPage() {
                       <div className="absolute -bottom-3 flex justify-center w-full"><PhysioStatusBadge tag={p.physio_status} /></div>
                     </div>
                     <h3 className="text-lg font-black text-white tracking-tight mb-1 truncate w-full">{p.full_name || "專家名稱未設"}</h3>
-                    <p className="text-xs md:text-sm text-zinc-400 font-medium mb-4 line-clamp-2 h-8 md:h-10 leading-snug">{p.clinic_name || "獨立接案"}</p>
+                    <p className="text-xs md:text-sm text-zinc-400 font-medium mb-2 line-clamp-1">{p.clinic_name || "獨立接案"}</p>
+                    {p.physio_experience_years && (
+                      <span className="inline-flex items-center text-[11px] font-black px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 mb-3">
+                        {p.physio_experience_years} 年經驗
+                      </span>
+                    )}
                     <div className="flex flex-col items-center gap-2 mb-6 w-full">
                       {serviceTypes.length > 0 && (
                         <PhysioServiceTypeBadges types={serviceTypes} size="xs" max={5} />
@@ -166,6 +193,13 @@ export default function PhysioPage() {
         allLocations={locationOptions}
         selectedLocations={selectedDistricts}
         onApply={setSelectedDistricts}
+      />
+
+      <PhysioServiceTypeFilterModal
+        isOpen={isServiceTypeModalOpen}
+        onClose={() => setIsServiceTypeModalOpen(false)}
+        selectedTypes={selectedServiceTypes}
+        onApply={setSelectedServiceTypes}
       />
     </div>
   );

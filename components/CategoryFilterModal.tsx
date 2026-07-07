@@ -1,34 +1,53 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { SPORT_CATEGORIES } from "@/lib/sports-categories";
 
-interface SportFilterModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  selectedSports: string[];
-  onApply: (selected: string[]) => void;
+export interface CategoryFilterOption {
+  id: string;
+  label: string;
 }
 
-const chipBase = "px-4 py-2.5 rounded-full text-sm font-bold transition border";
+interface CategoryFilterModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  subtitle?: string;
+  options: CategoryFilterOption[];
+  selected: string[];
+  onApply: (selected: string[]) => void;
+  accent?: "blue" | "violet" | "amber";
+}
 
-export function SportFilterModal({
+const chipBase = "rounded-full text-sm font-bold transition border";
+
+const accentMap = {
+  blue: { on: "bg-blue-600/15 border-blue-500 text-blue-300", off: "bg-slate-950 border-slate-800 text-zinc-400" },
+  violet: { on: "bg-violet-600/15 border-violet-500 text-violet-300", off: "bg-slate-950 border-slate-800 text-zinc-400" },
+  amber: { on: "bg-amber-600/15 border-amber-500 text-amber-300", off: "bg-slate-950 border-slate-800 text-zinc-400" },
+};
+
+export function CategoryFilterModal({
   isOpen,
   onClose,
-  selectedSports,
+  title,
+  subtitle,
+  options,
+  selected,
   onApply,
-}: SportFilterModalProps) {
+  accent = "blue",
+}: CategoryFilterModalProps) {
   const [tempSelected, setTempSelected] = useState<string[]>([]);
+  const colors = accentMap[accent];
 
   useEffect(() => {
-    if (isOpen) setTempSelected(selectedSports);
-  }, [isOpen, selectedSports]);
+    if (isOpen) setTempSelected(selected);
+  }, [isOpen, selected]);
 
   if (!isOpen) return null;
 
-  const toggleSport = (id: string) => {
+  const toggle = (id: string) => {
     setTempSelected((prev) =>
-      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
   };
 
@@ -36,12 +55,10 @@ export function SportFilterModal({
     <div className="fixed inset-0 z-50 flex flex-col md:items-center md:justify-center md:p-4">
       <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
       <div className="relative z-10 flex flex-col w-full h-full md:h-auto md:max-h-[85vh] md:max-w-lg md:rounded-3xl bg-slate-900 shadow-2xl overflow-hidden">
-        <div className="px-5 py-3.5 border-b border-slate-800 flex justify-between items-center shrink-0">
+        <div className="px-5 py-4 border-b border-slate-800 flex justify-between items-center shrink-0">
           <div>
-            <h3 className="text-lg font-black text-white">篩選運動項目</h3>
-            <p className="text-xs text-zinc-500 font-medium mt-0.5">
-              可多選 · 已選 {tempSelected.length} 項
-            </p>
+            <h3 className="text-lg font-black text-white">{title}</h3>
+            {subtitle && <p className="text-xs text-zinc-500 font-medium mt-1">{subtitle}</p>}
           </div>
           <button type="button" onClick={onClose} className="text-zinc-400 hover:text-white text-2xl font-bold px-2">
             ×
@@ -50,20 +67,16 @@ export function SportFilterModal({
 
         <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-5">
           <div className="flex flex-wrap gap-2.5 content-start">
-            {SPORT_CATEGORIES.map((sport) => {
-              const isSelected = tempSelected.includes(sport.id);
+            {options.map((opt) => {
+              const isSelected = tempSelected.includes(opt.id);
               return (
                 <button
-                  key={sport.id}
+                  key={opt.id}
                   type="button"
-                  onClick={() => toggleSport(sport.id)}
-                  className={`${chipBase} ${
-                    isSelected
-                      ? "bg-blue-600/15 border-blue-500 text-blue-300"
-                      : "bg-slate-950 border-slate-800 text-zinc-400 hover:border-slate-600 hover:text-white"
-                  }`}
+                  onClick={() => toggle(opt.id)}
+                  className={`${chipBase} px-4 py-2.5 ${isSelected ? colors.on : colors.off}`}
                 >
-                  {sport.emoji} {sport.labelZh}
+                  {opt.label}
                 </button>
               );
             })}

@@ -235,17 +235,25 @@ export default function PhysioServiceDetailPage({ params }: { params: Promise<{ 
           </Link>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-2xl bg-slate-950/60 border border-slate-800/80 mb-6 text-sm">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 sm:col-span-2">
               <MapPin className="w-5 h-5 text-emerald-400 shrink-0" />
               <div>
-                <div className="text-xs text-zinc-500 font-bold">診療地區</div>
+                {service.service_centre && (
+                  <>
+                    <div className="text-xs text-zinc-500 font-bold">服務中心</div>
+                    <div className="font-extrabold text-emerald-300 mb-1">{service.service_centre}</div>
+                  </>
+                )}
+                <div className="text-xs text-zinc-500 font-bold">{service.full_address ? "完整地址" : "診療地區"}</div>
                 <div className="font-extrabold text-white">
-                  {formatDistrictList(
-                    normalizeDistrictIds(service.districts, service.location),
-                    4
-                  ) || "可商議 / 到診所或到府"}
+                  {service.full_address ||
+                    formatDistrictList(
+                      normalizeDistrictIds(service.districts, service.location),
+                      4
+                    ) ||
+                    "可商議 / 到診所或到府"}
                 </div>
-                {normalizeSubdistrictIds(service.subdistricts).length > 0 && (
+                {!service.full_address && normalizeSubdistrictIds(service.subdistricts).length > 0 && (
                   <div className="text-xs text-zinc-400 mt-1 font-medium">
                     細分：{formatSubdistrictList(normalizeSubdistrictIds(service.subdistricts), 6)}
                   </div>

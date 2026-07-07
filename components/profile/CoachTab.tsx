@@ -824,6 +824,16 @@ export function CoachTab({
               />
             </div>
             <div className="space-y-1.5">
+              <label className="text-[10px] text-zinc-500 font-bold uppercase block pl-1">服務中心名稱 (選填)</label>
+              <input
+                type="text"
+                value={editForm.coach_service_centre || ""}
+                onChange={(e) => onFieldChange("coach_service_centre", e.target.value)}
+                placeholder="例如：精英運動訓練中心"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-amber-500 transition outline-none placeholder:text-zinc-600"
+              />
+            </div>
+            <div className="space-y-1.5">
               <label className="text-[10px] text-zinc-500 font-bold uppercase block pl-1">教學年資（年）</label>
               <input
                 type="number"

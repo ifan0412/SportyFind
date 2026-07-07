@@ -2,6 +2,8 @@
 
 import { HKDistrictPicker } from "@/components/location/HKDistrictPicker";
 import { RichTextEditor } from "@/components/admin/RichTextEditor";
+import { PhysioServiceTypePicker } from "@/components/physio/PhysioServiceTypePicker";
+import { normalizePhysioProfileTags } from "@/lib/physio-service-types";
 import { BIO_CHAR_SUGGESTED_MAX, BIO_CHAR_SUGGESTED_RANGE } from "@/lib/content/body";
 
 interface PhysioTabProps {
@@ -95,14 +97,15 @@ export function PhysioTab({
                 suggestedLength={BIO_CHAR_SUGGESTED_MAX}
               />
             </div>
-            <div className="space-y-1.5">
-              <label className="text-[10px] text-zinc-500 font-bold uppercase block pl-1">提供的服務 (Services Offered)</label>
-              <textarea
-                value={editForm.physio_services_offered || ""}
-                onChange={(e) => onFieldChange("physio_services_offered", e.target.value)}
-                placeholder="例如：運動傷害復健、筋膜放鬆、術後恢復、貼紮服務..."
-                rows={3}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-emerald-500 transition-colors outline-none resize-none"
+            <div className="space-y-1.5 md:col-span-2">
+              <label className="text-[10px] text-zinc-500 font-bold uppercase block pl-1">專業服務項目（可多選）</label>
+              <p className="text-[10px] text-zinc-600 pl-1 mb-2">將顯示於治療師名片與名錄頁面</p>
+              <PhysioServiceTypePicker
+                value={normalizePhysioProfileTags(editForm.physio_service_tags, editForm.physio_services_offered)}
+                onChange={(tags) => {
+                  onFieldChange("physio_service_tags", tags);
+                  onFieldChange("physio_services_offered", tags.join("、"));
+                }}
               />
             </div>
           </div>

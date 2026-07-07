@@ -17,12 +17,12 @@ import {
   normalizeDistrictIds,
   normalizeSubdistrictIds,
 } from "@/lib/hk-locations";
+import { PhysioServiceTypePicker, PhysioServiceTypeBadges } from "@/components/physio/PhysioServiceTypePicker";
+import { normalizePhysioProfileTags, normalizePhysioServiceTypes } from "@/lib/physio-service-types";
 import { RichTextEditor } from "@/components/admin/RichTextEditor";
 import { RichBody } from "@/components/content/RichBody";
 import { BIO_CHAR_SUGGESTED_MAX, BIO_CHAR_SUGGESTED_RANGE, stripHtml } from "@/lib/content/body";
 import { ServicePublishBadge } from "@/components/services/ServicePublishBadge";
-import { PhysioServiceTypePicker, PhysioServiceTypeBadges } from "@/components/physio/PhysioServiceTypePicker";
-import { normalizePhysioServiceTypes } from "@/lib/physio-service-types";
 
 // ─── Physio Enquiries Inbox ───────────────────────────────────────────────────
 function PhysioEnquiriesInbox({ physioId }: { physioId: string }) {
@@ -224,7 +224,7 @@ function PhysioServicesManager({ physioId }: { physioId: string }) {
   }, [selectedService, supabase]);
 
   const handleCreateNewService = async () => {
-    const payload = { physio_id: physioId, title: "", service_type: "運動復健", service_types: [] as string[], session_rate: 0, districts: [], subdistricts: [], description: "", photos: [], is_active: false };
+    const payload = { physio_id: physioId, title: "", service_type: "運動復健", service_types: [] as string[], session_rate: 0, districts: [], subdistricts: [], description: "", photos: [], is_active: false, service_centre: "", full_address: "" };
     const { data, error } = await supabase.from("physio_services").insert(payload).select().single();
     if (error) { alert("新增失敗: " + error.message); return; }
     if (data) { setServices([data, ...services]); setSelectedService(data); setEditForm({ ...data, districts: [], subdistricts: [] }); setIsEditingInfo(true); setDetailTab("info"); }
@@ -252,6 +252,8 @@ function PhysioServicesManager({ physioId }: { physioId: string }) {
       districts,
       subdistricts: normalizeSubdistrictIds(editForm.subdistricts),
       description: editForm.description || "",
+      service_centre: (editForm.service_centre ?? "").trim() || null,
+      full_address: (editForm.full_address ?? "").trim() || null,
       is_active: publish,
       location: formatDistrictList(districts, 4) || null,
     };
@@ -427,6 +429,28 @@ function PhysioServicesManager({ physioId }: { physioId: string }) {
                   hideSectionTitle
                 />
               </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                  <label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">服務中心名稱 (選填)</label>
+                  <input
+                    type="text"
+                    value={editForm.service_centre ?? ""}
+                    onChange={(e) => setEditForm({ ...editForm, service_centre: e.target.value })}
+                    placeholder="例如：Tony Physio 中環店"
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-sm text-white font-bold placeholder:text-zinc-600"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">完整地址</label>
+                  <input
+                    type="text"
+                    value={editForm.full_address ?? ""}
+                    onChange={(e) => setEditForm({ ...editForm, full_address: e.target.value })}
+                    placeholder="例如：中環德輔道中 123 號 5 樓"
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-sm text-white font-bold placeholder:text-zinc-600"
+                  />
+                </div>
+              </div>
               <div>
                 <label className="text-[10px] text-zinc-500 font-bold uppercase block mb-2">項目詳細說明</label>
                 <RichTextEditor
@@ -453,10 +477,16 @@ function PhysioServicesManager({ physioId }: { physioId: string }) {
             </div>
           ) : (
             <div className="space-y-4 pt-2">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
                 <div><span className="text-xs text-zinc-500 block font-bold mb-1">診療類別</span><PhysioServiceTypeBadges types={normalizePhysioServiceTypes(selectedService.service_types, selectedService.service_type)} size="xs" /></div>
                 <div><span className="text-xs text-zinc-500 block font-bold">每節收費</span><span className="font-extrabold text-emerald-400">${selectedService.session_rate} HKD / 節</span></div>
                 <div><span className="text-xs text-zinc-500 block font-bold">診療地區</span><span className="font-extrabold text-white">{formatDistrictList(normalizeDistrictIds(selectedService.districts, selectedService.location), 4) || "未設定"}</span></div>
+                {selectedService.service_centre && (
+                  <div><span className="text-xs text-zinc-500 block font-bold">服務中心</span><span className="font-extrabold text-emerald-300">{selectedService.service_centre}</span></div>
+                )}
+                {selectedService.full_address && (
+                  <div className="sm:col-span-2"><span className="text-xs text-zinc-500 block font-bold">完整地址</span><span className="font-extrabold text-white">{selectedService.full_address}</span></div>
+                )}
               </div>
               <div className="bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
                 <span className="text-xs text-zinc-500 block font-bold mb-1">詳細說明</span>
@@ -542,7 +572,7 @@ function PhysioSettingsPanel({ profile, onSaved }: { profile: any; onSaved: () =
     physio_qualifications: profile?.physio_qualifications || "",
     clinic_name: profile?.clinic_name || "",
     physio_experience_years: profile?.physio_experience_years || "",
-    physio_services_offered: profile?.physio_services_offered || "",
+    physio_service_tags: normalizePhysioProfileTags(profile?.physio_service_tags, profile?.physio_services_offered),
     physio_contact_email: profile?.physio_contact_email || "",
     physio_contact_phone: profile?.physio_contact_phone || "",
     physio_districts: normalizeDistrictIds(profile?.physio_districts, profile?.physio_city_region),
@@ -558,7 +588,10 @@ function PhysioSettingsPanel({ profile, onSaved }: { profile: any; onSaved: () =
       physio_qualifications: form.physio_qualifications || null,
       clinic_name: form.clinic_name || null,
       physio_experience_years: form.physio_experience_years || null,
-      physio_services_offered: form.physio_services_offered || null,
+      physio_service_tags: form.physio_service_tags,
+      physio_services_offered: form.physio_service_tags.length
+        ? form.physio_service_tags.join("、")
+        : null,
       physio_contact_email: form.physio_contact_email || null,
       physio_contact_phone: form.physio_contact_phone || null,
       physio_districts: form.physio_districts,
@@ -603,8 +636,12 @@ function PhysioSettingsPanel({ profile, onSaved }: { profile: any; onSaved: () =
             <input type="text" value={form.physio_experience_years} onChange={e => setForm({ ...form, physio_experience_years: e.target.value })} placeholder="例如：8 年" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-emerald-500 transition outline-none" />
           </div>
           <div className="space-y-1.5 md:col-span-2">
-            <label className="text-[10px] text-zinc-500 font-bold uppercase block pl-1">主要服務項目 (簡列)</label>
-            <input type="text" value={form.physio_services_offered} onChange={e => setForm({ ...form, physio_services_offered: e.target.value })} placeholder="例如：運動復健、手法治療、痛症管理" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-emerald-500 transition outline-none" />
+            <label className="text-[10px] text-zinc-500 font-bold uppercase block pl-1">專業服務項目（可多選）</label>
+            <p className="text-[10px] text-zinc-600 pl-1 mb-2">將顯示於治療師名片與名錄頁面</p>
+            <PhysioServiceTypePicker
+              value={form.physio_service_tags}
+              onChange={(tags) => setForm({ ...form, physio_service_tags: tags })}
+            />
           </div>
         </div>
       </div>

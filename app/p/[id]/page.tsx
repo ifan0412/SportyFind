@@ -36,7 +36,7 @@ interface Profile {
   is_player: boolean | null;
   is_coach: boolean | null;
   is_physio: boolean | null; physio_rate: number | null; clinic_name: string | null; physio_status: string | null; physio_region: string | null;
-  contact_email?: string | null; contact_phone?: string | null; city_region?: string | null; address?: string | null; is_address_public?: boolean; instagram_url?: string | null; facebook_url?: string | null; threads_url?: string | null;
+  contact_email?: string | null; contact_phone?: string | null; city_region?: string | null; address?: string | null; is_address_public?: boolean; coach_service_centre?: string | null; instagram_url?: string | null; facebook_url?: string | null; threads_url?: string | null;
   coach_districts?: string[] | null; coach_subdistricts?: string[] | null; coach_teaching_experience_years?: number | null;
   districts?: string[] | null; subdistricts?: string[] | null;
   physio_districts?: string[] | null; physio_subdistricts?: string[] | null;
@@ -73,11 +73,12 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const router = useRouter(); 
 
-  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+  const [contactModalRole, setContactModalRole] = useState<"coach" | "physio" | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [coachServices, setCoachServices] = useState<any[]>([]);
   const [physioServices, setPhysioServices] = useState<any[]>([]);
   const [coachReviews, setCoachReviews] = useState<any[]>([]);
+  const [physioReviews, setPhysioReviews] = useState<any[]>([]);
   const [userSports, setUserSports] = useState<UserSport[]>([]);
   const [galleryMedia, setGalleryMedia] = useState<MediaItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -147,7 +148,17 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
             : supabase.from("physio_services").select("*").eq("physio_id", id).eq("is_active", true),
         ]);
         if (coachSvc) setCoachServices(coachSvc);
-        if (physioSvc) setPhysioServices(physioSvc);
+        if (physioSvc) {
+          setPhysioServices(physioSvc);
+          if (physioSvc.length > 0) {
+            const serviceIds = physioSvc.map((s: { id: string }) => s.id);
+            const { data: physioRevData } = await supabase
+              .from("physio_reviews")
+              .select("rating")
+              .in("service_id", serviceIds);
+            if (physioRevData) setPhysioReviews(physioRevData);
+          }
+        }
         if (reviewsData) setCoachReviews(reviewsData);
 
         if (typeof window !== "undefined") {
@@ -334,12 +345,12 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
 
               <FriendButton />
 
-              {hasPublicCoach && currentUserId !== id && (
+              {((hasPublicCoach || hasPublicPhysio) && currentUserId !== id) && (
                 <button
-                  onClick={() => setIsContactModalOpen(true)}
-                  className="w-full mt-2.5 py-3 px-6 rounded-full text-sm font-black bg-amber-600 hover:bg-amber-500 text-white transition-all duration-300 shadow-[0_0_15px_rgba(217,119,6,0.3)] cursor-pointer flex items-center justify-center gap-2"
+                  onClick={() => router.push(`/inbox?to=${id}&role=${activeRole === "physio" ? "physio" : "coach"}`)}
+                  className="w-full mt-2.5 py-3 px-6 rounded-full text-sm font-black bg-blue-600 hover:bg-blue-500 text-white transition-all duration-300 shadow-[0_0_15px_rgba(37,99,235,0.3)] cursor-pointer flex items-center justify-center gap-2"
                 >
-                  <span>💬</span> 聯絡 / 洽詢
+                  <MessageSquare className="w-4 h-4" /> 站內訊息
                 </button>
               )}
             </div>
@@ -454,35 +465,40 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
                         </div>
                       </div>
 
-                      {(profile.contact_email || profile.contact_phone || profile.city_region || (profile.coach_districts && profile.coach_districts.length > 0)) && (
-                        <div className="flex flex-wrap items-center gap-2 bg-slate-900/40 p-3.5 rounded-2xl border border-slate-800/80 text-xs">
-                          <span className="font-black text-amber-400 flex items-center gap-1 shrink-0 mr-1">
+                      {(profile.contact_email || profile.contact_phone || profile.city_region || profile.address || profile.coach_service_centre || (profile.coach_districts && profile.coach_districts.length > 0)) && (
+                        <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 bg-slate-900/40 p-4 rounded-2xl border border-slate-800/80">
+                          <span className="font-black text-amber-400 flex items-center gap-1 shrink-0 text-xs">
                             <MapPin className="w-3.5 h-3.5" /> 授課據點與聯絡：
                           </span>
 
-                          {(profile.coach_districts?.length || profile.city_region) && (
-                            <span className="bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800 text-zinc-200 font-bold">
-                              📍 {formatDistrictList(normalizeDistrictIds(profile.coach_districts, profile.city_region), 3) || profile.city_region}
-                              {profile.is_address_public && profile.address && ` (${profile.address})`}
-                            </span>
-                          )}
+                          <div className="flex flex-wrap items-center gap-2 flex-1">
+                            {profile.coach_service_centre && (
+                              <span className="bg-amber-500/10 px-3 py-1.5 rounded-xl border border-amber-500/20 text-amber-300 font-bold text-xs">
+                                🏢 {profile.coach_service_centre}
+                              </span>
+                            )}
 
-                          {profile.coach_teaching_experience_years != null && profile.coach_teaching_experience_years > 0 && (
-                            <span className="text-[10px] font-black px-2.5 py-1.5 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                              {profile.coach_teaching_experience_years} 年教學經驗
-                            </span>
-                          )}
+                            {(profile.coach_districts?.length || profile.city_region) && (
+                              <span className="bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800 text-zinc-200 font-bold text-xs">
+                                📍 {formatDistrictList(normalizeDistrictIds(profile.coach_districts, profile.city_region), 3) || profile.city_region}
+                              </span>
+                            )}
 
-                          {profile.contact_email && (
-                            <a href={`mailto:${profile.contact_email}`} className="bg-blue-950/40 text-blue-300 border border-blue-500/30 px-3 py-1.5 rounded-xl hover:bg-blue-900/50 transition">
-                              ✉️ {profile.contact_email}
-                            </a>
-                          )}
+                            {profile.coach_teaching_experience_years != null && profile.coach_teaching_experience_years > 0 && (
+                              <span className="text-[10px] font-black px-2.5 py-1.5 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                {profile.coach_teaching_experience_years} 年教學經驗
+                              </span>
+                            )}
+                          </div>
 
-                          {profile.contact_phone && (
-                            <a href={`tel:${profile.contact_phone}`} className="bg-emerald-950/40 text-emerald-300 border border-emerald-500/30 px-3 py-1.5 rounded-xl hover:bg-emerald-900/50 transition">
-                              📞 {profile.contact_phone}
-                            </a>
+                          {currentUserId !== id && (
+                            <button
+                              type="button"
+                              onClick={() => setContactModalRole("coach")}
+                              className="w-full sm:w-auto sm:min-w-[160px] bg-amber-600 hover:bg-amber-500 text-white font-black py-3 px-6 rounded-xl transition shadow-[0_0_15px_rgba(217,119,6,0.35)] active:scale-95 cursor-pointer text-sm"
+                            >
+                              聯絡資料
+                            </button>
                           )}
                         </div>
                       )}
@@ -574,39 +590,45 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
                         </div>
 
                         <div className="bg-slate-950 px-6 py-4 rounded-2xl border border-slate-800/80 text-center shrink-0 w-full md:w-auto">
-                          <StatusBadge tag={profile.physio_status} type="physio" />
-                          <button
-                            onClick={() => setIsContactModalOpen(true)}
-                            className="mt-4 w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-2.5 px-5 rounded-xl transition shadow-[0_0_15px_rgba(16,185,129,0.3)] active:scale-95 cursor-pointer text-sm"
-                          >
-                            聯繫方式
-                          </button>
+                          <div className="text-xs font-bold text-zinc-500 mb-1">運動員綜合總評</div>
+                          <div className="text-2xl font-black text-emerald-400 flex items-center justify-center gap-1.5">
+                            <Star className="w-5 h-5 fill-emerald-400 text-emerald-400" />
+                            {physioReviews.length > 0
+                              ? (physioReviews.reduce((acc, r) => acc + r.rating, 0) / physioReviews.length).toFixed(1)
+                              : "5.0"}
+                            <span className="text-xs text-zinc-500 font-normal">({physioReviews.length} 評價)</span>
+                          </div>
                         </div>
                       </div>
 
-                      {(profile.physio_contact_email || profile.physio_contact_phone || profile.physio_city_region || (profile.physio_districts && profile.physio_districts.length > 0)) && (
-                        <div className="flex flex-wrap items-center gap-2 bg-slate-900/40 p-3.5 rounded-2xl border border-slate-800/80 text-xs">
-                          <span className="font-black text-emerald-400 flex items-center gap-1 shrink-0 mr-1">
+                      {(profile.physio_contact_email || profile.physio_contact_phone || profile.physio_city_region || profile.physio_address || profile.clinic_name || (profile.physio_districts && profile.physio_districts.length > 0)) && (
+                        <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 bg-slate-900/40 p-4 rounded-2xl border border-slate-800/80">
+                          <span className="font-black text-emerald-400 flex items-center gap-1 shrink-0 text-xs">
                             <MapPin className="w-3.5 h-3.5" /> 服務據點與聯絡：
                           </span>
 
-                          {(profile.physio_districts?.length || profile.physio_city_region) && (
-                            <span className="bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800 text-zinc-200 font-bold">
-                              📍 {formatDistrictList(normalizeDistrictIds(profile.physio_districts, profile.physio_city_region), 3) || profile.physio_city_region}
-                              {profile.physio_is_address_public && profile.physio_address && ` (${profile.physio_address})`}
-                            </span>
-                          )}
+                          <div className="flex flex-wrap items-center gap-2 flex-1">
+                            {profile.clinic_name && (
+                              <span className="bg-emerald-500/10 px-3 py-1.5 rounded-xl border border-emerald-500/20 text-emerald-300 font-bold text-xs">
+                                🏢 {profile.clinic_name}
+                              </span>
+                            )}
 
-                          {profile.physio_contact_email && (
-                            <a href={`mailto:${profile.physio_contact_email}`} className="bg-blue-950/40 text-blue-300 border border-blue-500/30 px-3 py-1.5 rounded-xl hover:bg-blue-900/50 transition">
-                              ✉️ {profile.physio_contact_email}
-                            </a>
-                          )}
+                            {(profile.physio_districts?.length || profile.physio_city_region) && (
+                              <span className="bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800 text-zinc-200 font-bold text-xs">
+                                📍 {formatDistrictList(normalizeDistrictIds(profile.physio_districts, profile.physio_city_region), 3) || profile.physio_city_region}
+                              </span>
+                            )}
+                          </div>
 
-                          {profile.physio_contact_phone && (
-                            <a href={`tel:${profile.physio_contact_phone}`} className="bg-emerald-950/40 text-emerald-300 border border-emerald-500/30 px-3 py-1.5 rounded-xl hover:bg-emerald-900/50 transition">
-                              📞 {profile.physio_contact_phone}
-                            </a>
+                          {currentUserId !== id && (
+                            <button
+                              type="button"
+                              onClick={() => setContactModalRole("physio")}
+                              className="w-full sm:w-auto sm:min-w-[160px] bg-emerald-600 hover:bg-emerald-500 text-white font-black py-3 px-6 rounded-xl transition shadow-[0_0_15px_rgba(16,185,129,0.35)] active:scale-95 cursor-pointer text-sm"
+                            >
+                              聯絡資料
+                            </button>
                           )}
                         </div>
                       )}
@@ -645,9 +667,16 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
                                   <p className="text-xs text-zinc-400 line-clamp-2 leading-relaxed">
                                     {stripHtml(srv.description || "") || "點擊查看完整診療內容與評價"}
                                   </p>
-                                  <div className="inline-flex items-center gap-1 text-[10px] font-bold text-zinc-400">
-                                    <MapPin className="w-3 h-3 text-emerald-400" />
-                                    {formatDistrictList(normalizeDistrictIds(srv.districts, srv.location), 2) || "地點可商議"}
+                                  <div className="space-y-1">
+                                    {srv.service_centre && (
+                                      <div className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-300">
+                                        🏢 {srv.service_centre}
+                                      </div>
+                                    )}
+                                    <div className="inline-flex items-center gap-1 text-[10px] font-bold text-zinc-400">
+                                      <MapPin className="w-3 h-3 text-emerald-400" />
+                                      {srv.full_address || formatDistrictList(normalizeDistrictIds(srv.districts, srv.location), 2) || "地點可商議"}
+                                    </div>
                                   </div>
                                 </div>
 
@@ -677,17 +706,25 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
         </div>
       </div>
 
-      {isContactModalOpen && (
+      {contactModalRole && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fadeIn">
           {(() => {
-            const modalEmail = activeRole === "physio" ? profile.physio_contact_email : profile.contact_email;
-            const modalPhone = activeRole === "physio" ? profile.physio_contact_phone : profile.contact_phone;
-            const modalIg = activeRole === "physio" ? profile.physio_instagram_url : profile.instagram_url;
-            const modalFb = activeRole === "physio" ? profile.physio_facebook_url : profile.facebook_url;
-            const modalThreads = activeRole === "physio" ? profile.physio_threads_url : profile.threads_url;
+            const isPhysio = contactModalRole === "physio";
+            const modalEmail = isPhysio ? profile.physio_contact_email : profile.contact_email;
+            const modalPhone = isPhysio ? profile.physio_contact_phone : profile.contact_phone;
+            const modalIg = isPhysio ? profile.physio_instagram_url : profile.instagram_url;
+            const modalFb = isPhysio ? profile.physio_facebook_url : profile.facebook_url;
+            const modalThreads = isPhysio ? profile.physio_threads_url : profile.threads_url;
+            const modalServiceCentre = isPhysio ? profile.clinic_name : profile.coach_service_centre;
+            const modalDistricts = isPhysio
+              ? formatDistrictList(normalizeDistrictIds(profile.physio_districts, profile.physio_city_region), 3) || profile.physio_city_region
+              : formatDistrictList(normalizeDistrictIds(profile.coach_districts, profile.city_region), 3) || profile.city_region;
+            const modalAddress = isPhysio
+              ? (profile.physio_is_address_public ? profile.physio_address : null)
+              : (profile.is_address_public ? profile.address : null);
             
             const cleanPhone = modalPhone ? modalPhone.replace(/\D/g, "") : null;
-            const roleTitle = activeRole === "coach" ? "教練" : "物理治療";
+            const roleTitle = isPhysio ? "物理治療" : "教練";
             const greeting = encodeURIComponent(`您好 ${profile.full_name || ""}！我在 SportyFind 上看到您的${roleTitle}檔案，希望能向您諮詢或預約。`);
             const whatsappUrl = cleanPhone ? `https://wa.me/${cleanPhone}?text=${greeting}` : null;
 
@@ -700,12 +737,45 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
                     </span>
                     <h3 className="text-lg font-black text-white mt-1">聯絡 {profile.full_name}</h3>
                   </div>
-                  <button onClick={() => setIsContactModalOpen(false)} className="text-slate-400 hover:text-white transition cursor-pointer">
+                  <button onClick={() => setContactModalRole(null)} className="text-slate-400 hover:text-white transition cursor-pointer">
                     <X className="w-6 h-6" />
                   </button>
                 </div>
 
                 <div className="p-6 space-y-6">
+                  {(modalServiceCentre || modalDistricts || modalAddress) && (
+                    <div className="space-y-2">
+                      <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider pl-1">地點</p>
+                      {modalServiceCentre && (
+                        <div className="flex items-start gap-3 p-3 bg-slate-950 rounded-xl border border-slate-800">
+                          <MapPin className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
+                          <div>
+                            <p className="text-[10px] text-slate-500 font-bold uppercase">服務中心</p>
+                            <p className="text-sm font-medium text-white">{modalServiceCentre}</p>
+                          </div>
+                        </div>
+                      )}
+                      {modalDistricts && (
+                        <div className="flex items-start gap-3 p-3 bg-slate-950 rounded-xl border border-slate-800">
+                          <MapPin className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                          <div>
+                            <p className="text-[10px] text-slate-500 font-bold uppercase">服務地區</p>
+                            <p className="text-sm font-medium text-white">{modalDistricts}</p>
+                          </div>
+                        </div>
+                      )}
+                      {modalAddress && (
+                        <div className="flex items-start gap-3 p-3 bg-slate-950 rounded-xl border border-slate-800">
+                          <MapPin className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+                          <div>
+                            <p className="text-[10px] text-slate-500 font-bold uppercase">詳細地址</p>
+                            <p className="text-sm font-medium text-white leading-relaxed">{modalAddress}</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div className="space-y-3">
                     <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider pl-1">即時線上洽詢</p>
                     {whatsappUrl ? (
@@ -722,7 +792,7 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
                     ) : (
                       <div className="p-3 rounded-xl bg-slate-950/50 border border-slate-800 text-xs text-zinc-500 text-center font-bold">尚未設定 WhatsApp 聯絡電話</div>
                     )}
-                    <button onClick={() => router.push(`/inbox?to=${id}&role=${activeRole}`)} className="w-full flex items-center justify-between bg-blue-600 hover:bg-blue-500 text-white font-black p-4 rounded-2xl transition shadow-[0_0_15px_rgba(37,99,235,0.3)] group cursor-pointer">
+                    <button onClick={() => router.push(`/inbox?to=${id}&role=${contactModalRole}`)} className="w-full flex items-center justify-between bg-blue-600 hover:bg-blue-500 text-white font-black p-4 rounded-2xl transition shadow-[0_0_15px_rgba(37,99,235,0.3)] group cursor-pointer">
                       <div className="flex items-center gap-3">
                         <Zap className="w-6 h-6 text-yellow-300" />
                         <div className="text-left">

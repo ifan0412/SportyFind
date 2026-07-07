@@ -15,6 +15,7 @@ import { AccountManagementTab } from "@/components/profile/AccountManagementTab"
 import { ProfileRolePreview, type AthleteSubTab, type ProfileRole } from "@/components/profile/ProfileRolePreview";
 import { getSportSchema } from "@/constants/sportsSchema";
 import { getSportCategory, normalizeSportCategory, type SportCategoryId } from "@/lib/sports-categories";
+import { normalizePhysioProfileTags } from "@/lib/physio-service-types";
 import { SportCategoryPicker } from "@/components/sports/SportCategoryPicker";
 import { HKDistrictPicker } from "@/components/location/HKDistrictPicker";
 import {
@@ -62,6 +63,7 @@ interface Profile {
   physio_experience_years: string | null;
   physio_qualifications: string | null;
   physio_services_offered: string | null;
+  physio_service_tags?: string[] | null;
   physio_contact_email: string | null;
   physio_contact_phone: string | null;
   physio_city_region: string | null;
@@ -115,6 +117,7 @@ const DEFAULT_FORM = {
   contact_phone: "",
   address: "",
   city_region: "",
+  coach_service_centre: "",
   is_address_public: true,
   instagram_url: "",
   facebook_url: "",
@@ -127,6 +130,7 @@ const DEFAULT_FORM = {
   physio_experience_years: "",
   physio_qualifications: "",
   physio_services_offered: "",
+  physio_service_tags: [] as string[],
   physio_contact_email: "",
   physio_contact_phone: "",
   physio_city_region: "",
@@ -296,6 +300,7 @@ function ProfilePageContent() {
           contact_phone: prof.contact_phone ?? "",
           address: prof.address ?? "",
           city_region: prof.city_region ?? "",
+          coach_service_centre: prof.coach_service_centre ?? "",
           is_address_public: prof.is_address_public ?? true,
           instagram_url: prof.instagram_url ?? "",
           facebook_url: prof.facebook_url ?? "",
@@ -308,6 +313,7 @@ function ProfilePageContent() {
           physio_experience_years: prof.physio_experience_years ?? "",
           physio_qualifications: prof.physio_qualifications ?? "",
           physio_services_offered: prof.physio_services_offered ?? "",
+          physio_service_tags: normalizePhysioProfileTags(prof.physio_service_tags, prof.physio_services_offered),
           physio_contact_email: prof.physio_contact_email ?? "",
           physio_contact_phone: prof.physio_contact_phone ?? "",
           physio_city_region: prof.physio_city_region ?? "",
@@ -425,6 +431,7 @@ function ProfilePageContent() {
       contact_email: editForm.contact_email || null,
       contact_phone: editForm.contact_phone || null,
       address: editForm.address || null,
+      coach_service_centre: editForm.coach_service_centre || null,
       city_region: formatDistrictList(Array.isArray(editForm.coach_districts) ? editForm.coach_districts : [], 3) || editForm.city_region || null,
       is_address_public: editForm.is_address_public ?? true,
       instagram_url: editForm.instagram_url || null,
@@ -437,7 +444,10 @@ function ProfilePageContent() {
       physio_region: editForm.physio_region || null,
       physio_experience_years: editForm.physio_experience_years || null,
       physio_qualifications: editForm.physio_qualifications || null,
-      physio_services_offered: editForm.physio_services_offered || null,
+      physio_services_offered: editForm.physio_service_tags?.length
+        ? editForm.physio_service_tags.join("、")
+        : editForm.physio_services_offered || null,
+      physio_service_tags: editForm.physio_service_tags || [],
       physio_contact_email: editForm.physio_contact_email || null,
       physio_contact_phone: editForm.physio_contact_phone || null,
       physio_city_region: formatDistrictList(Array.isArray(editForm.physio_districts) ? editForm.physio_districts : [], 3) || editForm.physio_city_region || null,
