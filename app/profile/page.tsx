@@ -16,6 +16,7 @@ import { ProfileRolePreview, type AthleteSubTab, type ProfileRole } from "@/comp
 import { getSportSchema } from "@/constants/sportsSchema";
 import { getSportCategory, normalizeSportCategory, type SportCategoryId } from "@/lib/sports-categories";
 import { normalizePhysioProfileTags } from "@/lib/physio-service-types";
+import { stripHtml } from "@/lib/content/body";
 import { SportCategoryPicker } from "@/components/sports/SportCategoryPicker";
 import { SportPositionPicker } from "@/components/sports/SportPositionPicker";
 import { normalizeSportMetadataForSave, sportFormDataFromMetadata, sportFormHasEmptyFields } from "@/lib/sport-positions";
@@ -666,7 +667,7 @@ function ProfilePageContent() {
                     {profile?.is_coach && <span className="bg-amber-500/10 text-amber-400 text-[10px] font-black px-3 py-1 rounded-full border border-amber-500/20">🎓 教練</span>}
                     {profile?.is_physio && <span className="bg-emerald-500/10 text-emerald-400 text-[10px] font-black px-3 py-1 rounded-full border border-emerald-500/20">⚕️ 物理治療</span>}
                   </div>
-                  <p className="text-sm text-zinc-300 leading-relaxed text-left bg-slate-900/30 p-4 rounded-2xl border border-slate-800/50 mb-6">{profile?.bio || "寫下一段關於你的歷程..."}</p>
+                  <p className="text-sm text-zinc-300 leading-relaxed text-left bg-slate-900/30 p-4 rounded-2xl border border-slate-800/50 mb-6">{stripHtml(profile?.bio || "") || "寫下一段關於你的歷程..."}</p>
 
                   <div className="flex flex-col gap-3">
                     <button onClick={() => setIsEditing(true)} className="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition flex items-center justify-center gap-2">✏️ 編輯基礎檔案與身份</button>
