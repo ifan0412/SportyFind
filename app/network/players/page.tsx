@@ -109,9 +109,9 @@ const SPORT_OPTIONS: OptionItem[] = SPORT_CATEGORIES.map((s) => ({
 }));
 
 const LEVEL_OPTIONS: OptionItem[] = [
-  { label: "初學者 Beginner", value: "Beginner" },
-  { label: "進階 Intermediate", value: "Intermediate" },
-  { label: "高階 Advanced", value: "Advanced" },
+  { label: "初學者", value: "Beginner" },
+  { label: "進階", value: "Intermediate" },
+  { label: "高階", value: "Advanced" },
   { label: "校隊/專業 Pro", value: "Pro" },
 ];
 

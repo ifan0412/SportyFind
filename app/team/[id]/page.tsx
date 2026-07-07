@@ -217,7 +217,7 @@ export default function TeamDetailPage() {
   }
 
   const sport       = SPORT_OPTIONS.find((s) => s.value.toLowerCase() === team.sport_category.toLowerCase());
-  const displayName = team.name_en || team.name_zh || "Unnamed";
+  const displayName = team.name_en || team.name_zh || "未命名球隊";
 
   const metaEntries = listFilledTeamMetaEntries(team.sport_metadata);
   const teamGender = team.sport_metadata?.team_gender as string | undefined;

@@ -298,7 +298,7 @@ function TeamPageContent() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6 lg:gap-8 animate-fadeIn">
                 {visibleTeams.map((t) => {
                   const sport = getSportOption(t.sport_category);
-                  const displayName = t.name_en || t.name_zh || "Unnamed Team";
+                  const displayName = t.name_en || t.name_zh || "未命名球隊";
                   const cardTags = buildTeamCardTags(t.sport_metadata);
                   return (
                     <div

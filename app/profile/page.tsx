@@ -815,7 +815,7 @@ function ProfilePageContent() {
                                 if (!t) return null;
                                 const emoji = TEAM_SPORT_EMOJI[t.sport_category] ?? "🏅";
                                 const zh = TEAM_SPORT_ZH[t.sport_category] ?? t.sport_category;
-                                const name = t.name_en || t.name_zh || "Unnamed";
+                                const name = t.name_en || t.name_zh || "未命名";
                                 return (
                                   <div key={t.id} className="bg-slate-900/50 border border-amber-500/20 rounded-2xl p-4 flex gap-4 items-start">
                                     <div className="w-14 h-14 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-2xl font-black text-zinc-500 flex-shrink-0 overflow-hidden bg-cover bg-center" style={t.logo_url ? { backgroundImage: `url(${t.logo_url})` } : undefined}>{!t.logo_url && (name[0] || "T")}</div>
@@ -841,7 +841,7 @@ function ProfilePageContent() {
                                 if (!t) return null;
                                 const emoji = TEAM_SPORT_EMOJI[t.sport_category] ?? "🏅";
                                 const zh = TEAM_SPORT_ZH[t.sport_category] ?? t.sport_category;
-                                const name = t.name_en || t.name_zh || "Unnamed";
+                                const name = t.name_en || t.name_zh || "未命名";
                                 return (
                                   <a key={t.id} href={`/team/${t.id}`} className="flex items-center gap-4 bg-slate-900/40 border border-slate-800 hover:border-slate-600 rounded-2xl p-4 transition group">
                                     <div className="w-11 h-11 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-xl font-black text-zinc-500 flex-shrink-0 overflow-hidden bg-cover bg-center" style={t.logo_url ? { backgroundImage: `url(${t.logo_url})` } : undefined}>{!t.logo_url && (name[0] || "T")}</div>
