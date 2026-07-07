@@ -162,7 +162,6 @@ export function HKDistrictPicker({
                       )}
                       <span className="text-xs font-bold text-zinc-300 truncate">
                         {group.labelZh}
-                        <span className="text-zinc-600 font-normal ml-1">· {group.labelEn}</span>
                       </span>
                     </div>
                     {selectedInArea > 0 && (
@@ -181,7 +180,7 @@ export function HKDistrictPicker({
             return (
               <div key={group.id}>
                 <p className="text-[10px] font-bold text-zinc-600 mb-2">
-                  {group.labelZh} · {group.labelEn}
+                  {group.labelZh}
                 </p>
                 {renderDistrictChips(group.districts)}
               </div>

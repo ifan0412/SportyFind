@@ -13,12 +13,12 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { User as SupabaseAuthUser } from "@supabase/supabase-js";
 
 const navLinks = [
-  { href: "/network", label: "Players", icon: Users },
-  { href: "/coaches", label: "Coaches", icon: GraduationCap },
-  { href: "/team",    label: "Teams",   icon: Shield },
-  { href: "/events",  label: "Events",  icon: Trophy },
-  { href: "/physio",  label: "Physio",  icon: Activity },
-  { href: "/content", label: "Sports Tips", icon: Sparkles },
+  { href: "/network", label: "運動夥伴", icon: Users },
+  { href: "/coaches", label: "教練", icon: GraduationCap },
+  { href: "/team",    label: "隊伍",   icon: Shield },
+  { href: "/events",  label: "賽事",  icon: Trophy },
+  { href: "/physio",  label: "物理治療",  icon: Activity },
+  { href: "/content", label: "運動貼士", icon: Sparkles },
 ];
 
 export interface Notification {
@@ -634,7 +634,7 @@ export function Navbar() {
                 href="/auth" 
                 className="flex items-center justify-center gap-2 rounded-xl px-5 py-1 text-sm font-black bg-amber-600 hover:bg-amber-500 text-white transition-all shadow-lg active:scale-95"
               >
-                Login / Register
+                登入 / 註冊
               </Link>
             </li>
           )}
@@ -734,7 +734,7 @@ export function Navbar() {
                   className="flex items-center justify-center gap-2 rounded-md px-3 py-3 text-sm font-bold text-white bg-amber-600 hover:bg-amber-500 transition-colors shadow-lg active:scale-95" 
                   onClick={() => setMobileOpen(false)}
                 >
-                  Login / Register
+                  登入 / 註冊
                 </Link>
               </li>
             )}

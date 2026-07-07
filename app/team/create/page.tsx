@@ -258,7 +258,7 @@ export default function CreateTeamPage() {
                   >
                     <span className="text-2xl">{s.emoji}</span>
                     <span className="text-sm font-black text-white leading-tight">{s.labelZh}</span>
-                    <span className="text-[9px] font-black tracking-widest text-zinc-500 uppercase">{s.labelEn}</span>
+                    <span className="text-[9px] font-black tracking-widest text-zinc-500">{s.labelZh}</span>
                   </button>
                 ))}
               </div>
@@ -404,7 +404,7 @@ export default function CreateTeamPage() {
               <p className="text-[10px] font-bold text-amber-400 uppercase tracking-wider pl-1">📞 聯絡與社群資訊 <span className="normal-case font-normal text-zinc-600">(對外展示，皆為選填)</span></p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className={labelCls}>聯絡電話 Phone / WhatsApp</label>
+                  <label className={labelCls}>聯絡電話／WhatsApp</label>
                   <input className={inputCls} placeholder="例如：+852 9123 4567" value={formData.contact_phone} onChange={(e) => set("contact_phone", e.target.value)} />
                 </div>
                 <div>

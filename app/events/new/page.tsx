@@ -528,7 +528,7 @@ export default function CreateEventPage() {
                 >
                   {SPORT_CATEGORIES.map((s) => (
                     <option key={s.id} value={s.id}>
-                      {s.emoji} {s.labelZh} ({s.labelEn})
+                      {s.emoji} {s.labelZh}
                     </option>
                   ))}
                 </select>

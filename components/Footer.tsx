@@ -2,9 +2,9 @@ import Link from "next/link";
 import { SITE } from "@/lib/site";
 
 const legalLinks = [
-  { href: "/privacy", label: "私隱政策", labelEn: "Privacy" },
-  { href: "/cookies", label: "Cookie 政策", labelEn: "Cookies" },
-  { href: "/terms", label: "服務條款", labelEn: "Terms" },
+  { href: "/privacy", label: "私隱政策" },
+  { href: "/cookies", label: "Cookie 政策" },
+  { href: "/terms", label: "服務條款" },
 ];
 
 export function Footer() {
@@ -22,22 +22,21 @@ export function Footer() {
           </div>
 
           <div className="space-y-3">
-            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">探索 Explore</p>
+            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">探索</p>
             <ul className="space-y-2">
               <li>
                 <Link
                   href="/content"
                   className="text-sm text-zinc-400 hover:text-white transition font-medium"
                 >
-                  Sports Tips
-                  <span className="text-zinc-600 text-xs ml-1.5">/ Guides</span>
+                  運動貼士
                 </Link>
               </li>
             </ul>
           </div>
 
           <div className="space-y-3">
-            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">法律文件 Legal</p>
+            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">法律文件</p>
             <ul className="space-y-2">
               {legalLinks.map((link) => (
                 <li key={link.href}>
@@ -46,7 +45,6 @@ export function Footer() {
                     className="text-sm text-zinc-400 hover:text-white transition font-medium"
                   >
                     {link.label}
-                    <span className="text-zinc-600 text-xs ml-1.5">/ {link.labelEn}</span>
                   </Link>
                 </li>
               ))}
@@ -54,7 +52,7 @@ export function Footer() {
           </div>
 
           <div className="space-y-3">
-            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">聯絡 Contact</p>
+            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">聯絡</p>
             <ul className="space-y-2 text-sm text-zinc-400">
               <li>
                 私隱查詢：{" "}
@@ -73,9 +71,9 @@ export function Footer() {
         </div>
 
         <div className="mt-10 pt-6 border-t border-slate-800/60 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-[11px] text-zinc-600">
-          <p>© {year} {SITE.name}. All rights reserved.</p>
+          <p>© {year} {SITE.name}。版權所有。</p>
           <p className="text-zinc-600">
-            營運地區 Operating region: {SITE.region}
+            營運地區：{SITE.region}
           </p>
         </div>
       </div>

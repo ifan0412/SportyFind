@@ -22,14 +22,14 @@ export function LegalDocument({
 
         <header className="mt-6 mb-10 border-b border-slate-800 pb-8">
           <p className="text-[10px] font-black uppercase tracking-widest text-blue-400 mb-2">
-            {SITE.name} Legal
+            {SITE.name} 法律文件
           </p>
           <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">{title}</h1>
           {titleEn && (
-            <p className="text-sm text-zinc-500 mt-1 font-medium">{titleEn}</p>
+            <p className="text-sm text-zinc-500 mt-1 font-medium sr-only">{titleEn}</p>
           )}
           <p className="text-xs text-zinc-500 mt-4">
-            最後更新 Last updated: {lastUpdated}
+            最後更新：{lastUpdated}
           </p>
         </header>
 

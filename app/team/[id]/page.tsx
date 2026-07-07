@@ -58,7 +58,7 @@ interface Achievement {
 const SPORT_OPTIONS = SPORT_CATEGORIES.map((s) => ({
   value: s.id as SportCategory,
   emoji: s.emoji,
-  label: s.labelEn.charAt(0) + s.labelEn.slice(1).toLowerCase(),
+  label: s.labelZh,
   labelZh: s.labelZh,
 }));
 

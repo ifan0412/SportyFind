@@ -24,7 +24,7 @@ export const viewport: Viewport = {
 // 4. Metadata 設定 (整合 SportyFind 品牌與完整 PWA 支援參數)
 export const metadata: Metadata = {
   title: "SportyFind | 一站式全能運動約戰與社群網絡",
-  description: "The one-stop networking & matchmaking platform for the sports community.",
+  description: "一站式運動社群約戰、配對與專業服務平台。",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,

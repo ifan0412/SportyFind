@@ -36,9 +36,6 @@ export function SportCategoryPicker({
           >
             <span className="text-2xl leading-none">{sport.emoji}</span>
             <span className="text-sm font-black text-white leading-tight">{sport.labelZh}</span>
-            <span className="text-[9px] font-black tracking-widest text-zinc-500 uppercase">
-              {sport.labelEn}
-            </span>
           </button>
         );
       })}

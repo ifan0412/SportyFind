@@ -117,7 +117,7 @@ export default function CalendarExportButton({ event }: EventCalendarProps) {
             className="w-full px-3.5 py-2.5 text-left text-xs font-bold text-zinc-200 hover:bg-slate-800 flex items-center gap-2.5 transition"
           >
             <Download className="w-3.5 h-3.5 text-blue-400" />
-            <span>Apple / Outlook (.ics)</span>
+            <span>Apple／Outlook 行事曆（.ics）</span>
           </button>
 
           <button

@@ -104,7 +104,7 @@ const MOCK_PLAYERS: MockPlayer[] = [
 ];
 
 const SPORT_OPTIONS: OptionItem[] = SPORT_CATEGORIES.map((s) => ({
-  label: `${s.emoji} ${s.labelZh} ${s.labelEn}`,
+  label: `${s.emoji} ${s.labelZh}`,
   value: s.id,
 }));
 
@@ -282,7 +282,7 @@ export default function PlayersPage() {
           <div>
             <h1 className="text-3xl font-black tracking-tight text-white flex flex-col gap-1">
               <span>球友探索名錄</span>
-              <span className="text-xl text-slate-500 font-bold">Find Players</span>
+              <span className="text-xl text-slate-500 font-bold">探索球員</span>
             </h1>
             <p className="mt-2 text-slate-400 text-sm leading-relaxed">
               找到與你實力相當、出沒地區相同的運動夥伴。

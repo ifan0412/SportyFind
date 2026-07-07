@@ -32,7 +32,7 @@ export function ListingPageHeader({
         <div>
           <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight">{heading}</h1>
           <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mt-1">
-            {config.subtitleEn}
+            {config.tagline}
           </p>
         </div>
       </div>

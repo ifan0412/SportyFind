@@ -826,7 +826,7 @@ export function CoachTab({
       {subTab === "settings" && editForm && onFieldChange && (
         <div className="bg-slate-900/40 border border-slate-800 rounded-3xl p-5 md:p-8 shadow-sm animate-fadeIn">
           <div className="mb-6 pb-6 border-b border-slate-800">
-            <h3 className="text-sm md:text-base font-black text-white mb-1">專業教學導讀 (Coach Bio)</h3>
+            <h3 className="text-sm md:text-base font-black text-white mb-1">專業教學導讀</h3>
             <p className="text-[10px] md:text-xs text-zinc-500 mb-3">此自介獨立於您的運動員自介，將對外顯示在您的教練名片頂端。</p>
             <RichTextEditor
               variant="compact"

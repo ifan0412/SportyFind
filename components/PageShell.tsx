@@ -31,7 +31,7 @@ export function PageShell({ title, subtitle, badge, children }: PageShellProps) 
         {children ?? (
           <div className="mx-auto max-w-2xl rounded-xl border border-slate-700 bg-slate-900 p-8 text-center">
             <p className="text-sm text-slate-500">
-              This section is coming soon. Check back later.
+              此區塊即將推出，敬請期待。
             </p>
           </div>
         )}

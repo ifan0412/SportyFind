@@ -804,9 +804,9 @@ export default function EventDetailPage() {
                         您的狀態
                       </div>
                       <div className="text-xl font-black text-white">
-                        {isConfirmedRegStatus(activeIndivReg.status) && "✅ 確認出席 (Going)"}
-                        {isPendingRegStatus(activeIndivReg.status) && "🛡️ 審核中 (Pending)"}
-                        {isWaitlistRegStatus(activeIndivReg.status) && "⏳ 候補排隊中 (Waitlist)"}
+                        {isConfirmedRegStatus(activeIndivReg.status) && "✅ 確認出席"}
+                        {isPendingRegStatus(activeIndivReg.status) && "🛡️ 審核中"}
+                        {isWaitlistRegStatus(activeIndivReg.status) && "⏳ 候補排隊中"}
                       </div>
                       {activeIndivReg.companion_count > 0 && (
                         <div className="text-xs text-zinc-300 mt-1">攜伴人數：+{activeIndivReg.companion_count} 人</div>
@@ -918,7 +918,7 @@ export default function EventDetailPage() {
                     <div className="text-xl font-black text-white">
                       {["accepted", "going", "confirmed"].includes(String(activeTeamReg.status || "").toLowerCase())
                         ? "✅ 已獲批准參賽"
-                        : "🛡️ 審核中 (Pending)"}
+                        : "🛡️ 審核中"}
                     </div>
                     <div className="text-xs text-zinc-300 mt-1">
                       代表球隊：{activeTeamReg.team?.name_zh || activeTeamReg.team?.name_en || "未命名球隊"}

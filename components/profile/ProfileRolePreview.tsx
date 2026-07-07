@@ -288,7 +288,7 @@ export function ProfileRolePreview({
                 <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-xl">
                   <div className="space-y-2 max-w-2xl">
                     <h3 className="text-sm font-black text-amber-400 uppercase tracking-wider flex items-center gap-2">
-                      <span>🎓</span> 專業教學導讀 (Coach Bio)
+                      <span>🎓</span> 專業教學導讀
                     </h3>
                     <RichBody
                       html={profile.coach_bio}

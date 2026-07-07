@@ -806,7 +806,7 @@ function ProfilePageContent() {
                           <div><h2 className="text-lg md:text-xl font-black text-white">我的團隊</h2><p className="text-xs text-zinc-500 mt-1">管理你建立或加入的所有團隊。</p></div>
                           <a href="/team/create" className="flex-shrink-0 flex items-center gap-1.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-black px-4 py-2.5 rounded-xl shadow-[0_0_10px_rgba(217,119,6,0.2)] transition-all active:scale-95">＋ 建立團隊</a>
                         </div>
-                        {!hasBoth && <div className="bg-slate-900/30 border border-dashed border-slate-700/50 rounded-3xl py-16 text-center px-6"><p className="text-4xl mb-4">🛡️</p><p className="text-zinc-400 font-bold text-sm mb-2">你尚未加入或建立任何團隊</p><a href="/team/create" className="inline-flex items-center gap-2 bg-amber-600 hover:bg-amber-500 text-white text-sm font-black px-6 py-3 rounded-xl transition-all shadow-[0_0_15px_rgba(217,119,6,0.2)]">＋ Create Team / Group</a></div>}
+                        {!hasBoth && <div className="bg-slate-900/30 border border-dashed border-slate-700/50 rounded-3xl py-16 text-center px-6"><p className="text-4xl mb-4">🛡️</p><p className="text-zinc-400 font-bold text-sm mb-2">你尚未加入或建立任何團隊</p><a href="/team/create" className="inline-flex items-center gap-2 bg-amber-600 hover:bg-amber-500 text-white text-sm font-black px-6 py-3 rounded-xl transition-all shadow-[0_0_15px_rgba(217,119,6,0.2)]">＋ 建立球隊／群組</a></div>}
                         {managedTeams.length > 0 && (
                           <div>
                             <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest mb-4 pl-1">我管理的團隊 (Admin)</p>

@@ -8,7 +8,7 @@ export default function HomePage() {
     {
       href: "/network",
       title: "運動夥伴",
-      subtitle: "Find Athletes",
+      subtitle: "探索球員",
       icon: Users,
       color: "from-blue-500 to-blue-600",
       bgHover: "hover:bg-blue-600/5",
@@ -17,7 +17,7 @@ export default function HomePage() {
     {
       href: "/team",
       title: "競技隊伍",
-      subtitle: "Find Teams",
+      subtitle: "探索隊伍",
       icon: Shield,
       color: "from-indigo-500 to-indigo-600",
       bgHover: "hover:bg-indigo-600/5",
@@ -26,7 +26,7 @@ export default function HomePage() {
     {
       href: "/coaches",
       title: "專業教練",
-      subtitle: "Find Coaches",
+      subtitle: "探索教練",
       icon: GraduationCap,
       color: "from-amber-500 to-amber-600",
       bgHover: "hover:bg-amber-600/5",
@@ -35,7 +35,7 @@ export default function HomePage() {
     {
       href: "/physio",
       title: "運動復健",
-      subtitle: "Find Physios",
+      subtitle: "探索復健",
       icon: Activity,
       color: "from-emerald-500 to-emerald-600",
       bgHover: "hover:bg-emerald-600/5",
@@ -51,7 +51,7 @@ export default function HomePage() {
       <div className="relative z-10 w-full max-w-5xl mx-auto flex flex-col items-center mt-6">
         
         <span className="px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] bg-slate-900/80 backdrop-blur-md border border-slate-700/50 text-blue-400 rounded-full mb-6 shadow-sm">
-          Alpha v1.0 · Early Access
+          測試版 v1.0 · 搶先體驗
         </span>
         
         <h1 className="text-5xl md:text-7xl font-black text-white tracking-tighter mb-4">
@@ -63,7 +63,7 @@ export default function HomePage() {
             一站式運動社群網絡
           </p>
           <p className="text-sm md:text-base text-slate-400 font-medium">
-            One-stop Sports Networking & Matchmaking Platform
+            配對、組隊、約戰、訓練與復健，一站完成
           </p>
         </div>
 
@@ -85,17 +85,17 @@ export default function HomePage() {
                     約戰賽事大廳
                   </h3>
                   <span className="px-2 py-0.5 text-[9px] font-black bg-orange-500 text-slate-950 rounded-md uppercase tracking-wider">
-                    HOT
+                    熱門
                   </span>
                 </div>
                 <p className="text-xs md:text-sm font-medium text-slate-300">
-                  報名 & 組隊友誼對抗 | 發起專屬的運動賽事
+                  報名與組隊友誼對抗 · 發起專屬運動賽事
                 </p>
               </div>
             </div>
 
             <div className="mt-4 md:mt-0 flex items-center gap-2 text-xs font-black uppercase tracking-widest text-orange-400 group-hover:text-orange-300 transition-colors z-10">
-              <span>Find Games</span>
+              <span>探索賽事</span>
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </div>
           </Link>
@@ -127,16 +127,16 @@ export default function HomePage() {
         <div className="w-full max-w-2xl border-t border-slate-800/60 pt-10 mt-6">
           <div className="flex flex-wrap justify-center items-center gap-4 md:gap-10 text-xs font-black tracking-[0.15em] uppercase text-slate-600">
             <span className="flex items-center gap-2 hover:text-slate-400 transition-colors cursor-default">
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-500/50"></span> Connect
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-500/50"></span> 連結
             </span>
             <span className="flex items-center gap-2 hover:text-slate-400 transition-colors cursor-default">
-              <span className="w-1.5 h-1.5 rounded-full bg-indigo-500/50"></span> Train
+              <span className="w-1.5 h-1.5 rounded-full bg-indigo-500/50"></span> 訓練
             </span>
             <span className="flex items-center gap-2 hover:text-slate-400 transition-colors cursor-default">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-500/50"></span> Compete
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500/50"></span> 競賽
             </span>
             <span className="flex items-center gap-2 hover:text-slate-400 transition-colors cursor-default">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500/50"></span> Recover
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500/50"></span> 復健
             </span>
           </div>
         </div>

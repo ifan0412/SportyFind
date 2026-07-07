@@ -19,17 +19,17 @@ export function SportsTipsHomeBlock() {
               運動貼士
             </h3>
             <span className="px-2 py-0.5 text-[9px] font-black bg-fuchsia-500 text-slate-950 rounded-md uppercase tracking-wider">
-              NEW
+              新上線
             </span>
           </div>
           <p className="text-xs md:text-sm font-medium text-slate-300">
-            訓練・營養・復康指南 | Training, nutrition & recovery guides
+            訓練、營養與復康指南
           </p>
         </div>
       </div>
 
       <div className="mt-4 md:mt-0 flex items-center gap-2 text-xs font-black uppercase tracking-widest text-violet-400 group-hover:text-violet-300 transition-colors z-10">
-        <span>Sports Tips</span>
+        <span>閱讀貼士</span>
         <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
       </div>
     </Link>

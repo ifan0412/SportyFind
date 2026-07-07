@@ -18,6 +18,7 @@ import { stripHtml, truncatePlainBio } from "@/lib/content/body";
 import { reopenOrSendFriendRequest } from "@/lib/friendships";
 import { mapHighlightGalleryFiles } from "@/lib/highlights-gallery";
 import { ServicePublishBadge } from "@/components/services/ServicePublishBadge";
+import { ComingSoonOverlay } from "@/components/ui/ComingSoonOverlay";
 import { PhysioServiceTypeBadges } from "@/components/physio/PhysioServiceTypePicker";
 import { normalizePhysioServiceTypes, physioCardServiceTags } from "@/lib/physio-service-types";
 import { filterPhysioQualificationTags, filterCoachQualificationTags } from "@/lib/qualifications";
@@ -483,18 +484,20 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
                   )}
 
                   {activeAthleteTab === "feed" && (
-                    <div className="space-y-6 pt-4 animate-fadeIn max-w-3xl">
-                      <div className="bg-slate-900/40 border border-slate-800 rounded-3xl p-6">
-                        <div className="flex items-center gap-3 mb-4">
-                          <div className="w-10 h-10 rounded-full bg-slate-800 bg-cover bg-center" style={{ backgroundImage: avatarSrc ? `url(${avatarSrc})` : "none" }} />
-                          <div>
-                            <h4 className="text-sm font-black text-white">{profile.full_name}</h4>
-                            <span className="text-[10px] text-zinc-500 uppercase">剛剛發布</span>
+                    <ComingSoonOverlay>
+                      <div className="space-y-6 pt-4 animate-fadeIn max-w-3xl">
+                        <div className="bg-slate-900/40 border border-slate-800 rounded-3xl p-6">
+                          <div className="flex items-center gap-3 mb-4">
+                            <div className="w-10 h-10 rounded-full bg-slate-800 bg-cover bg-center" style={{ backgroundImage: avatarSrc ? `url(${avatarSrc})` : "none" }} />
+                            <div>
+                              <h4 className="text-sm font-black text-white">{profile.full_name}</h4>
+                              <span className="text-[10px] text-zinc-500 uppercase">剛剛發布</span>
+                            </div>
                           </div>
+                          <p className="text-sm text-zinc-300 font-medium leading-relaxed">持續訓練，準備迎接下一個賽季！目前的技術儲備已經到位，期待能在友誼賽中驗證成果。🔥</p>
                         </div>
-                        <p className="text-sm text-zinc-300 font-medium leading-relaxed">持續訓練，準備迎接下一個賽季！目前的技術儲備已經到位，期待能在友誼賽中驗證成果。🔥</p>
                       </div>
-                    </div>
+                    </ComingSoonOverlay>
                   )}
                 </div>
               )}
@@ -512,7 +515,7 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
                       <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-xl mt-2">
                         <div className="space-y-2 max-w-2xl">
                           <h3 className="text-sm font-black text-amber-400 uppercase tracking-wider flex items-center gap-2">
-                            <span>🎓</span> 專業教學導讀 (Coach Bio)
+                            <span>🎓</span> 專業教學導讀
                           </h3>
                           <RichBody
                             html={profile.coach_bio}

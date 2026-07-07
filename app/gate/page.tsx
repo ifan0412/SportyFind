@@ -28,11 +28,11 @@ export default function GatePage() {
         router.push("/");
         router.refresh();
       } else {
-        setError("Wrong password. Please try again.");
+        setError("密碼錯誤，請再試一次。");
         setPassword("");
       }
     } catch {
-      setError("Something went wrong. Please try again.");
+      setError("發生錯誤，請稍後再試。");
       setPassword("");
     } finally {
       setLoading(false);
@@ -47,7 +47,7 @@ export default function GatePage() {
             <span className="text-xl">⚡</span>
           </div>
           <h1 className="text-xl font-black text-white">SPORTYFIND</h1>
-          <p className="text-slate-400 text-sm mt-1">Enter the access password to continue</p>
+          <p className="text-slate-400 text-sm mt-1">請輸入存取密碼以繼續</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -59,7 +59,7 @@ export default function GatePage() {
                 setPassword(e.target.value);
                 setError("");
               }}
-              placeholder="Enter password"
+              placeholder="輸入密碼"
               disabled={loading}
               autoFocus
               className="w-full p-3 bg-slate-800 border border-slate-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm placeholder:text-slate-500 disabled:opacity-50"
@@ -77,7 +77,7 @@ export default function GatePage() {
             disabled={loading || !password}
             className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? "Checking..." : "Enter"}
+            {loading ? "驗證中…" : "進入"}
           </button>
         </form>
       </div>

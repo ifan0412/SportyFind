@@ -22,7 +22,8 @@ export interface ListingSectionConfig {
   shadow: string;
   title: string;
   subtitle: string;
-  subtitleEn: string;
+  /** Short tagline under page title */
+  tagline: string;
 }
 
 export const LISTING_SECTIONS: Record<ListingSectionId, ListingSectionConfig> = {
@@ -32,7 +33,7 @@ export const LISTING_SECTIONS: Record<ListingSectionId, ListingSectionConfig> = 
     shadow: "shadow-blue-500/20",
     title: "運動夥伴",
     subtitle: "探索全港運動員檔案，發掘你的下一個隊友或強敵。",
-    subtitleEn: "Find Athletes",
+    tagline: "探索球員",
   },
   team: {
     icon: Shield,
@@ -40,7 +41,7 @@ export const LISTING_SECTIONS: Record<ListingSectionId, ListingSectionConfig> = 
     shadow: "shadow-indigo-500/20",
     title: "競技隊伍",
     subtitle: "尋找你的歸屬、發起友誼賽、建立無敵陣容。",
-    subtitleEn: "Find Teams",
+    tagline: "探索隊伍",
   },
   coaches: {
     icon: GraduationCap,
@@ -48,7 +49,7 @@ export const LISTING_SECTIONS: Record<ListingSectionId, ListingSectionConfig> = 
     shadow: "shadow-amber-500/20",
     title: "專業教練",
     subtitle: "嚴選各項目的專業導師與獨立訓練課程，突破你的競技天花板。",
-    subtitleEn: "Find Coaches",
+    tagline: "探索教練",
   },
   physio: {
     icon: Activity,
@@ -56,7 +57,7 @@ export const LISTING_SECTIONS: Record<ListingSectionId, ListingSectionConfig> = 
     shadow: "shadow-emerald-500/20",
     title: "運動復健",
     subtitle: "尋找專業物理治療師與運動按摩，加速你的賽後恢復。",
-    subtitleEn: "Find Physios",
+    tagline: "探索復健",
   },
   events: {
     icon: Trophy,
@@ -64,7 +65,7 @@ export const LISTING_SECTIONS: Record<ListingSectionId, ListingSectionConfig> = 
     shadow: "shadow-orange-500/20",
     title: "約戰賽事大廳",
     subtitle: "尋找即將開打的球隊友誼賽、訓練營或散客休閒團練（已開賽活動將自動下架）。",
-    subtitleEn: "Find Games",
+    tagline: "探索賽事",
   },
   content: {
     icon: Sparkles,
@@ -72,7 +73,7 @@ export const LISTING_SECTIONS: Record<ListingSectionId, ListingSectionConfig> = 
     shadow: "shadow-violet-500/20",
     title: "運動貼士",
     subtitle: "訓練、營養與復康指南，助你打得更好、恢復更快。",
-    subtitleEn: "Sports Tips",
+    tagline: "運動指南",
   },
 };
 
