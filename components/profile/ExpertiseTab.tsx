@@ -12,6 +12,7 @@ interface ExpertiseTabProps {
   onOpenSportModal: (us?: UserSport) => void;
   onRemoveSport: (us: UserSport) => void;
   onSaveDisplaySports: () => void;
+  onMoveSport: (id: string, direction: "up" | "down") => void;
 }
 
 export function ExpertiseTab({
@@ -21,6 +22,7 @@ export function ExpertiseTab({
   onOpenSportModal,
   onRemoveSport,
   onSaveDisplaySports,
+  onMoveSport,
 }: ExpertiseTabProps) {
   return (
     <div className="animate-fadeIn space-y-6">
@@ -63,6 +65,8 @@ export function ExpertiseTab({
                 </div>
               </div>
               <div className="pt-4 mt-4 border-t border-slate-800 flex justify-end gap-2">
+                <button onClick={() => onMoveSport(us.id, "up")} className="text-zinc-300 text-xs font-bold px-3 py-1.5 bg-slate-800 rounded-xl">↑ 上移</button>
+                <button onClick={() => onMoveSport(us.id, "down")} className="text-zinc-300 text-xs font-bold px-3 py-1.5 bg-slate-800 rounded-xl">↓ 下移</button>
                 <button onClick={() => onOpenSportModal(us)} className="text-blue-400 text-xs font-bold px-3 py-1.5 bg-blue-500/10 rounded-xl">✏️ 編輯</button>
                 <button onClick={() => onRemoveSport(us)} className="text-red-400 text-xs font-bold px-3 py-1.5 bg-red-500/10 rounded-xl">🗑️ 移除</button>
               </div>

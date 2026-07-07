@@ -1,32 +1,93 @@
 "use client";
 
+import { RichTextEditor } from "@/components/admin/RichTextEditor";
+
 interface DashboardTabProps {
-  profile: { full_name: string | null } | null;
-  avatarSrc: string;
+  editForm: any;
+  isSaving: boolean;
+  onFieldChange: (key: string, value: any) => void;
+  onSave: () => void;
 }
 
-export function DashboardTab({ profile, avatarSrc }: DashboardTabProps) {
+export function DashboardTab({ editForm, isSaving, onFieldChange, onSave }: DashboardTabProps) {
   return (
     <div className="space-y-6 animate-fadeIn">
-      <div className="relative group">
-        <div className="absolute inset-0 bg-slate-950/50 backdrop-blur-[2px] z-10 rounded-3xl flex items-center justify-center opacity-100 transition-opacity">
-          <div className="bg-slate-900 border border-slate-700 text-white text-sm font-black px-6 py-2 rounded-full shadow-2xl flex items-center gap-2">
-            <span>🚀</span> Coming Soon
+      <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 md:p-8 shadow-xl space-y-4">
+        <h3 className="text-sm font-black text-blue-400 uppercase tracking-wider flex items-center gap-2">
+          <span>👤</span> 運動員 Bio
+        </h3>
+        <RichTextEditor
+          value={editForm.bio || ""}
+          onChange={(html) => onFieldChange("bio", html)}
+          placeholder="介紹你的運動背景、專項風格與目標..."
+          variant="compact"
+          minHeight="180px"
+        />
+      </div>
+
+      <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 md:p-8 shadow-xl space-y-4">
+        <h3 className="text-sm font-black text-blue-400 uppercase tracking-wider flex items-center gap-2">
+          <span>📬</span> 運動員聯絡資訊
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <label className="text-[10px] text-zinc-500 font-bold uppercase pl-1 block">Email</label>
+            <input
+              type="email"
+              value={editForm.contact_email || ""}
+              onChange={(e) => onFieldChange("contact_email", e.target.value)}
+              placeholder="your@email.com"
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-blue-500 transition outline-none"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-[10px] text-zinc-500 font-bold uppercase pl-1 block">電話</label>
+            <input
+              value={editForm.contact_phone || ""}
+              onChange={(e) => onFieldChange("contact_phone", e.target.value)}
+              placeholder="+852 9123 4567"
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-blue-500 transition outline-none"
+            />
+            <label className="flex items-center gap-2 cursor-pointer mt-2">
+              <input
+                type="checkbox"
+                checked={!!editForm.player_phone_friends_only}
+                onChange={(e) => onFieldChange("player_phone_friends_only", e.target.checked)}
+                className="rounded bg-slate-900 border-slate-700"
+              />
+              <span className="text-xs text-zinc-300">僅好友可見</span>
+            </label>
           </div>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 opacity-30 select-none pointer-events-none blur-[1px]">
-          <div className="bg-slate-900/40 border border-slate-800/60 p-5 rounded-3xl flex flex-col justify-center"><span className="text-zinc-500 text-[10px] font-black tracking-widest mb-1">Total Views</span><span className="text-3xl font-black text-white">--</span></div>
-          <div className="bg-slate-900/40 border border-slate-800/60 p-5 rounded-3xl flex flex-col justify-center"><span className="text-zinc-500 text-[10px] font-black tracking-widest mb-1">Scout Search</span><span className="text-3xl font-black text-blue-400">--</span></div>
-          <div className="md:col-span-2 bg-gradient-to-br from-indigo-900/20 to-blue-900/10 border border-indigo-500/20 p-5 rounded-3xl flex items-center justify-between">
-            <div><span className="text-indigo-400 text-[10px] font-black tracking-widest block mb-1">Rankings</span><span className="text-xl font-black text-white">即將解鎖</span></div>
-            <div className="w-12 h-12 rounded-full bg-indigo-500/20 flex items-center justify-center text-xl">🔥</div>
-          </div>
+        <div className="space-y-1.5">
+          <label className="text-[10px] text-zinc-500 font-bold uppercase pl-1 block">WhatsApp</label>
+          <input
+            value={editForm.player_whatsapp || ""}
+            onChange={(e) => onFieldChange("player_whatsapp", e.target.value)}
+            placeholder="+852 9123 4567"
+            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-blue-500 transition outline-none"
+          />
+          <label className="flex items-center gap-2 cursor-pointer mt-2">
+            <input
+              type="checkbox"
+              checked={!!editForm.player_whatsapp_friends_only}
+              onChange={(e) => onFieldChange("player_whatsapp_friends_only", e.target.checked)}
+              className="rounded bg-slate-900 border-slate-700"
+            />
+            <span className="text-xs text-zinc-300">僅好友可見</span>
+          </label>
         </div>
       </div>
-      <div className="bg-slate-900/40 border border-slate-800/60 rounded-3xl p-8 text-center">
-        <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center text-2xl mx-auto mb-4">🏆</div>
-        <h3 className="text-white font-bold mb-2">準備好參加賽事了嗎？</h3>
-        <p className="text-zinc-400 text-sm max-w-md mx-auto">完善你的「技術特長」與「賽事影音」，系統將為您智慧推播最合適的職缺。</p>
+
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={onSave}
+          disabled={isSaving}
+          className="bg-blue-600 hover:bg-blue-500 text-white font-black px-6 py-3 rounded-xl transition disabled:opacity-60"
+        >
+          {isSaving ? "儲存中..." : "儲存運動員後台設定"}
+        </button>
       </div>
     </div>
   );

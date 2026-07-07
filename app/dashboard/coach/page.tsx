@@ -174,7 +174,7 @@ function CoachServicesManager({ coachId }: { coachId: string }) {
   const fetchServices = useCallback(async () => {
     setLoading(true);
     const [{ data: servicesData }, { data: pendingLeads }] = await Promise.all([
-      supabase.from("coach_services").select("*").eq("coach_id", coachId).order("created_at", { ascending: false }),
+      supabase.from("coach_services").select("*").eq("coach_id", coachId).order("sort_order", { ascending: true }).order("created_at", { ascending: true }),
       supabase.from("coach_enquiries").select("service_id").eq("coach_id", coachId).eq("status", "pending")
     ]);
     setServices(servicesData || []);
@@ -290,6 +290,7 @@ function CoachServicesManager({ coachId }: { coachId: string }) {
       description: "",
       photos: [],
       draft_photos: [],
+      sort_order: services.length + 1,
       is_active: false,
       teaching_experience_years: null,
     };
@@ -416,6 +417,22 @@ function CoachServicesManager({ coachId }: { coachId: string }) {
     setServices(services.map((s) => (s.id === updated.id ? updated : s)));
   };
 
+  const handleMoveService = async (id: string, direction: "up" | "down") => {
+    const idx = services.findIndex((s) => s.id === id);
+    if (idx < 0) return;
+    const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+    if (swapIdx < 0 || swapIdx >= services.length) return;
+    const a = services[idx];
+    const b = services[swapIdx];
+    const aOrder = a.sort_order ?? idx + 1;
+    const bOrder = b.sort_order ?? swapIdx + 1;
+    await Promise.all([
+      supabase.from("coach_services").update({ sort_order: bOrder }).eq("id", a.id),
+      supabase.from("coach_services").update({ sort_order: aOrder }).eq("id", b.id),
+    ]);
+    await fetchServices();
+  };
+
   return (
     <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
@@ -441,6 +458,10 @@ function CoachServicesManager({ coachId }: { coachId: string }) {
             {services.map(srv => (
               <div key={srv.id} onClick={() => handleOpenDetail(srv)} className="relative bg-slate-900/90 border border-slate-800 hover:border-amber-500/50 rounded-3xl p-6 flex flex-col justify-between transition duration-300 group hover:-translate-y-1 shadow-md hover:shadow-2xl cursor-pointer overflow-hidden">
                 {pendingServiceIds.has(srv.id) && <span className="absolute top-4 right-4 w-3 h-3 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)] z-10 animate-pulse" />}
+                <div className="absolute top-4 left-4 z-10 flex items-center gap-1.5">
+                  <button type="button" onClick={(e) => { e.stopPropagation(); handleMoveService(srv.id, "up"); }} className="px-2 py-1 rounded-lg bg-slate-950/90 border border-slate-700 text-zinc-300 text-[10px] font-black">↑</button>
+                  <button type="button" onClick={(e) => { e.stopPropagation(); handleMoveService(srv.id, "down"); }} className="px-2 py-1 rounded-lg bg-slate-950/90 border border-slate-700 text-zinc-300 text-[10px] font-black">↓</button>
+                </div>
                 <div className="space-y-4">
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <div className="flex items-center gap-2 flex-wrap">

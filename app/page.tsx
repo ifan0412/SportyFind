@@ -60,10 +60,10 @@ export default function HomePage() {
         
         <div className="mb-10 space-y-2">
           <p className="text-xl md:text-2xl text-slate-100 font-extrabold tracking-wide">
-            一站式全能運動社群網絡
+            一站式運動社群網絡
           </p>
           <p className="text-sm md:text-base text-slate-400 font-medium">
-            The one-stop networking & matchmaking platform for the sports community.
+            One-stop Sports Networking & Matchmaking Platform
           </p>
         </div>
 

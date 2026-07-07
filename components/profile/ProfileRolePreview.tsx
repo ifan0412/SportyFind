@@ -35,11 +35,15 @@ interface ProfileRolePreviewProps {
   profile: {
     id: string;
     full_name?: string | null;
+    bio?: string | null;
     coach_bio?: string | null;
     is_coach?: boolean | null;
     is_physio?: boolean | null;
     contact_email?: string | null;
     contact_phone?: string | null;
+    player_whatsapp?: string | null;
+    player_phone_friends_only?: boolean | null;
+    player_whatsapp_friends_only?: boolean | null;
     city_region?: string | null;
     coach_districts?: string[] | null;
     address?: string | null;
@@ -69,6 +73,7 @@ interface ProfileRolePreviewProps {
   athleteExpertise: React.ReactNode;
   athleteHighlights: React.ReactNode;
   athleteFeed: React.ReactNode;
+  onAthleteBackend?: () => void;
   onCoachBackend?: () => void;
   onPhysioBackend?: () => void;
 }
@@ -88,6 +93,7 @@ export function ProfileRolePreview({
   athleteExpertise,
   athleteHighlights,
   athleteFeed,
+  onAthleteBackend,
   onCoachBackend,
   onPhysioBackend,
 }: ProfileRolePreviewProps) {
@@ -143,6 +149,20 @@ export function ProfileRolePreview({
         )}
       </div>
 
+      {activeRole === "athlete" && onAthleteBackend && (
+        <button
+          type="button"
+          onClick={onAthleteBackend}
+          className="w-full mb-6 flex items-center justify-between px-5 py-3.5 rounded-2xl font-black text-sm transition bg-blue-600/15 border border-blue-500/30 text-blue-300 hover:bg-blue-600 hover:text-white hover:border-blue-600 cursor-pointer"
+        >
+          <span className="flex items-center gap-2.5">
+            <Settings className="w-4 h-4" />
+            運動員專屬後台管理
+          </span>
+          <span className="text-xs opacity-80">檔案 · 技能卡 · 順序 →</span>
+        </button>
+      )}
+
       {activeRole === "coach" && onCoachBackend && (
         <button
           type="button"
@@ -174,6 +194,45 @@ export function ProfileRolePreview({
       <div className="flex-1 animate-fadeIn">
         {activeRole === "athlete" && showPlayer && (
           <div className="space-y-6">
+            <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 md:p-8 shadow-xl">
+              <h3 className="text-sm font-black text-blue-400 uppercase tracking-wider flex items-center gap-2 mb-2">
+                <span>👤</span> 運動員 Bio
+              </h3>
+              <RichBody
+                html={profile.bio}
+                emptyText="目前尚未填寫運動員簡介。"
+                className="text-sm leading-relaxed"
+              />
+            </div>
+
+            {(profile.contact_email || profile.contact_phone || profile.player_whatsapp) && (
+              <div className="flex flex-wrap items-center gap-2 bg-slate-900/40 p-3.5 rounded-2xl border border-slate-800/80 text-xs">
+                <span className="font-black text-blue-400 flex items-center gap-1 shrink-0 mr-1">
+                  <MapPin className="w-3.5 h-3.5" /> 運動員聯絡資訊：
+                </span>
+                {profile.contact_email && (
+                  <span className="bg-blue-950/40 text-blue-300 border border-blue-500/30 px-3 py-1.5 rounded-xl">
+                    ✉️ {profile.contact_email}
+                  </span>
+                )}
+                {profile.contact_phone && (
+                  <span className="bg-emerald-950/40 text-emerald-300 border border-emerald-500/30 px-3 py-1.5 rounded-xl">
+                    📞 {profile.contact_phone}
+                  </span>
+                )}
+                {profile.player_whatsapp && (
+                  <a
+                    href={`https://wa.me/${String(profile.player_whatsapp).replace(/[^\d]/g, "")}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-3 py-1.5 rounded-xl transition inline-flex items-center gap-1.5"
+                  >
+                    💬 WhatsApp
+                  </a>
+                )}
+              </div>
+            )}
+
             <div className="flex gap-4 border-b border-slate-800 pb-2 px-2">
               {(
                 [

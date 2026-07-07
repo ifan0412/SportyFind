@@ -39,6 +39,9 @@ interface Profile {
   is_coach: boolean | null;
   is_physio: boolean | null; physio_rate: number | null; clinic_name: string | null; physio_status: string | null; physio_region: string | null;
   contact_email?: string | null; contact_phone?: string | null; city_region?: string | null; address?: string | null; is_address_public?: boolean; coach_service_centre?: string | null; instagram_url?: string | null; facebook_url?: string | null; threads_url?: string | null;
+  player_whatsapp?: string | null;
+  player_phone_friends_only?: boolean | null;
+  player_whatsapp_friends_only?: boolean | null;
   coach_districts?: string[] | null; coach_subdistricts?: string[] | null; coach_teaching_experience_years?: number | null;
   coach_qualification_tags?: string[] | null; coach_qualification_custom?: string | null;
   districts?: string[] | null; subdistricts?: string[] | null;
@@ -127,6 +130,7 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
       setFriendshipId(friendData.id);
       if (friendData.status === "accepted") setFriendshipStatus("accepted");
       else if (friendData.status === "pending") setFriendshipStatus(friendData.sender_id === uid ? "pending_sent" : "pending_received");
+      else setFriendshipStatus("none");
     } else {
       setFriendshipId(null);
       setFriendshipStatus("none");
@@ -143,7 +147,7 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
           { data: { user } }
         ] = await Promise.all([
           supabase.from("profiles").select("*").eq("id", id).single(),
-          supabase.from("user_sports").select("id, metadata, sports(name)").eq("user_id", id),
+          supabase.from("user_sports").select("id, metadata, sort_order, sports(name)").eq("user_id", id).order("sort_order", { ascending: true }).order("created_at", { ascending: true }),
           supabase.from("coach_reviews").select("rating").eq("coach_id", id),
           supabase.auth.getUser(),
         ]);
@@ -159,11 +163,11 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
 
         const [{ data: coachSvc }, { data: physioSvc }] = await Promise.all([
           isOwner
-            ? supabase.from("coach_services").select("*").eq("coach_id", id).order("created_at", { ascending: false })
-            : supabase.from("coach_services").select("*").eq("coach_id", id).eq("is_active", true),
+            ? supabase.from("coach_services").select("*").eq("coach_id", id).order("sort_order", { ascending: true }).order("created_at", { ascending: true })
+            : supabase.from("coach_services").select("*").eq("coach_id", id).eq("is_active", true).order("sort_order", { ascending: true }).order("created_at", { ascending: true }),
           isOwner
-            ? supabase.from("physio_services").select("*").eq("physio_id", id).order("created_at", { ascending: false })
-            : supabase.from("physio_services").select("*").eq("physio_id", id).eq("is_active", true),
+            ? supabase.from("physio_services").select("*").eq("physio_id", id).order("sort_order", { ascending: true }).order("created_at", { ascending: true })
+            : supabase.from("physio_services").select("*").eq("physio_id", id).eq("is_active", true).order("sort_order", { ascending: true }).order("created_at", { ascending: true }),
         ]);
         if (coachSvc) setCoachServices(coachSvc);
         if (physioSvc) {
@@ -224,8 +228,22 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
     if (!currentUserId) return;
     setFriendLoading(true);
     try {
-      const { error } = await supabase.from("friendships").insert({ sender_id: currentUserId, receiver_id: id, status: "pending" });
-      if (error) throw error;
+      const { data: existing } = await supabase
+        .from("friendships")
+        .select("id, status")
+        .or(`and(sender_id.eq.${currentUserId},receiver_id.eq.${id}),and(sender_id.eq.${id},receiver_id.eq.${currentUserId})`)
+        .maybeSingle();
+
+      if (existing?.id) {
+        const { error } = await supabase
+          .from("friendships")
+          .update({ sender_id: currentUserId, receiver_id: id, status: "pending" })
+          .eq("id", existing.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("friendships").insert({ sender_id: currentUserId, receiver_id: id, status: "pending" });
+        if (error) throw error;
+      }
       await refetchFriendshipStatus(currentUserId);
       window.dispatchEvent(new CustomEvent("sync-friendship")); 
       router.refresh();
@@ -314,6 +332,9 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
   if (isNotFound || !profile) return <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-center"><h1 className="text-4xl font-black text-white mb-2">404</h1><p className="text-zinc-500 mb-6">查無此名片或已關閉</p><Link href="/network" className="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold">返回</Link></div>;
 
   const avatarSrc = profile.avatar_url || "";
+  const canViewFriendOnlyContact = currentUserId === id || friendshipStatus === "accepted";
+  const showPlayerPhone = !!profile.contact_phone && (!profile.player_phone_friends_only || canViewFriendOnlyContact);
+  const showPlayerWhatsapp = !!profile.player_whatsapp && (!profile.player_whatsapp_friends_only || canViewFriendOnlyContact);
   const hasPublicPlayer = profile.is_player !== false;
   const hasPublicCoach = profile.is_coach === true;
   const hasPublicPhysio = profile.is_physio && profile.physio_status !== "hidden";
@@ -390,6 +411,42 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
             <div className="flex-1 animate-fadeIn">
               {activeRole === "athlete" && hasPublicPlayer && (
                 <div className="space-y-6">
+                  <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 md:p-8 shadow-xl">
+                    <h3 className="text-sm font-black text-blue-400 uppercase tracking-wider flex items-center gap-2 mb-2">
+                      <span>👤</span> 運動員 Bio
+                    </h3>
+                    <RichBody
+                      html={profile.bio}
+                      emptyText="目前尚未填寫運動員簡介。"
+                      className="text-sm leading-relaxed"
+                    />
+                  </div>
+
+                  {(profile.contact_email || showPlayerPhone || showPlayerWhatsapp) && (
+                    <div className="bg-slate-900/40 p-4 rounded-2xl border border-slate-800/80">
+                      <div className="text-xs font-black text-blue-400 mb-3">運動員聯絡資訊</div>
+                      <div className="flex flex-wrap gap-2">
+                        {profile.contact_email && (
+                          <a href={`mailto:${profile.contact_email}`} className="bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800 text-zinc-200 font-bold text-xs hover:bg-slate-800 transition">
+                            ✉️ {profile.contact_email}
+                          </a>
+                        )}
+                        {showPlayerPhone && (
+                          <a href={`tel:${profile.contact_phone}`} className="bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800 text-zinc-200 font-bold text-xs hover:bg-slate-800 transition">
+                            📞 {profile.contact_phone}
+                          </a>
+                        )}
+                        {showPlayerWhatsapp && (
+                          <a href={`https://wa.me/${String(profile.player_whatsapp).replace(/[^\d]/g, "")}`} target="_blank" rel="noreferrer" className="bg-emerald-600 hover:bg-emerald-500 px-3 py-1.5 rounded-xl text-white font-black text-xs transition inline-flex items-center gap-1.5">
+                            💬 WhatsApp
+                          </a>
+                        )}
+                      </div>
+                      {!canViewFriendOnlyContact && ((profile.player_phone_friends_only && profile.contact_phone) || (profile.player_whatsapp_friends_only && profile.player_whatsapp)) && (
+                        <p className="text-[11px] text-zinc-500 mt-2">部份聯絡方式只開放給好友查看。</p>
+                      )}
+                    </div>
+                  )}
                   <div className="flex gap-4 border-b border-slate-800 pb-2 px-2">
                     <button onClick={() => setActiveAthleteTab("expertise")} className={`text-sm font-black transition cursor-pointer ${activeAthleteTab === "expertise" ? "text-white border-b-2 border-blue-500 pb-2 -mb-[9px]" : "text-zinc-500 hover:text-zinc-300"}`}>技術特長</button>
                     <button onClick={() => setActiveAthleteTab("highlights")} className={`text-sm font-black transition cursor-pointer ${activeAthleteTab === "highlights" ? "text-white border-b-2 border-blue-500 pb-2 -mb-[9px]" : "text-zinc-500 hover:text-zinc-300"}`}>賽場圖庫</button>

@@ -50,6 +50,9 @@ interface Profile {
   show_physical_stats: boolean | null;
   contact_email: string | null;
   contact_phone: string | null;
+  player_whatsapp: string | null;
+  player_phone_friends_only: boolean | null;
+  player_whatsapp_friends_only: boolean | null;
   address: string | null;
   city_region: string | null;
   coach_teaching_experience_years?: number | null;
@@ -77,7 +80,7 @@ interface Profile {
 }
 
 interface Sport { id: string; name: string; }
-interface UserSport { id: string; sport_id: string; metadata: { position?: string; [key: string]: any }; sports: { name: string } | null; }
+interface UserSport { id: string; sport_id: string; sort_order?: number; metadata: { position?: string; [key: string]: any }; sports: { name: string } | null; }
 interface MediaItem { id: string; sportName: string; type: "image" | "video"; url: string; fileName?: string; createdAt: string; }
 interface UserTeamRow {
   role: string;
@@ -117,6 +120,9 @@ const DEFAULT_FORM = {
   show_physical_stats: true,
   contact_email: "",
   contact_phone: "",
+  player_whatsapp: "",
+  player_phone_friends_only: false,
+  player_whatsapp_friends_only: false,
   address: "",
   city_region: "",
   coach_service_centre: "",
@@ -264,12 +270,12 @@ function ProfilePageContent() {
         { data: reviewsData },
       ] = await Promise.all([
         supabase.from("profiles").select("*").eq("id", userId).single(),
-        supabase.from("user_sports").select("id, sport_id, metadata, sports(name)").eq("user_id", userId),
+        supabase.from("user_sports").select("id, sport_id, metadata, sort_order, sports(name)").eq("user_id", userId).order("sort_order", { ascending: true }).order("created_at", { ascending: true }),
         supabase.from("sports").select("*").order("name", { ascending: true }),
         supabase.from("locations").select("country, region"),
         supabase.from("team_members").select("role, joined_at, teams(id, name_en, name_zh, sport_category, recruitment_status, logo_url)").eq("user_id", userId),
-        supabase.from("coach_services").select("*").eq("coach_id", userId).order("created_at", { ascending: false }),
-        supabase.from("physio_services").select("*").eq("physio_id", userId).order("created_at", { ascending: false }),
+        supabase.from("coach_services").select("*").eq("coach_id", userId).order("sort_order", { ascending: true }).order("created_at", { ascending: true }),
+        supabase.from("physio_services").select("*").eq("physio_id", userId).order("sort_order", { ascending: true }).order("created_at", { ascending: true }),
         supabase.from("coach_reviews").select("rating").eq("coach_id", userId),
       ]);
       if (locData) {
@@ -300,6 +306,9 @@ function ProfilePageContent() {
           show_physical_stats: prof.show_physical_stats ?? true,
           contact_email: prof.contact_email ?? "",
           contact_phone: prof.contact_phone ?? "",
+          player_whatsapp: prof.player_whatsapp ?? "",
+          player_phone_friends_only: prof.player_phone_friends_only ?? false,
+          player_whatsapp_friends_only: prof.player_whatsapp_friends_only ?? false,
           address: prof.address ?? "",
           city_region: prof.city_region ?? "",
           coach_service_centre: prof.coach_service_centre ?? "",
@@ -432,6 +441,9 @@ function ProfilePageContent() {
       show_physical_stats: editForm.show_physical_stats ?? true,
       contact_email: editForm.contact_email || null,
       contact_phone: editForm.contact_phone || null,
+      player_whatsapp: editForm.player_whatsapp || null,
+      player_phone_friends_only: editForm.player_phone_friends_only ?? false,
+      player_whatsapp_friends_only: editForm.player_whatsapp_friends_only ?? false,
       address: editForm.address || null,
       coach_service_centre: editForm.coach_service_centre || null,
       city_region: formatDistrictList(Array.isArray(editForm.coach_districts) ? editForm.coach_districts : [], 3) || editForm.city_region || null,
@@ -509,7 +521,7 @@ function ProfilePageContent() {
     const metadata = normalizeSportMetadataForSave(sportDynamicData, selectedSportSlug);
     const incomplete = sportFormHasEmptyFields(sportDynamicData, selectedSportSlug);
     if (editingUserSportId) await supabase.from("user_sports").update({ sport_id: sportId, metadata }).eq("id", editingUserSportId);
-    else await supabase.from("user_sports").insert({ user_id: user.id, sport_id: sportId, metadata });
+    else await supabase.from("user_sports").insert({ user_id: user.id, sport_id: sportId, metadata, sort_order: userSports.length + 1 });
     await loadProfileData(user.id);
     setIsSportModalOpen(false);
     router.refresh();
@@ -522,6 +534,24 @@ function ProfilePageContent() {
     if (!window.confirm(`確定要移除 ${us.sports?.name} 嗎？`)) return;
     await supabase.from("user_sports").delete().eq("id", us.id);
     setUserSports(prev => prev.filter(item => item.id !== us.id)); router.refresh();
+  };
+
+  const handleMoveSport = async (id: string, direction: "up" | "down") => {
+    if (!userSports.length) return;
+    const idx = userSports.findIndex((s) => s.id === id);
+    if (idx < 0) return;
+    const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+    if (swapIdx < 0 || swapIdx >= userSports.length) return;
+
+    const a = userSports[idx];
+    const b = userSports[swapIdx];
+    const aOrder = a.sort_order ?? idx + 1;
+    const bOrder = b.sort_order ?? swapIdx + 1;
+    await Promise.all([
+      supabase.from("user_sports").update({ sort_order: bOrder }).eq("id", a.id),
+      supabase.from("user_sports").update({ sort_order: aOrder }).eq("id", b.id),
+    ]);
+    if (user) await loadProfileData(user.id);
   };
 
   const handleMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -591,7 +621,7 @@ function ProfilePageContent() {
                       />
                     </div>
                   )}
-                  <div className="space-y-1"><label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">Bio</label><textarea className="w-full bg-slate-950/50 border border-slate-800 rounded-xl p-3 text-white text-sm h-24 resize-none" value={editForm.bio} onChange={e => setEditForm({ ...editForm, bio: e.target.value })} placeholder="訓練哲學..." /></div>
+                  
                   <div className="p-4 bg-slate-950/50 rounded-2xl border border-slate-800/80 space-y-4 mt-2">
                     <div>
                       <label className="text-[10px] text-zinc-400 font-bold uppercase pl-1 block mb-2">運動員/一般狀態</label>
@@ -676,14 +706,14 @@ function ProfilePageContent() {
                       {privateTab === "friends" && "👥"}
                       {privateTab === "teams" && "🛡️"}
                       {privateTab === "account" && "⚙️"}
-                      {privateTab === "dashboard" && "📊"}
+                      {privateTab === "dashboard" && "👤"}
                     </div>
                     <div>
                       <h2 className="text-sm md:text-base font-black text-white leading-tight">
                         {privateTab === "friends" && "好友管理"}
                         {privateTab === "teams" && "我的團隊"}
                         {privateTab === "account" && "帳戶管理"}
-                        {privateTab === "dashboard" && "數據後台"}
+                        {privateTab === "dashboard" && "運動員專屬後台管理"}
                       </h2>
                       <p className="text-[10px] text-zinc-400 font-bold tracking-wider mt-0.5">專屬私密空間</p>
                     </div>
@@ -698,7 +728,14 @@ function ProfilePageContent() {
                 </div>
 
                 <div className="flex-1">
-                  {privateTab === "dashboard" && <DashboardTab profile={profile} avatarSrc={avatarSrc} />}
+                  {privateTab === "dashboard" && (
+                    <DashboardTab
+                      editForm={editForm}
+                      isSaving={isSaving}
+                      onFieldChange={(key, value) => setEditForm((prev: any) => ({ ...prev, [key]: value }))}
+                      onSave={handleSaveProfile}
+                    />
+                  )}
                   {privateTab === "friends" && user && (
                     <div className="animate-fadeIn">
                       <div className="mb-6 px-2"><h2 className="text-lg md:text-xl font-black text-white">好友管理</h2><p className="text-xs text-zinc-500 mt-1">管理你的好友、待接受請求與已發送請求。</p></div>
@@ -784,6 +821,7 @@ function ProfilePageContent() {
                 coachReviews={coachReviews}
                 onCoachBackend={showCoach ? () => router.push("/dashboard/coach") : undefined}
                 onPhysioBackend={showPhysio ? () => router.push("/dashboard/physio") : undefined}
+                onAthleteBackend={showPlayer ? () => setPrivateTab("dashboard") : undefined}
                 athleteExpertise={
                   <ExpertiseTab
                     userSports={userSports}
@@ -792,6 +830,7 @@ function ProfilePageContent() {
                     onOpenSportModal={handleOpenSportModal}
                     onRemoveSport={handleRemoveSport}
                     onSaveDisplaySports={handleSaveProfile}
+                    onMoveSport={handleMoveSport}
                   />
                 }
                 athleteHighlights={

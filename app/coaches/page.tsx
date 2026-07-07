@@ -72,7 +72,9 @@ export default function CoachesPage() {
             full_name, headline, avatar_url, coach_teaching_experience_years, coach_qualification_tags
           )
         `)
-        .eq("is_active", true);
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: true });
 
       if (currentUserId) query = query.neq("coach_id", currentUserId);
 
@@ -89,7 +91,9 @@ export default function CoachesPage() {
               full_name, headline, avatar_url, coach_teaching_experience_years
             )
           `)
-          .eq("is_active", true);
+          .eq("is_active", true)
+          .order("sort_order", { ascending: true })
+          .order("created_at", { ascending: true });
         if (currentUserId) fallbackQuery = fallbackQuery.neq("coach_id", currentUserId);
         const { data: fallback } = await fallbackQuery;
         if (fallback) setServices(fallback as unknown as CoachServiceRow[]);

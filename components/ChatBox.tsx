@@ -94,6 +94,44 @@ export function ChatBox({
     }
   }, [currentUserId, targetUserId, supabase]);
 
+  // Keep chat state in sync when friendship is reopened elsewhere.
+  useEffect(() => {
+    const channel = supabase
+      .channel(`chat-friendship-${[currentUserId, targetUserId].sort().join("-")}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "friendships" }, async (payload) => {
+        const row = (payload.new || payload.old) as any;
+        if (!row) return;
+        const related =
+          (row.sender_id === currentUserId && row.receiver_id === targetUserId) ||
+          (row.sender_id === targetUserId && row.receiver_id === currentUserId);
+        if (!related) return;
+
+        const { data: latest } = await supabase
+          .from("friendships")
+          .select("id, status, sender_id")
+          .or(
+            `and(sender_id.eq.${currentUserId},receiver_id.eq.${targetUserId}),` +
+            `and(sender_id.eq.${targetUserId},receiver_id.eq.${currentUserId})`
+          )
+          .maybeSingle();
+
+        if (latest) {
+          setFriendshipId(latest.id);
+          setStatus(latest.status);
+          setIsSenderState(latest.sender_id === currentUserId);
+        } else {
+          setFriendshipId(null);
+          setStatus("none");
+          setIsSenderState(true);
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentUserId, targetUserId, supabase]);
+
   // ── 1. Mark incoming messages as read ──
   const markAsRead = useCallback(
     async (messageIds: string[]) => {
@@ -256,29 +294,62 @@ export function ChatBox({
     setStatus("rejected");
   };
 
+  const handleReopenRequest = async () => {
+    if (!friendshipId) return;
+    await supabase
+      .from("friendships")
+      .update({
+        sender_id: currentUserId,
+        receiver_id: targetUserId,
+        status: "pending",
+      })
+      .eq("id", friendshipId);
+    setStatus("pending");
+    setIsSenderState(true);
+  };
+
   // ── 6. Optimistic send with Anti-Spam state rules ──
   const sendMessage = useCallback(
     async (msgText: string, retryTempId?: string) => {
       const tempId = retryTempId ?? `temp-${Date.now()}`;
 
-      // A. Handle First Message Inquiry Creation
-      if (status === "none") {
-        const { data: newFriendRow, error: friendErr } = await supabase
-          .from("friendships")
-          .insert({
-            sender_id: currentUserId,
-            receiver_id: targetUserId,
-            status: "pending",
-          })
-          .select("id")
-          .single();
-
-        if (friendErr && friendErr.code !== "23505") {
-          console.error("[ChatBox] First inquiry error:", friendErr.message);
-          return;
+      // A. Handle First Message Inquiry Creation / Re-open
+      if (status === "none" || status === "rejected") {
+        if (status === "rejected" && friendshipId) {
+          const { error: reopenErr } = await supabase
+            .from("friendships")
+            .update({
+              sender_id: currentUserId,
+              receiver_id: targetUserId,
+              status: "pending",
+            })
+            .eq("id", friendshipId);
+          if (reopenErr) {
+            console.error("[ChatBox] reopen inquiry error:", reopenErr.message);
+            return;
+          }
         }
 
-        if (newFriendRow) setFriendshipId(newFriendRow.id);
+        if (status === "none") {
+          const { data: newFriendRow, error: friendErr } = await supabase
+            .from("friendships")
+            .insert({
+              sender_id: currentUserId,
+              receiver_id: targetUserId,
+              status: "pending",
+            })
+            .select("id")
+            .single();
+
+          if (friendErr && friendErr.code !== "23505") {
+            console.error("[ChatBox] First inquiry error:", friendErr.message);
+            return;
+          }
+
+          if (newFriendRow) {
+            setFriendshipId(newFriendRow.id);
+          }
+        }
         setStatus("pending");
         setIsSenderState(true);
       }
@@ -506,6 +577,13 @@ export function ChatBox({
         {status === "rejected" && (
           <div className="p-3 bg-slate-900 border border-red-500/20 rounded-xl text-center">
             <p className="text-xs text-red-400 font-bold">🚫 此對話已關閉</p>
+            <button
+              type="button"
+              onClick={handleReopenRequest}
+              className="mt-2 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-black transition"
+            >
+              重新發送好友請求
+            </button>
           </div>
         )}
 
