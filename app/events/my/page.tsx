@@ -9,6 +9,7 @@ import {
 import Link from "next/link";
 import { getSportCategory } from "@/lib/sports-categories";
 import CalendarExportButton from "@/components/CalendarExportButton";
+import { formatEventPeriod } from "@/lib/event-datetime";
 
 export default function MyEventsPage() {
   const router = useRouter();
@@ -109,14 +110,6 @@ export default function MyEventsPage() {
       return timeHorizon === "upcoming" ? timeA - timeB : timeB - timeA;
     });
   }, [hostedEvents, timeHorizon, nowMs]);
-
-  const formatDateTime = (isoString: string) => {
-    const d = new Date(isoString);
-    return d.toLocaleString("zh-HK", {
-      month: "short", day: "numeric", weekday: "short",
-      hour: "numeric", minute: "2-digit", hour12: true
-    });
-  };
 
   const getSportIcon = (cat: string) => getSportCategory(cat)?.emoji ?? "⚡";
 
@@ -269,7 +262,7 @@ export default function MyEventsPage() {
 
                       <div className="flex flex-wrap items-center gap-4 text-xs text-zinc-400 font-bold">
                         <span className="flex items-center gap-1.5 text-zinc-200">
-                          <Calendar className="w-4 h-4 text-blue-400" /> {formatDateTime(ev.start_time)}
+                          <Calendar className="w-4 h-4 text-blue-400" /> {formatEventPeriod(ev.start_time, ev.end_time)}
                         </span>
                         <span className="flex items-center gap-1.5">
                           <MapPin className="w-4 h-4 text-amber-400" /> {ev.location_name}
@@ -341,7 +334,7 @@ export default function MyEventsPage() {
 
                       <div className="flex flex-wrap items-center gap-4 text-xs text-zinc-400 font-bold">
                         <span className="flex items-center gap-1.5 text-zinc-200">
-                          <Calendar className="w-4 h-4 text-blue-400" /> {formatDateTime(ev.start_time)}
+                          <Calendar className="w-4 h-4 text-blue-400" /> {formatEventPeriod(ev.start_time, ev.end_time)}
                         </span>
                         <span className="flex items-center gap-1.5">
                           <MapPin className="w-4 h-4 text-amber-400" /> {ev.location_name}

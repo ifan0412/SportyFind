@@ -4,7 +4,8 @@ import { useEffect, useState, useRef, useCallback, useMemo, Suspense } from "rea
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import Cropper from "react-easy-crop";
+import { ImageCropModal } from "@/components/media/ImageCropModal";
+import { readFileAsDataUrl } from "@/lib/image-crop";
 import { BackButton } from "@/components/BackButton";
 import { FriendsTab } from "@/components/FriendsTab";
 import { DashboardTab } from "@/components/profile/DashboardTab";
@@ -27,6 +28,7 @@ import {
   normalizeDistrictIds,
   normalizeSubdistrictIds,
 } from "@/lib/hk-locations";
+import { mapHighlightGalleryFiles } from "@/lib/highlights-gallery";
 
 interface Profile {
   id: string;
@@ -160,10 +162,6 @@ const DEFAULT_FORM = {
   physio_subdistricts: [] as string[],
 };
 
-const compressImage = (file: File | Blob): Promise<File | Blob> => new Promise((resolve) => { if (file.size <= 1.5 * 1024 * 1024) return resolve(file); const reader = new FileReader(); reader.onload = (e) => { const img = new Image(); img.onload = () => { const MAX = 1200; let w = img.width, h = img.height; if (w > h) { if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; } } else { if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; } } const canvas = document.createElement("canvas"); canvas.width = w; canvas.height = h; const ctx = canvas.getContext("2d"); if (!ctx) return resolve(file); ctx.drawImage(img, 0, 0, w, h); canvas.toBlob((blob) => resolve(blob ? new File([blob], file instanceof File ? file.name : "cropped.jpg", { type: "image/jpeg" }) : file), "image/jpeg", 0.8); }; img.src = e.target?.result as string; }; reader.readAsDataURL(file); });
-const createImage = (url: string): Promise<HTMLImageElement> => new Promise((resolve, reject) => { const image = new Image(); image.addEventListener("load", () => resolve(image)); image.addEventListener("error", (error) => reject(error)); image.src = url; });
-const getCroppedImg = async (imageSrc: string, pixelCrop: any): Promise<Blob | null> => { const image = await createImage(imageSrc); const canvas = document.createElement("canvas"); const ctx = canvas.getContext("2d"); if (!ctx) return null; canvas.width = pixelCrop.width; canvas.height = pixelCrop.height; ctx.drawImage(image, pixelCrop.x, pixelCrop.y, pixelCrop.width, pixelCrop.height, 0, 0, pixelCrop.width, pixelCrop.height); return new Promise((resolve) => { canvas.toBlob((file) => resolve(file), "image/jpeg"); }); };
-
 const StatusBadge = ({ tag }: { tag: string | null }) => {
   if (tag === "hidden" || tag === "draft") return <div className="inline-flex items-center gap-1.5 bg-slate-800 text-zinc-500 text-[10px] px-2.5 py-1 rounded-full font-black border border-slate-700">🔒 未發布 (隱藏中)</div>;
   if (tag === "recruiting") return <div className="inline-flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] px-2.5 py-1 rounded-full font-black tracking-widest"><div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> 招生/招募中</div>;
@@ -200,11 +198,9 @@ function ProfilePageContent() {
   const [handleStatus, setHandleStatus] = useState<"idle" | "checking" | "available" | "taken">("idle");
   const [locationData, setLocationData] = useState<Record<string, string[]>>({});
 
-  const [isCropModalOpen, setIsCropModalOpen] = useState(false);
+  const [cropTarget, setCropTarget] = useState<"avatar" | "highlight" | null>(null);
   const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
-  const [crop, setCrop] = useState({ x: 0, y: 0 });
-  const [zoom, setZoom] = useState(1);
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
+  const pendingHighlightSport = useRef<string | null>(null);
 
   const [isSportModalOpen, setIsSportModalOpen] = useState(false);
   const [selectedSportSlug, setSelectedSportSlug] = useState<SportCategoryId | "">("");
@@ -355,9 +351,7 @@ function ProfilePageContent() {
       if (physioSvc) setPhysioServices(physioSvc);
       if (reviewsData) setCoachReviews(reviewsData);
       const { data: files } = await supabase.storage.from("highlights").list(`${userId}/`, { limit: 20, sortBy: { column: "created_at", order: "desc" } });
-      if (files && files.length > 0) {
-        setGalleryMedia(files.filter(f => f.name !== ".emptyFolderPlaceholder").map(file => { const { data: urlData } = supabase.storage.from("highlights").getPublicUrl(`${userId}/${file.name}`); return { id: file.id || file.name, sportName: "Highlight", type: "image" as const, url: urlData.publicUrl, fileName: file.name, createdAt: file.created_at ? new Date(file.created_at).toLocaleDateString() : "最近上傳" }; }));
-      } else setGalleryMedia([]);
+      setGalleryMedia(files ? mapHighlightGalleryFiles(supabase, userId, files) : []);
     } catch (err) { console.error(err); } finally { setIsLoading(false); }
   }, [supabase]);
 
@@ -377,26 +371,63 @@ function ProfilePageContent() {
     return () => clearTimeout(timer);
   }, [editForm.handle, isEditing, user?.id, profile?.handle, supabase]);
 
-  const onAvatarFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const file = e.target.files[0]; const reader = new FileReader();
-      reader.addEventListener("load", () => { setCropImageSrc(reader.result?.toString() || ""); setIsCropModalOpen(true); });
-      reader.readAsDataURL(file);
-    }
+  const closeCropModal = useCallback(() => {
+    setCropTarget(null);
+    setCropImageSrc(null);
+    pendingHighlightSport.current = null;
   }, []);
 
-  const handleConfirmCrop = async () => {
-    if (!cropImageSrc || !croppedAreaPixels) return;
-    try {
-      const croppedBlob = await getCroppedImg(cropImageSrc, croppedAreaPixels);
-      if (!croppedBlob) return;
-      const compressed = await compressImage(croppedBlob);
-      pendingAvatarFile.current = compressed;
+  const onAvatarFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    setCropImageSrc(await readFileAsDataUrl(file));
+    setCropTarget("avatar");
+  }, []);
+
+  const handleCropConfirm = async (file: File) => {
+    if (cropTarget === "avatar") {
+      pendingAvatarFile.current = file;
       if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
-      const localUrl = URL.createObjectURL(compressed); blobUrlRef.current = localUrl;
+      const localUrl = URL.createObjectURL(file);
+      blobUrlRef.current = localUrl;
       setEditForm((prev: any) => ({ ...prev, avatar_url: localUrl }));
-      setIsCropModalOpen(false); setCropImageSrc(null);
-    } catch (e) { console.error(e); }
+      closeCropModal();
+      return;
+    }
+
+    if (cropTarget === "highlight" && pendingHighlightSport.current && user) {
+      const sportName = pendingHighlightSport.current;
+      setIsUploadingMedia(true);
+      try {
+        const uniqueFileName = `highlight-${Date.now()}.jpg`;
+        const { error } = await supabase.storage
+          .from("highlights")
+          .upload(`${user.id}/${uniqueFileName}`, file);
+        if (!error) {
+          const publicUrl = supabase.storage
+            .from("highlights")
+            .getPublicUrl(`${user.id}/${uniqueFileName}`).data.publicUrl;
+          setGalleryMedia((prev) => [
+            {
+              id: uniqueFileName,
+              sportName,
+              type: "image",
+              url: publicUrl,
+              fileName: uniqueFileName,
+              createdAt: "剛剛",
+            },
+            ...prev,
+          ]);
+        }
+        setIsMediaModalOpen(false);
+        setUploadMediaSport("");
+        router.refresh();
+      } finally {
+        setIsUploadingMedia(false);
+        closeCropModal();
+      }
+    }
   };
 
   const handleSaveProfile = async () => {
@@ -563,13 +594,12 @@ function ProfilePageContent() {
   };
 
   const handleMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const rawFile = e.target.files?.[0]; if (!rawFile || !uploadMediaSport || !user) return;
-    setIsUploadingMedia(true);
-    const fileToUpload = await compressImage(rawFile);
-    const uniqueFileName = `highlight-${Date.now()}.${rawFile.name.split(".").pop()}`;
-    const { error } = await supabase.storage.from("highlights").upload(`${user.id}/${uniqueFileName}`, fileToUpload);
-    if (!error) { const publicUrl = supabase.storage.from("highlights").getPublicUrl(`${user.id}/${uniqueFileName}`).data.publicUrl; setGalleryMedia(prev => [{ id: uniqueFileName, sportName: uploadMediaSport, type: "image", url: publicUrl, fileName: uniqueFileName, createdAt: "剛剛" }, ...prev]); }
-    setIsMediaModalOpen(false); setUploadMediaSport(""); setIsUploadingMedia(false); router.refresh();
+    const rawFile = e.target.files?.[0];
+    if (!rawFile || !uploadMediaSport || !user) return;
+    e.target.value = "";
+    pendingHighlightSport.current = uploadMediaSport;
+    setCropImageSrc(await readFileAsDataUrl(rawFile));
+    setCropTarget("highlight");
   };
 
   const handleDeleteMedia = async (post: MediaItem) => {
@@ -869,13 +899,14 @@ function ProfilePageContent() {
         </div>
       </div>
 
-      {/* ── Crop Modal ── */}
-      {isCropModalOpen && cropImageSrc && (
-        <div className="fixed inset-0 bg-black/95 z-50 flex flex-col items-center justify-center p-4">
-          <div className="relative w-full max-w-md h-[400px] bg-slate-900 rounded-3xl overflow-hidden shadow-2xl mb-6"><Cropper image={cropImageSrc} crop={crop} zoom={zoom} aspect={1} cropShape="round" showGrid={false} onCropChange={setCrop} onCropComplete={(_, px) => setCroppedAreaPixels(px as any)} onZoomChange={setZoom} /></div>
-          <div className="w-full max-w-md flex gap-4"><button onClick={() => { setIsCropModalOpen(false); setCropImageSrc(null); }} className="flex-1 bg-slate-800 text-white font-bold py-3 rounded-xl">取消</button><button onClick={handleConfirmCrop} className="flex-1 bg-blue-600 text-white font-bold py-3 rounded-xl">確認裁切</button></div>
-        </div>
-      )}
+      <ImageCropModal
+        open={cropTarget !== null}
+        imageSrc={cropImageSrc}
+        preset={cropTarget === "avatar" ? "avatar" : "square"}
+        filename={cropTarget === "avatar" ? "avatar.jpg" : "highlight.jpg"}
+        onCancel={closeCropModal}
+        onConfirm={handleCropConfirm}
+      />
 
       {/* ── Sport Modal ── */}
       {isSportModalOpen && (

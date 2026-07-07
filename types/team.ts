@@ -19,9 +19,13 @@ export type TeamRole = 'admin' | 'coach' | 'captain' | 'player';
 
 // --- 競技型運動 (排球、籃球、足球) ---
 export interface CompetitiveMetadata {
-  league_name?: string;         // e.g., "香港甲一排球聯賽 Div 1"
-  location_regions?: string[];  // e.g., ["港島", "九龍"] 或 ["全港"]
-  training_frequency?: string;  // e.g., "每週二、四"
+  team_gender?: "men" | "women" | "mixed";
+  home_court?: string;
+  league_name?: string;
+  division_level?: string;
+  team_colors?: string;
+  location_regions?: string[];
+  training_frequency?: string;
 }
 
 // --- 拍類運動 (網球、羽球、匹克球) ---
@@ -63,6 +67,7 @@ export interface Team<T extends SportCategory = SportCategory> {
   logo_url: string | null;
   cover_url: string | null;
   bio: string | null;
+  gallery_photos?: string[];
   
   // JSONB 欄位
   social_links: {

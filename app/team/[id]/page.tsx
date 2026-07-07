@@ -5,6 +5,15 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { profileLink } from "@/lib/profile-links";
+import { RichBody } from "@/components/content/RichBody";
+import { TeamMediaGallery } from "@/components/team/TeamMediaGallery";
+import {
+  TEAM_META_LABELS,
+  TEAM_GENDER_LABELS,
+  formatTeamMetaValue,
+  listFilledTeamMetaEntries,
+  isTeamMetaValueEmpty,
+} from "@/lib/team-metadata-fields";
 import type { SportCategory, RecruitmentStatus } from "@/types/team";
 import { SPORT_CATEGORIES } from "@/lib/sports-categories";
 
@@ -19,8 +28,9 @@ interface TeamData {
   logo_url: string | null;
   cover_url: string | null;
   bio: string | null;
-  social_links: { phone?: string; email?: string; ig?: string; fb?: string; youtube?: string } | null;
+  social_links: { phone?: string; email?: string; ig?: string; fb?: string; youtube?: string; threads?: string } | null;
   sport_metadata: Record<string, string | boolean | number | string[]> | null;
+  gallery_photos?: string[] | null;
 }
 
 interface MemberProfile {
@@ -52,38 +62,25 @@ const SPORT_OPTIONS = SPORT_CATEGORIES.map((s) => ({
   labelZh: s.labelZh,
 }));
 
-const META_LABELS: Record<string, string> = {
-  league_name:        "聯賽 / 組別",
-  location_regions:   "活動地區",
-  training_frequency: "訓練頻率",
-  avg_skill_level:    "技術水平",
-  play_style:         "比賽形式",
-  court_surface:      "場地類型",
-  equipment_provided: "提供器材",
-  primary_focus:      "訓練重點",
-  home_base:          "集合地點",
-  avg_pace:           "平均配速",
-  required_gear:      "必備裝備",
-};
-
-const PLAY_STYLE_LABELS: Record<string, string> = {
-  singles: "單打 Singles",
-  doubles: "雙打 Doubles",
-  mixed:   "混雙 Mixed",
-  all:     "皆可 All",
-};
+const META_LABELS = TEAM_META_LABELS;
 
 function formatMetaValue(key: string, value: string | boolean | number | string[]): string {
-  if (key === "equipment_provided") return value ? "✅ 是" : "❌ 否";
-  if (key === "play_style" && typeof value === "string") return PLAY_STYLE_LABELS[value] ?? value;
-  if (Array.isArray(value)) return value.join("、");
-  return String(value);
+  return formatTeamMetaValue(key, value);
+}
+
+function parseGalleryPhotos(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((u): u is string => typeof u === "string" && u.length > 0);
 }
 
 function isMetaValueEmpty(value: unknown): boolean {
-  if (value === null || value === undefined || value === "") return true;
-  if (Array.isArray(value) && value.length === 0) return true;
-  return false;
+  return isTeamMetaValueEmpty(value);
+}
+
+function externalHref(url: string) {
+  const trimmed = url.trim();
+  if (!trimmed) return "#";
+  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
 }
 
 function RecruitBadge({ status }: { status: RecruitmentStatus }) {
@@ -134,6 +131,7 @@ export default function TeamDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [joinState, setJoinState] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [joinError, setJoinError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"about" | "media" | "members">("about");
 
   useEffect(() => {
     if (!id) return;
@@ -221,24 +219,45 @@ export default function TeamDetailPage() {
   const sport       = SPORT_OPTIONS.find((s) => s.value.toLowerCase() === team.sport_category.toLowerCase());
   const displayName = team.name_en || team.name_zh || "Unnamed";
 
-  const metaEntries = Object.entries(team.sport_metadata ?? {}).filter(
-    ([, v]) => !isMetaValueEmpty(v)
-  ) as [string, string | boolean | number | string[]][];
+  const metaEntries = listFilledTeamMetaEntries(team.sport_metadata);
+  const teamGender = team.sport_metadata?.team_gender as string | undefined;
+  const genderLabel = teamGender && !isTeamMetaValueEmpty(teamGender) ? TEAM_GENDER_LABELS[teamGender] : null;
 
   const socialLinks = team.social_links ?? {};
-  const hasContactInfo = socialLinks.phone || socialLinks.email || socialLinks.ig || socialLinks.fb || socialLinks.youtube;
+  const hasContactInfo = socialLinks.phone || socialLinks.email || socialLinks.ig || socialLinks.fb || socialLinks.youtube || socialLinks.threads;
+  const galleryPhotos = parseGalleryPhotos(team.gallery_photos);
+  const activeMemberCount = members.filter((m) => m.role !== "pending").length;
+
+  const tabBtn = (tab: typeof activeTab, label: string) => (
+    <button
+      type="button"
+      onClick={() => setActiveTab(tab)}
+      className={`px-4 py-2.5 rounded-xl font-black text-sm transition whitespace-nowrap ${
+        activeTab === tab
+          ? "bg-amber-600 text-white shadow-[0_0_12px_rgba(217,119,6,0.25)]"
+          : "bg-slate-900 text-zinc-400 hover:text-white"
+      }`}
+    >
+      {label}
+    </button>
+  );
 
   return (
     <div className="bg-slate-950 min-h-screen text-zinc-200 font-sans selection:bg-blue-500/30 pb-24">
-      <div
-        className="w-full h-44 md:h-56 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 relative overflow-hidden"
-        style={team.cover_url ? { backgroundImage: `url(${team.cover_url})`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}
-      >
+      <div className="relative w-full h-44 md:h-auto md:aspect-[16/9] md:max-h-[480px] overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+        {team.cover_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={team.cover_url}
+            alt=""
+            className="absolute inset-0 h-full w-full object-cover object-center"
+          />
+        ) : null}
         <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />
       </div>
 
       <div className="w-full max-w-4xl md:max-w-5xl mx-auto px-4 sm:px-6 relative z-10">
-        <div className="-mt-36 md:-mt-44 mb-6 relative z-30">
+        <div className="-mt-36 md:-mt-52 mb-6 relative z-30">
           <Link
             href="/team"
             className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-950/60 hover:bg-slate-900 border border-slate-800/80 text-sm font-black text-amber-400 hover:text-amber-300 backdrop-blur-md transition shadow-lg"
@@ -268,12 +287,17 @@ export default function TeamDetailPage() {
                   </span>
                 )}
                 <RecruitBadge status={team.recruitment_status} />
+                {genderLabel && (
+                  <span className="bg-violet-500/10 border border-violet-500/20 text-violet-300 text-xs font-black px-3 py-1 rounded-full">
+                    👤 {genderLabel}
+                  </span>
+                )}
                 {team.est_year && (
                   <span className="text-[10px] text-zinc-500 font-bold bg-slate-800 border border-slate-700 px-3 py-1 rounded-full">
                     📅 {team.est_year} 年成立
                   </span>
                 )}
-                {team.location_region && (
+                {team.location_region && !isTeamMetaValueEmpty(team.location_region) && (
                   <span className="text-[10px] text-zinc-500 font-bold bg-slate-800 border border-slate-700 px-3 py-1 rounded-full">
                     📍 {team.location_region}
                   </span>
@@ -322,13 +346,29 @@ export default function TeamDetailPage() {
           )}
         </div>
 
-        {/* ── 1. Bio & Contact Info ── */}
+        <div className="flex flex-wrap gap-2 mb-6">
+          {tabBtn("about", "📋 總覽")}
+          {tabBtn("media", `🖼️ 媒體${galleryPhotos.length > 0 ? ` (${galleryPhotos.length})` : ""}`)}
+          {tabBtn("members", `👥 成員 (${activeMemberCount})`)}
+          {isAdmin && (
+            <Link
+              href={`/team/${id}/admin?tab=media`}
+              className="ml-auto text-xs font-bold text-amber-400 hover:text-amber-300 px-3 py-2"
+            >
+              管理媒體 →
+            </Link>
+          )}
+        </div>
+
+        {activeTab === "about" && (
+          <>
+        {/* ── Bio & Contact Info ── */}
         {(team.bio || hasContactInfo) && (
           <div className="bg-slate-900/40 border border-slate-800 rounded-3xl p-6 mb-6">
             {team.bio && (
               <div className={hasContactInfo ? "mb-6 pb-6 border-b border-slate-800/80" : ""}>
                 <h2 className="text-xs font-black text-zinc-500 uppercase tracking-widest mb-3">關於我們</h2>
-                <p className="text-sm text-zinc-300 leading-relaxed whitespace-pre-line">{team.bio}</p>
+                <RichBody html={team.bio} emptyText="尚未填寫團隊簡介。" />
               </div>
             )}
 
@@ -357,22 +397,28 @@ export default function TeamDetailPage() {
                   )}
                 </div>
 
-                {(socialLinks.ig || socialLinks.fb || socialLinks.youtube) && (
+                {(socialLinks.ig || socialLinks.fb || socialLinks.youtube || socialLinks.threads) && (
                   <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-slate-800/80">
                     {socialLinks.ig && (
-                      <a href={socialLinks.ig} target="_blank" rel="noopener noreferrer"
+                      <a href={externalHref(socialLinks.ig)} target="_blank" rel="noopener noreferrer"
                         className="flex items-center gap-2 bg-slate-950/50 hover:bg-slate-800 border border-slate-800 hover:border-slate-600 rounded-full px-4 py-1.5 text-xs font-bold text-zinc-300 hover:text-white transition">
                         📷 Instagram
                       </a>
                     )}
                     {socialLinks.fb && (
-                      <a href={socialLinks.fb} target="_blank" rel="noopener noreferrer"
+                      <a href={externalHref(socialLinks.fb)} target="_blank" rel="noopener noreferrer"
                         className="flex items-center gap-2 bg-slate-950/50 hover:bg-slate-800 border border-slate-800 hover:border-slate-600 rounded-full px-4 py-1.5 text-xs font-bold text-zinc-300 hover:text-white transition">
                         👥 Facebook
                       </a>
                     )}
+                    {socialLinks.threads && (
+                      <a href={externalHref(socialLinks.threads)} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-2 bg-slate-950/50 hover:bg-slate-800 border border-slate-800 hover:border-slate-600 rounded-full px-4 py-1.5 text-xs font-bold text-zinc-300 hover:text-white transition">
+                        🧵 Threads
+                      </a>
+                    )}
                     {socialLinks.youtube && (
-                      <a href={socialLinks.youtube} target="_blank" rel="noopener noreferrer"
+                      <a href={externalHref(socialLinks.youtube)} target="_blank" rel="noopener noreferrer"
                         className="flex items-center gap-2 bg-slate-950/50 hover:bg-slate-800 border border-slate-800 hover:border-slate-600 rounded-full px-4 py-1.5 text-xs font-bold text-zinc-300 hover:text-white transition">
                         ▶️ YouTube
                       </a>
@@ -431,10 +477,37 @@ export default function TeamDetailPage() {
           </div>
         )}
 
-        {members.filter((m) => m.role !== "pending").length > 0 && (
+          </>
+        )}
+
+        {activeTab === "media" && (
+          <div className="bg-slate-900/40 border border-slate-800 rounded-3xl p-6 mb-6">
+            <div className="flex items-center justify-between gap-3 mb-5">
+              <h2 className="text-xs font-black text-zinc-500 uppercase tracking-widest">團隊相片</h2>
+              {isAdmin && (
+                <Link
+                  href={`/team/${id}/admin?tab=media`}
+                  className="text-xs font-bold text-amber-400 hover:text-amber-300"
+                >
+                  ＋ 上傳相片
+                </Link>
+              )}
+            </div>
+            <TeamMediaGallery
+              photos={galleryPhotos}
+              emptyLabel={isAdmin ? "尚無相片，前往管理後台上傳。" : "此團隊尚未上傳相片。"}
+            />
+          </div>
+        )}
+
+        {activeTab === "members" && (
           <div className="bg-slate-900/40 border border-slate-800 rounded-3xl p-6 mb-6">
             <h2 className="text-xs font-black text-zinc-500 uppercase tracking-widest mb-6">群組成員</h2>
 
+            {activeMemberCount === 0 ? (
+              <p className="text-sm text-zinc-500 text-center py-10">尚無公開成員。</p>
+            ) : (
+              <>
             {adminsAndLeads.length > 0 && (
               <div className="mb-6">
                 <p className="text-[10px] font-black text-amber-400/80 uppercase tracking-widest mb-3 pl-1">管理員與領隊</p>
@@ -468,6 +541,8 @@ export default function TeamDetailPage() {
                   ))}
                 </div>
               </div>
+            )}
+              </>
             )}
           </div>
         )}

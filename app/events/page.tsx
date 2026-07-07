@@ -11,6 +11,8 @@ import { getSportCategory, sportMatchesFilter } from "@/lib/sports-categories";
 import { SportFilterModal } from "@/components/SportFilterModal";
 import { LocationFilterModal } from "@/components/LocationFilterModal";
 import { BackButton } from "@/components/BackButton";
+import { ListingPageHeader } from "@/components/listing/ListingPageHeader";
+import { LISTING_PAGE_MAX_WIDTH } from "@/lib/listing-sections";
 import {
   districtsForFilterModal,
   formatDistrictList,
@@ -129,18 +131,11 @@ export default function EventsLobbyPage() {
 
   return (
     <div className="bg-slate-950 min-h-screen text-zinc-200 font-sans selection:bg-blue-500/30 pb-24 relative">
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10">
+      <div className={`${LISTING_PAGE_MAX_WIDTH} mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10`}>
         <BackButton label="返回上一頁" />
 
         <div className="mb-6 md:mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-4 text-center md:text-left mt-2">
-          <div>
-            <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight mb-2">
-              運動約戰大廳 🏆
-            </h1>
-            <p className="text-zinc-400 text-sm md:text-base font-medium">
-              尋找即將開打的球隊友誼賽、訓練營或散客休閒團練（已開賽活動將自動下架）
-            </p>
-          </div>
+          <ListingPageHeader section="events" className="mb-0 mt-0 flex-1" />
           <div className="flex items-center justify-center sm:justify-end gap-2 shrink-0">
             <Link
               href="/events/my"

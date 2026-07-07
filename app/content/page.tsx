@@ -2,8 +2,8 @@ import { Suspense } from "react";
 import ContentListingClient from "./ContentListingClient";
 
 export const metadata = {
-  title: "Sports Tips | SportyFind",
-  description: "Training guides, nutrition advice, recovery tips, and sport-specific know-how from SportyFind.",
+  title: "運動貼士 | SportyFind",
+  description: "訓練、營養、復康與運動實用指南。",
 };
 
 export default function ContentPage() {

@@ -1,10 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import { Trash2, UploadCloud, Loader2, Globe } from "lucide-react";
+import { ImageCropModal } from "@/components/media/ImageCropModal";
+import { readFileAsDataUrl } from "@/lib/image-crop";
 import {
   normalizeServicePhotos,
-  splitPhotoArrays,
   type ServicePhotoEntry,
 } from "@/lib/service-photos";
 
@@ -29,6 +31,9 @@ export function ServicePhotoManager({
   onPublish,
   onDelete,
 }: ServicePhotoManagerProps) {
+  const [cropQueue, setCropQueue] = useState<File[]>([]);
+  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
+
   const entries = normalizeServicePhotos(photos, draftPhotos);
   const uploadBtn =
     accent === "amber"
@@ -45,7 +50,34 @@ export function ServicePhotoManager({
     void onDelete(entry.url, entry.status);
   };
 
+  const startCropQueue = async (files: FileList | null) => {
+    if (!files?.length) return;
+    const queue = Array.from(files);
+    setCropQueue(queue);
+    setCropImageSrc(await readFileAsDataUrl(queue[0]));
+  };
+
+  const closeCropModal = () => {
+    setCropQueue([]);
+    setCropImageSrc(null);
+  };
+
+  const handleCropConfirm = async (file: File) => {
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    await onUpload(dt.files);
+
+    const rest = cropQueue.slice(1);
+    if (rest.length > 0) {
+      setCropQueue(rest);
+      setCropImageSrc(await readFileAsDataUrl(rest[0]));
+    } else {
+      closeCropModal();
+    }
+  };
+
   return (
+    <>
     <div className="space-y-4 pt-2">
       <div className="flex items-center justify-between gap-3">
         <span className="text-xs text-zinc-400 font-bold">
@@ -61,7 +93,7 @@ export function ServicePhotoManager({
             accept="image/*"
             multiple
             onChange={(e) => {
-              void onUpload(e.target.files);
+              void startCropQueue(e.target.files);
               e.target.value = "";
             }}
             className="hidden"
@@ -120,5 +152,15 @@ export function ServicePhotoManager({
         </div>
       )}
     </div>
+
+    <ImageCropModal
+      open={cropImageSrc !== null}
+      imageSrc={cropImageSrc}
+      preset="banner"
+      filename="service-photo.jpg"
+      onCancel={closeCropModal}
+      onConfirm={handleCropConfirm}
+    />
+  </>
   );
 }

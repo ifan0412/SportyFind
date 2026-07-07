@@ -7,8 +7,20 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { BackButton } from "@/components/BackButton";
+import { ListingPageHeader } from "@/components/listing/ListingPageHeader";
+import { LISTING_PAGE_MAX_WIDTH } from "@/lib/listing-sections";
 import type { SportCategory } from "@/types/team";
 import { SPORT_CATEGORIES } from "@/lib/sports-categories";
+import {
+  TEAM_META_LABELS,
+  TEAM_GENDER_LABELS,
+  formatTeamMetaValue,
+  buildTeamCardTags,
+  isTeamMetaValueEmpty,
+  listFilledTeamMetaEntries,
+  metadataSearchText,
+} from "@/lib/team-metadata-fields";
+import { stripHtml } from "@/lib/content/body";
 
 const SPORT_OPTIONS: { value: SportCategory; emoji: string; label: string; labelZh: string }[] = SPORT_CATEGORIES.map((s) => ({
   value: s.id as SportCategory,
@@ -30,6 +42,7 @@ interface TeamProfile {
   bio: string | null;
   logo_url: string | null;
   location_region: string | null;
+  sport_metadata: Record<string, unknown> | null;
 }
 
 function TeamStatusBadge({ tag }: { tag: string | null }) {
@@ -78,7 +91,7 @@ function TeamPageContent() {
   useEffect(() => {
     supabase
       .from("teams")
-      .select("id, name_en, name_zh, sport_category, recruitment_status, bio, logo_url, location_region")
+      .select("id, name_en, name_zh, sport_category, recruitment_status, bio, logo_url, location_region, sport_metadata")
       .order("created_at", { ascending: false })
       .then(({ data }) => {
         setTeams((data as TeamProfile[]) ?? []);
@@ -101,9 +114,12 @@ function TeamPageContent() {
 
   const filteredTeams = teams.filter((t) => {
     const name = t.name_en || t.name_zh || "";
+    const metaText = metadataSearchText(t.sport_metadata);
+    const bioText = stripHtml(t.bio ?? "");
     const matchesSearch =
       name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (t.bio ?? "").toLowerCase().includes(searchTerm.toLowerCase());
+      bioText.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      metaText.includes(searchTerm.toLowerCase());
     
     // 🔥 統一轉小寫精準比對
     const matchesSport =
@@ -154,13 +170,10 @@ function TeamPageContent() {
 
   return (
     <div className="bg-slate-950 min-h-screen text-zinc-200 font-sans selection:bg-blue-500/30 pb-24 relative">
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10">
+      <div className={`${LISTING_PAGE_MAX_WIDTH} mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10`}>
         <BackButton label="返回上一頁" />
 
-        <div className="mb-6 md:mb-8 text-center md:text-left">
-          <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight mb-2">戰隊總部 🛡️</h1>
-          <p className="text-zinc-400 text-sm md:text-base font-medium">尋找你的歸屬、發起友誼賽、建立無敵陣容。</p>
-        </div>
+        <ListingPageHeader section="team" />
 
         <div className="flex gap-3 mb-6">
           <div className="relative flex-1">
@@ -286,6 +299,7 @@ function TeamPageContent() {
                 {visibleTeams.map((t) => {
                   const sport = getSportOption(t.sport_category);
                   const displayName = t.name_en || t.name_zh || "Unnamed Team";
+                  const cardTags = buildTeamCardTags(t.sport_metadata);
                   return (
                     <div
                       key={t.id}
@@ -306,14 +320,26 @@ function TeamPageContent() {
 
                       <h3 className="text-lg font-black text-white tracking-tight mb-0.5 truncate w-full">{displayName}</h3>
                       {t.name_zh && t.name_en && (
-                        <p className="text-xs text-zinc-500 font-bold mb-1">{t.name_zh}</p>
+                        <p className="text-xs text-zinc-500 font-bold mb-2">{t.name_zh}</p>
                       )}
-                      <p className="text-xs md:text-sm text-zinc-400 font-medium mb-5 line-clamp-2 h-8 md:h-10 leading-snug">
-                        {t.bio || ""}
-                      </p>
+
+                      {cardTags.length > 0 ? (
+                        <div className="flex flex-wrap items-center justify-center gap-1.5 mb-5 min-h-[2rem]">
+                          {cardTags.map((tag) => (
+                            <span
+                              key={`${tag.icon}-${tag.label}`}
+                              className="bg-slate-950/60 border border-slate-800 text-zinc-300 text-[10px] md:text-xs font-bold px-2.5 py-1 rounded-lg"
+                            >
+                              {tag.icon} {tag.label}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="mb-5 min-h-[2rem]" />
+                      )}
 
                       <div className="flex flex-wrap items-center justify-center gap-2 mb-6 w-full">
-                        {t.location_region && (
+                        {t.location_region && !isTeamMetaValueEmpty(t.location_region) && (
                           <div className="bg-slate-950/50 border border-slate-800/80 text-zinc-400 text-xs font-bold px-3 py-1.5 rounded-lg truncate max-w-[140px]">
                             📍 {t.location_region}
                           </div>

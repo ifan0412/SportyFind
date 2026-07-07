@@ -25,6 +25,8 @@ import { SportCategoryPicker } from "@/components/sports/SportCategoryPicker";
 import type { SportCategoryId } from "@/lib/sports-categories";
 import { stripHtml } from "@/lib/content/body";
 import { ServicePublishBadge } from "@/components/services/ServicePublishBadge";
+import { ImageCropModal } from "@/components/media/ImageCropModal";
+import { readFileAsDataUrl } from "@/lib/image-crop";
 
 interface CoachTabProps {
   editForm?: any; 
@@ -169,6 +171,8 @@ function CoachServicesManager() {
   const [courseLeads, setCourseLeads] = useState<any[]>([]);
   const [loadingSubData, setLoadingSubData] = useState(false);
   const [uploadingMedia, setUploadingMedia] = useState(false);
+  const [cropQueue, setCropQueue] = useState<File[]>([]);
+  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
   const [pendingServiceIds, setPendingServiceIds] = useState<Set<string>>(new Set());
   const titleSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -370,6 +374,32 @@ function CoachServicesManager() {
     setSelectedService(updatedService);
     setServices(services.map(s => s.id === updatedService.id ? updatedService : s));
     setUploadingMedia(false);
+  };
+
+  const startCropQueue = async (files: FileList | null) => {
+    if (!files?.length) return;
+    const queue = Array.from(files);
+    setCropQueue(queue);
+    setCropImageSrc(await readFileAsDataUrl(queue[0]));
+  };
+
+  const closeCropModal = () => {
+    setCropQueue([]);
+    setCropImageSrc(null);
+  };
+
+  const handleCropConfirm = async (file: File) => {
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    await handleUploadPhoto(dt.files);
+
+    const rest = cropQueue.slice(1);
+    if (rest.length > 0) {
+      setCropQueue(rest);
+      setCropImageSrc(await readFileAsDataUrl(rest[0]));
+    } else {
+      closeCropModal();
+    }
   };
 
   const handleRemovePhoto = async (idxToRemove: number) => {
@@ -661,7 +691,7 @@ function CoachServicesManager() {
                 <label className="bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 rounded-xl text-xs font-black cursor-pointer flex items-center gap-1.5 transition">
                   {uploadingMedia ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <UploadCloud className="w-3.5 h-3.5" />}
                   {uploadingMedia ? "上傳中..." : "＋ 選擇相片上傳"}
-                  <input type="file" accept="image/*" multiple onChange={(e) => handleUploadPhoto(e.target.files)} className="hidden" />
+                  <input type="file" accept="image/*" multiple onChange={(e) => { void startCropQueue(e.target.files); e.target.value = ""; }} className="hidden" />
                 </label>
               </div>
 
@@ -716,6 +746,15 @@ function CoachServicesManager() {
           )}
         </div>
       )}
+
+      <ImageCropModal
+        open={cropImageSrc !== null}
+        imageSrc={cropImageSrc}
+        preset="banner"
+        filename="service-photo.jpg"
+        onCancel={closeCropModal}
+        onConfirm={handleCropConfirm}
+      />
     </div>
   );
 }

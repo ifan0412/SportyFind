@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { BackButton } from "@/components/BackButton";
+import { ListingPageHeader } from "@/components/listing/ListingPageHeader";
+import { LISTING_PAGE_MAX_WIDTH } from "@/lib/listing-sections";
 import { SportFilterModal } from "@/components/SportFilterModal";
 import { LocationFilterModal } from "@/components/LocationFilterModal";
 import {
@@ -119,17 +121,10 @@ export default function CoachesPage() {
 
   return (
     <div className="bg-slate-950 min-h-screen text-zinc-200 font-sans selection:bg-amber-500/30 pb-24 relative">
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10">
+      <div className={`${LISTING_PAGE_MAX_WIDTH} mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10`}>
         <BackButton label="返回上一頁" />
 
-        <div className="mb-6 md:mb-8 text-center md:text-left mt-2">
-          <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight mb-2">
-            教練課程名師榜 🎓
-          </h1>
-          <p className="text-zinc-400 text-sm md:text-base font-medium">
-            嚴選各項目的專業導師與獨立訓練課程，突破你的競技天花板。
-          </p>
-        </div>
+        <ListingPageHeader section="coaches" />
 
         <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-800 p-4 md:p-5 rounded-3xl mb-8 shadow-lg flex flex-col md:flex-row gap-4 items-center">
           <div className="relative w-full md:flex-1">

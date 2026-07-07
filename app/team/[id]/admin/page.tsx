@@ -1,26 +1,33 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { profileLink } from "@/lib/profile-links";
+import { RichTextEditor } from "@/components/admin/RichTextEditor";
+import { TeamMetadataFieldsForm } from "@/components/team/TeamMetadataFieldsForm";
+import { TeamMediaManager } from "@/components/team/TeamMediaManager";
+import { regionsToLocationString, cleanTeamMetadata } from "@/lib/team-metadata-fields";
+import type { SportCategory } from "@/types/team";
+import { BIO_CHAR_SUGGESTED_MAX, BIO_CHAR_SUGGESTED_RANGE, plainTextLength } from "@/lib/content/body";
 
-const REGION_OPTIONS = [
-  { value: "全港",  label: "🌐 全港 All HK" },
-  { value: "港島",  label: "🏙️ 港島 Hong Kong Island" },
-  { value: "九龍",  label: "🌆 九龍 Kowloon" },
-  { value: "新界",  label: "🏞️ 新界 New Territories" },
-];
+type AdminTab = "roster" | "details" | "media" | "settings";
+
+function parseGalleryPhotos(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((u): u is string => typeof u === "string" && u.length > 0);
+}
 
 export default function TeamAdminDashboard() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const id = params?.id as string;
   const returnTo = `/team/${id}/admin`;
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
-  const [activeTab, setActiveTab] = useState<"roster" | "settings">("roster");
+  const [activeTab, setActiveTab] = useState<AdminTab>("roster");
   const [team, setTeam] = useState<any>(null);
   const [members, setMembers] = useState<any[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -34,12 +41,13 @@ export default function TeamAdminDashboard() {
   const [editBio, setEditBio] = useState("");
   const [editPhone, setEditPhone] = useState("");
   const [editEmail, setEditEmail] = useState("");
-  const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
+  const [editIg, setEditIg] = useState("");
+  const [editFb, setEditFb] = useState("");
+  const [editThreads, setEditThreads] = useState("");
+  const [editEstYear, setEditEstYear] = useState("");
+  const [editSportMetadata, setEditSportMetadata] = useState<Record<string, string | boolean | string[]>>({});
+  const [isSavingDetails, setIsSavingDetails] = useState(false);
   
-  const [logoFile, setLogoFile] = useState<File | null>(null);
-  const [logoPreview, setLogoPreview] = useState<string | null>(null);
-  const [coverFile, setCoverFile] = useState<File | null>(null);
-  const [coverPreview, setCoverPreview] = useState<string | null>(null);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -72,17 +80,24 @@ export default function TeamAdminDashboard() {
       setEditBio(teamRes.data.bio || "");
       setEditPhone(teamRes.data.social_links?.phone || "");
       setEditEmail(teamRes.data.social_links?.email || "");
-      setLogoPreview(teamRes.data.logo_url || null);
-      setCoverPreview(teamRes.data.cover_url || null);
-      
-      const currentRegions = teamRes.data.sport_metadata?.location_regions || [];
-      setSelectedRegions(currentRegions);
+      setEditIg(teamRes.data.social_links?.ig || "");
+      setEditFb(teamRes.data.social_links?.fb || "");
+      setEditThreads(teamRes.data.social_links?.threads || "");
+      setEditEstYear(teamRes.data.est_year ? String(teamRes.data.est_year) : "");
+      setEditSportMetadata((teamRes.data.sport_metadata as Record<string, string | boolean | string[]>) || {});
     } catch (err) {
       setIsAuthorized(false);
     } finally {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab === "roster" || tab === "details" || tab === "media" || tab === "settings") {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (id) fetchDashboardData();
@@ -157,22 +172,29 @@ export default function TeamAdminDashboard() {
     if (!error) fetchDashboardData();
   };
 
-  const toggleRegion = (region: string) => {
-    setSelectedRegions((prev) =>
-      prev.includes(region) ? prev.filter((r) => r !== region) : [...prev, region]
-    );
-  };
+  const handleSaveDetails = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingDetails(true);
+    try {
+      const cleanedMeta = cleanTeamMetadata(editSportMetadata);
+      const regions = (cleanedMeta.location_regions as string[] | undefined) ?? [];
+      const { error } = await supabase
+        .from("teams")
+        .update({
+          est_year: editEstYear.trim() ? Number(editEstYear) : null,
+          sport_metadata: cleanedMeta,
+          location_region: regionsToLocationString(regions),
+        })
+        .eq("id", id);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: "logo" | "cover") => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const objectUrl = URL.createObjectURL(file);
-    if (type === "logo") {
-      setLogoFile(file);
-      setLogoPreview(objectUrl);
-    } else {
-      setCoverFile(file);
-      setCoverPreview(objectUrl);
+      if (!error) {
+        alert("🎉 群組規格與詳情已更新！");
+        fetchDashboardData();
+      } else {
+        alert("儲存失敗：" + error.message);
+      }
+    } finally {
+      setIsSavingDetails(false);
     }
   };
 
@@ -180,32 +202,16 @@ export default function TeamAdminDashboard() {
     e.preventDefault();
     setIsSavingSettings(true);
     try {
-      let finalLogoUrl = team.logo_url;
-      let finalCoverUrl = team.cover_url;
+      const updatedSocial = {
+        ...(team.social_links || {}),
+        phone: editPhone.trim() || undefined,
+        email: editEmail.trim() || undefined,
+        ig: editIg.trim() || undefined,
+        fb: editFb.trim() || undefined,
+        threads: editThreads.trim() || undefined,
+      };
 
-      if (logoFile && currentUserId) {
-        const ext = logoFile.name.split(".").pop();
-        const path = `logos/${currentUserId}-${Date.now()}.${ext}`;
-        const { error: uploadErr } = await supabase.storage.from("team-assets").upload(path, logoFile, { upsert: true });
-        if (!uploadErr) {
-          const { data: { publicUrl } } = supabase.storage.from("team-assets").getPublicUrl(path);
-          finalLogoUrl = publicUrl;
-        }
-      }
-
-      if (coverFile && currentUserId) {
-        const ext = coverFile.name.split(".").pop();
-        const path = `covers/${currentUserId}-${Date.now()}.${ext}`;
-        const { error: uploadErr } = await supabase.storage.from("team-assets").upload(path, coverFile, { upsert: true });
-        if (!uploadErr) {
-          const { data: { publicUrl } } = supabase.storage.from("team-assets").getPublicUrl(path);
-          finalCoverUrl = publicUrl;
-        }
-      }
-
-      const locationString = selectedRegions.length > 0 ? selectedRegions.join("、") : null;
-      const updatedMetadata = { ...(team.sport_metadata || {}), location_regions: selectedRegions };
-      const updatedSocial = { ...(team.social_links || {}), phone: editPhone.trim() || undefined, email: editEmail.trim() || undefined };
+      const bioPlainLen = plainTextLength(editBio || "");
 
       const { error } = await supabase
         .from("teams")
@@ -213,19 +219,13 @@ export default function TeamAdminDashboard() {
           name_en: editNameEn.trim(),
           name_zh: editNameZh.trim() || null,
           recruitment_status: editStatus,
-          bio: editBio.trim() || null,
-          logo_url: finalLogoUrl,
-          cover_url: finalCoverUrl,
-          location_region: locationString,
+          bio: bioPlainLen > 0 ? editBio : null,
           social_links: updatedSocial,
-          sport_metadata: updatedMetadata
         })
         .eq("id", id);
 
       if (!error) {
-        alert("🎉 群組後台資訊已成功更新！");
-        setLogoFile(null);
-        setCoverFile(null);
+        alert("🎉 群組設定已成功更新！");
         fetchDashboardData();
       } else {
         alert("儲存失敗：" + error.message);
@@ -308,12 +308,18 @@ export default function TeamAdminDashboard() {
         <h1 className="text-2xl md:text-3xl font-black text-white mb-2">{team.name_en} 核心主控台</h1>
         <p className="text-zinc-500 text-sm mb-8">全面掌管群組成員狀態、招募名單審核及團隊視覺資產變更。</p>
 
-        <div className="flex gap-2 border-b border-slate-800 mb-8 pb-4">
-          <button onClick={() => setActiveTab("roster")} className={`px-5 py-2.5 rounded-xl font-black text-sm transition ${activeTab === "roster" ? "bg-amber-600 text-white shadow-[0_0_15px_rgba(217,119,6,0.3)]" : "bg-slate-900 text-zinc-400 hover:text-white"}`}>
-            👥 成員與申請審核 ({pendingMembers.length > 0 ? `${pendingMembers.length} 筆新申請` : activeMembers.length})
+        <div className="flex flex-wrap gap-2 border-b border-slate-800 mb-8 pb-4">
+          <button onClick={() => setActiveTab("roster")} className={`px-4 py-2.5 rounded-xl font-black text-sm transition ${activeTab === "roster" ? "bg-amber-600 text-white shadow-[0_0_15px_rgba(217,119,6,0.3)]" : "bg-slate-900 text-zinc-400 hover:text-white"}`}>
+            👥 成員 ({pendingMembers.length > 0 ? `${pendingMembers.length} 待審` : activeMembers.length})
           </button>
-          <button onClick={() => setActiveTab("settings")} className={`px-5 py-2.5 rounded-xl font-black text-sm transition ${activeTab === "settings" ? "bg-amber-600 text-white shadow-[0_0_15px_rgba(217,119,6,0.3)]" : "bg-slate-900 text-zinc-400 hover:text-white"}`}>
-            ⚙️ 修改視覺與群組設定
+          <button onClick={() => setActiveTab("details")} className={`px-4 py-2.5 rounded-xl font-black text-sm transition ${activeTab === "details" ? "bg-amber-600 text-white shadow-[0_0_15px_rgba(217,119,6,0.3)]" : "bg-slate-900 text-zinc-400 hover:text-white"}`}>
+            📋 群組詳情
+          </button>
+          <button onClick={() => setActiveTab("media")} className={`px-4 py-2.5 rounded-xl font-black text-sm transition ${activeTab === "media" ? "bg-amber-600 text-white shadow-[0_0_15px_rgba(217,119,6,0.3)]" : "bg-slate-900 text-zinc-400 hover:text-white"}`}>
+            🖼️ 媒體
+          </button>
+          <button onClick={() => setActiveTab("settings")} className={`px-4 py-2.5 rounded-xl font-black text-sm transition ${activeTab === "settings" ? "bg-amber-600 text-white shadow-[0_0_15px_rgba(217,119,6,0.3)]" : "bg-slate-900 text-zinc-400 hover:text-white"}`}>
+            ⚙️ 設定
           </button>
         </div>
 
@@ -382,39 +388,35 @@ export default function TeamAdminDashboard() {
           </div>
         )}
 
+        {activeTab === "details" && team && (
+          <form onSubmit={handleSaveDetails} className="bg-slate-900/40 border border-slate-800 rounded-3xl p-6 md:p-8 space-y-6">
+            <TeamMetadataFieldsForm
+              sportCategory={team.sport_category as SportCategory}
+              metadata={editSportMetadata}
+              estYear={editEstYear}
+              onEstYearChange={setEditEstYear}
+              onMetadataChange={setEditSportMetadata}
+            />
+            <button type="submit" disabled={isSavingDetails} className="w-full bg-amber-600 hover:bg-amber-500 disabled:bg-slate-800 text-white font-black py-3.5 rounded-xl transition">
+              {isSavingDetails ? "儲存中..." : "💾 儲存群組詳情與規格"}
+            </button>
+          </form>
+        )}
+
+        {activeTab === "media" && currentUserId && (
+          <TeamMediaManager
+            teamId={id}
+            userId={currentUserId}
+            logoUrl={team.logo_url}
+            coverUrl={team.cover_url}
+            galleryPhotos={parseGalleryPhotos(team.gallery_photos)}
+            onUpdated={fetchDashboardData}
+          />
+        )}
+
         {activeTab === "settings" && (
           <div className="space-y-10">
             <form onSubmit={handleSaveSettings} className="bg-slate-900/40 border border-slate-800 rounded-3xl p-6 md:p-8 space-y-6">
-              <div className="p-5 bg-slate-950/60 border border-slate-800 rounded-2xl space-y-4">
-                <p className="text-[10px] font-bold text-amber-500 uppercase tracking-widest pl-1">🖼️ 更換群組視覺檔案 (本地選檔上傳)</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <span className="text-[10px] font-bold text-zinc-500 pl-1">群組圓形 Logo 標誌</span>
-                    <label className="flex items-center gap-3 p-3 bg-slate-900/40 border border-slate-800 rounded-xl cursor-pointer hover:border-slate-600 transition">
-                      <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, "logo")} className="hidden" />
-                      {logoPreview ? (
-                        <div className="w-9 h-9 rounded-lg bg-cover bg-center border border-slate-700" style={{ backgroundImage: `url(${logoPreview})` }} />
-                      ) : (
-                        <span className="text-lg">📁</span>
-                      )}
-                      <span className="text-xs font-bold text-zinc-400">{logoFile ? "已選擇新檔案" : "點擊上傳新 Logo"}</span>
-                    </label>
-                  </div>
-                  <div className="space-y-1.5">
-                    <span className="text-[10px] font-bold text-zinc-500 pl-1">專頁頂部封面大圖</span>
-                    <label className="flex items-center gap-3 p-3 bg-slate-900/40 border border-slate-800 rounded-xl cursor-pointer hover:border-slate-600 transition">
-                      <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, "cover")} className="hidden" />
-                      {coverPreview ? (
-                        <div className="w-16 h-6 rounded bg-cover bg-center border border-slate-700" style={{ backgroundImage: `url(${coverPreview})` }} />
-                      ) : (
-                        <span className="text-lg">🏞️</span>
-                      )}
-                      <span className="text-xs font-bold text-zinc-400">{coverFile ? "已選擇新封面" : "點擊上傳新橫幅"}</span>
-                    </label>
-                  </div>
-                </div>
-              </div>
-
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className={labelCls}>英文群組名</label>
@@ -438,22 +440,21 @@ export default function TeamAdminDashboard() {
                 </div>
               </div>
 
-              <div>
-                <label className={labelCls}>變更主要活動地區 (支援複選)</label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {REGION_OPTIONS.map((r) => {
-                    const isChecked = selectedRegions.includes(r.value);
-                    return (
-                      <button
-                        key={r.value}
-                        type="button"
-                        onClick={() => toggleRegion(r.value)}
-                        className={`px-3 py-2.5 rounded-xl border text-xs font-bold transition text-left ${isChecked ? "bg-amber-500/10 border-amber-500 text-amber-400" : "bg-slate-950 border-slate-800 text-zinc-500 hover:text-white"}`}
-                      >
-                        {isChecked ? "✓ " : "+ "} {r.label.split(" ")[1] || r.label}
-                      </button>
-                    );
-                  })}
+              <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-4 space-y-4">
+                <p className="text-[10px] font-bold text-amber-400 uppercase tracking-wider pl-1">社群連結（選填）</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className={labelCls}>Instagram</label>
+                    <input className={inputCls} placeholder="https://instagram.com/yourteam" value={editIg} onChange={(e) => setEditIg(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Facebook</label>
+                    <input className={inputCls} placeholder="https://facebook.com/yourteam" value={editFb} onChange={(e) => setEditFb(e.target.value)} />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className={labelCls}>Threads</label>
+                    <input className={inputCls} placeholder="https://threads.net/@yourteam" value={editThreads} onChange={(e) => setEditThreads(e.target.value)} />
+                  </div>
                 </div>
               </div>
 
@@ -468,11 +469,19 @@ export default function TeamAdminDashboard() {
 
               <div>
                 <label className={labelCls}>修改群組與戰隊介紹 Bio</label>
-                <textarea className={`${inputCls} h-36 resize-none leading-relaxed`} value={editBio} onChange={(e) => setEditBio(e.target.value)} placeholder="填寫戰隊描述..." />
+                <RichTextEditor
+                  value={editBio}
+                  onChange={setEditBio}
+                  placeholder={`建議 ${BIO_CHAR_SUGGESTED_RANGE} 字，介紹戰隊風格、目標與招募期望…`}
+                  variant="compact"
+                  minHeight="180px"
+                  showCharCount
+                  suggestedLength={BIO_CHAR_SUGGESTED_MAX}
+                />
               </div>
 
               <button type="submit" disabled={isSavingSettings} className="w-full bg-amber-600 hover:bg-amber-500 disabled:bg-slate-800 text-white font-black py-3.5 rounded-xl transition shadow-[0_0_15px_rgba(217,119,6,0.3)]">
-                {isSavingSettings ? "同步上傳檔案並儲存更新中..." : "💾 確定儲存並更新群組設定"}
+                {isSavingSettings ? "儲存中..." : "💾 儲存群組設定"}
               </button>
             </form>
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { usePathname } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { MessageCircle, X, ChevronLeft, Send, Loader2 } from "lucide-react";
@@ -11,6 +11,15 @@ import {
   CHAT_BUBBLE_ROW_THEM,
   CHAT_BUBBLE_THEM,
 } from "@/components/chat/styles";
+import { ConversationPreview } from "@/components/chat/ConversationPreview";
+import {
+  applyMessageInsert,
+  clearUnreadForPeer,
+  loadConversationSummaries,
+  sortPeerIdsByRecent,
+  totalUnreadCount,
+  type ConversationSummary,
+} from "@/lib/chat-summaries";
 
 interface Friend {
   id: string;
@@ -38,17 +47,29 @@ export function GlobalChat() {
   const [isOpen, setIsOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<{ id: string } | null>(null);
   const [friends, setFriends] = useState<Friend[]>([]);
+  const [summaries, setSummaries] = useState<Record<string, ConversationSummary>>({});
   const [activeChat, setActiveChat] = useState<Friend | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
-  const [unreadTotal, setUnreadTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const activeChatRef = useRef<Friend | null>(null);
   const isOpenRef = useRef(false);
+  const friendIdsRef = useRef<string[]>([]);
 
   activeChatRef.current = activeChat;
   isOpenRef.current = isOpen;
+  friendIdsRef.current = friends.map((f) => f.id);
+
+  const unreadTotal = useMemo(() => totalUnreadCount(summaries), [summaries]);
+
+  const sortedFriends = useMemo(() => {
+    const ids = sortPeerIdsByRecent(
+      friends.map((f) => f.id),
+      summaries
+    );
+    return ids.map((id) => friends.find((f) => f.id === id)!).filter(Boolean);
+  }, [friends, summaries]);
 
   const scrollToBottom = useCallback(() => {
     requestAnimationFrame(() => {
@@ -77,40 +98,64 @@ export function GlobalChat() {
     [scrollToBottom]
   );
 
-  const loadFriends = useCallback(async (userId: string) => {
-    const { data: friendships } = await supabase
-      .from("friendships")
-      .select(`
-        id, sender_id, receiver_id,
-        sender:sender_id   (id, full_name, avatar_url),
-        receiver:receiver_id (id, full_name, avatar_url)
-      `)
-      .eq("status", "accepted")
-      .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`);
+  const refreshSummaries = useCallback(
+    async (userId: string, peerIds: string[]) => {
+      if (peerIds.length === 0) {
+        setSummaries({});
+        return;
+      }
+      const next = await loadConversationSummaries(supabase, userId, peerIds);
+      setSummaries(next);
+    },
+    [supabase]
+  );
 
-    if (friendships) {
-      const friendList = friendships.map((f: any) => {
-        const isSender = f.sender_id === userId;
-        const friendData = isSender ? f.receiver : f.sender;
-        return {
-          id: friendData.id,
-          name: friendData.full_name || "未知使用者",
-          avatar_url: friendData.avatar_url,
-          friendship_id: f.id,
-        };
-      });
-      setFriends(friendList);
-    }
-  }, [supabase]);
+  const loadFriends = useCallback(
+    async (userId: string) => {
+      const { data: friendships } = await supabase
+        .from("friendships")
+        .select(`
+          id, sender_id, receiver_id,
+          sender:sender_id   (id, full_name, avatar_url),
+          receiver:receiver_id (id, full_name, avatar_url)
+        `)
+        .eq("status", "accepted")
+        .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`);
 
-  const refreshUnread = useCallback(async (userId: string) => {
-    const { count } = await supabase
-      .from("messages")
-      .select("id", { count: "exact", head: true })
-      .eq("receiver_id", userId)
-      .eq("is_read", false);
-    setUnreadTotal(count || 0);
-  }, [supabase]);
+      if (friendships) {
+        const friendList = friendships.map((f: any) => {
+          const isSender = f.sender_id === userId;
+          const friendData = isSender ? f.receiver : f.sender;
+          return {
+            id: friendData.id,
+            name: friendData.full_name || "未知使用者",
+            avatar_url: friendData.avatar_url,
+            friendship_id: f.id,
+          };
+        });
+        setFriends(friendList);
+        await refreshSummaries(
+          userId,
+          friendList.map((f) => f.id)
+        );
+      }
+    },
+    [supabase, refreshSummaries]
+  );
+
+  const markChatAsRead = useCallback(
+    async (userId: string, chat: Friend) => {
+      await supabase
+        .from("messages")
+        .update({ is_read: true })
+        .eq("sender_id", chat.id)
+        .eq("receiver_id", userId)
+        .eq("is_read", false);
+
+      setSummaries((prev) => clearUnreadForPeer(prev, chat.id));
+    },
+    [supabase]
+  );
 
   const loadChatMessages = useCallback(
     async (userId: string, chat: Friend) => {
@@ -130,31 +175,23 @@ export function GlobalChat() {
       }
       setIsLoading(false);
 
-      await supabase
-        .from("messages")
-        .update({ is_read: true })
-        .eq("sender_id", chat.id)
-        .eq("receiver_id", userId)
-        .eq("is_read", false);
-
-      await refreshUnread(userId);
+      await markChatAsRead(userId, chat);
     },
-    [supabase, scrollToBottom, refreshUnread]
+    [supabase, scrollToBottom, markChatAsRead]
   );
 
-  // ── Init user, friends, unread ──
   useEffect(() => {
     const initData = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) return;
       setCurrentUser(user);
       await loadFriends(user.id);
-      await refreshUnread(user.id);
     };
     initData();
-  }, [supabase, loadFriends, refreshUnread]);
+  }, [supabase, loadFriends]);
 
-  // ── Persistent realtime: all messages for current user ──
   useEffect(() => {
     if (!currentUser) return;
 
@@ -176,13 +213,32 @@ export function GlobalChat() {
             ((newMsg.sender_id === uid && newMsg.receiver_id === chat.id) ||
               (newMsg.sender_id === chat.id && newMsg.receiver_id === uid));
 
+          const skipUnread = Boolean(isActiveChat && panelOpen);
+
+          setSummaries((prev) =>
+            applyMessageInsert(prev, uid, newMsg, { skipUnreadIncrement: skipUnread })
+          );
+
           if (isActiveChat && panelOpen) {
             appendMessage(newMsg);
             if (newMsg.sender_id !== uid) {
-              supabase.from("messages").update({ is_read: true }).eq("id", newMsg.id).then();
+              supabase
+                .from("messages")
+                .update({ is_read: true })
+                .eq("id", newMsg.id)
+                .then(() => {
+                  setSummaries((prev) => clearUnreadForPeer(prev, chat!.id));
+                });
             }
-          } else if (newMsg.receiver_id === uid) {
-            setUnreadTotal((prev) => prev + 1);
+          }
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "messages" },
+        () => {
+          if (currentUser) {
+            refreshSummaries(currentUser.id, friendIdsRef.current);
           }
         }
       )
@@ -191,29 +247,34 @@ export function GlobalChat() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [currentUser, supabase, appendMessage]);
+  }, [currentUser, supabase, appendMessage, refreshSummaries]);
 
-  // ── Sync from inbox / other chat surfaces ──
   useEffect(() => {
-    const onSync = () => {
+    const onSync = async () => {
       if (!currentUser) return;
-      const chat = activeChatRef.current;
-      if (chat && isOpenRef.current) {
-        loadChatMessages(currentUser.id, chat);
-      }
-      refreshUnread(currentUser.id);
+      await refreshSummaries(currentUser.id, friendIdsRef.current);
     };
     window.addEventListener("chat-message-sync", onSync);
     return () => window.removeEventListener("chat-message-sync", onSync);
-  }, [currentUser, loadChatMessages, refreshUnread]);
+  }, [currentUser, refreshSummaries]);
 
-  // ── Load messages when active chat changes or panel opens ──
   useEffect(() => {
     if (!activeChat || !currentUser || !isOpen) return;
     loadChatMessages(currentUser.id, activeChat);
   }, [activeChat, currentUser, isOpen, loadChatMessages]);
 
-  // ── Send with optimistic UI ──
+  const handleOpenChat = (friend: Friend) => {
+    setSummaries((prev) => clearUnreadForPeer(prev, friend.id));
+    setActiveChat(friend);
+  };
+
+  const handleBackToList = () => {
+    setActiveChat(null);
+    if (currentUser) {
+      refreshSummaries(currentUser.id, friendIdsRef.current);
+    }
+  };
+
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessage.trim() || !activeChat || !currentUser) return;
@@ -232,6 +293,9 @@ export function GlobalChat() {
       isSending: true,
     };
     setMessages((prev) => [...prev, tempMsg]);
+    setSummaries((prev) =>
+      applyMessageInsert(prev, currentUser.id, tempMsg, { skipUnreadIncrement: true })
+    );
     scrollToBottom();
 
     const { data: inserted, error } = await supabase
@@ -248,6 +312,10 @@ export function GlobalChat() {
     }
 
     setMessages((prev) => prev.map((m) => (m.id === tempId ? inserted : m)));
+    setSummaries((prev) => {
+      const withoutTemp = { ...prev };
+      return applyMessageInsert(withoutTemp, currentUser.id, inserted, { skipUnreadIncrement: true });
+    });
     scrollToBottom();
     window.dispatchEvent(new CustomEvent("chat-message-sync"));
   };
@@ -265,7 +333,7 @@ export function GlobalChat() {
           <div className="bg-slate-800 p-3 flex justify-between items-center border-b border-slate-700 shrink-0">
             {activeChat ? (
               <div className="flex items-center gap-2">
-                <button onClick={() => setActiveChat(null)} className="text-slate-400 hover:text-white transition">
+                <button onClick={handleBackToList} className="text-slate-400 hover:text-white transition">
                   <ChevronLeft className="w-5 h-5" />
                 </button>
                 <div
@@ -296,24 +364,19 @@ export function GlobalChat() {
 
           {!activeChat ? (
             <div className="flex-1 overflow-y-auto p-2 space-y-1 [&::-webkit-scrollbar]:hidden bg-slate-950">
-              {friends.length === 0 ? (
+              {sortedFriends.length === 0 ? (
                 <div className="p-4 text-center text-xs font-bold text-slate-500 mt-10">尚無好友可傳送訊息</div>
               ) : (
-                friends.map((friend) => (
-                  <button
+                sortedFriends.map((friend) => (
+                  <ConversationPreview
                     key={friend.id}
-                    onClick={() => setActiveChat(friend)}
-                    className="w-full flex items-center gap-3 p-3 hover:bg-slate-800 rounded-xl transition text-left"
-                  >
-                    <div
-                      className="w-10 h-10 rounded-full bg-slate-700 bg-cover bg-center shrink-0 border border-slate-600"
-                      style={{ backgroundImage: friend.avatar_url ? `url(${friend.avatar_url})` : "none" }}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-white truncate">{friend.name}</p>
-                      <p className="text-[10px] text-slate-500 truncate">點擊開始聊天...</p>
-                    </div>
-                  </button>
+                    name={friend.name}
+                    avatarUrl={friend.avatar_url}
+                    summary={summaries[friend.id]}
+                    isActive={false}
+                    onClick={() => handleOpenChat(friend)}
+                    avatarSize="sm"
+                  />
                 ))
               )}
             </div>
@@ -337,7 +400,14 @@ export function GlobalChat() {
                           {msg.content}
                         </div>
                         <span className="text-[9px] text-slate-500 mt-1 px-1">
-                          {msg.isSending ? "傳送中..." : msg.isError ? "傳送失敗" : new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          {msg.isSending
+                            ? "傳送中..."
+                            : msg.isError
+                              ? "傳送失敗"
+                              : new Date(msg.created_at).toLocaleTimeString([], {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}
                         </span>
                       </div>
                     );
@@ -372,7 +442,7 @@ export function GlobalChat() {
       >
         {isOpen ? <X className="w-6 h-6" /> : <MessageCircle className="w-6 h-6" />}
         {!isOpen && unreadTotal > 0 && (
-          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-black w-5 h-5 flex items-center justify-center rounded-full border-2 border-slate-950 shadow-lg animate-bounce">
+          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-black min-w-[20px] h-5 px-1 flex items-center justify-center rounded-full border-2 border-slate-950 shadow-lg">
             {unreadTotal > 9 ? "9+" : unreadTotal}
           </span>
         )}

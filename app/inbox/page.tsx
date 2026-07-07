@@ -1,22 +1,59 @@
 "use client";
 
-import { useState, useEffect, useCallback, Suspense } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { ChatBox } from "@/components/ChatBox";
+import { ConversationPreview } from "@/components/chat/ConversationPreview";
 import { ArrowLeft } from "lucide-react";
+import {
+  applyMessageInsert,
+  clearUnreadForPeer,
+  loadConversationSummaries,
+  sortPeerIdsByRecent,
+  type ConversationSummary,
+} from "@/lib/chat-summaries";
+
+interface InboxContact {
+  id: string;
+  full_name: string | null;
+  avatar_url: string | null;
+  handle?: string | null;
+  friendshipStatus: string;
+  isSender?: boolean;
+}
 
 function InboxPageContent() {
   const supabase = createSupabaseBrowserClient();
   const searchParams = useSearchParams();
   const targetId = searchParams.get("to");
 
-  const [currentUser, setCurrentUser] = useState<any>(null);
-  const [conversations, setConversations] = useState<any[]>([]);
+  const [currentUser, setCurrentUser] = useState<{ id: string } | null>(null);
+  const [conversations, setConversations] = useState<InboxContact[]>([]);
+  const [summaries, setSummaries] = useState<Record<string, ConversationSummary>>({});
   const [activeFriendId, setActiveFriendId] = useState<string | null>(null);
+  const activeFriendIdRef = useRef<string | null>(null);
+  const peerIdsRef = useRef<string[]>([]);
+
+  activeFriendIdRef.current = activeFriendId;
+  peerIdsRef.current = conversations.map((c) => c.id);
+
+  const refreshSummaries = useCallback(
+    async (userId: string, peerIds: string[]) => {
+      if (peerIds.length === 0) {
+        setSummaries({});
+        return;
+      }
+      const next = await loadConversationSummaries(supabase, userId, peerIds);
+      setSummaries(next);
+    },
+    [supabase]
+  );
 
   const fetchInbox = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) return;
     setCurrentUser(user);
 
@@ -30,7 +67,7 @@ function InboxPageContent() {
       .in("status", ["accepted", "pending"])
       .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`);
 
-    let contactList: any[] = [];
+    let contactList: InboxContact[] = [];
     if (friendships) {
       contactList = friendships.map((f: any) => {
         const profile = f.sender_id === user.id ? f.receiver : f.sender;
@@ -58,25 +95,88 @@ function InboxPageContent() {
     }
 
     setConversations(contactList);
+    await refreshSummaries(
+      user.id,
+      contactList.map((c) => c.id)
+    );
 
     setActiveFriendId((prev) => {
       if (targetId) return targetId;
       if (prev && contactList.some((c) => c.id === prev)) return prev;
       return contactList.length > 0 ? contactList[0].id : null;
     });
-  }, [supabase, targetId]);
+  }, [supabase, targetId, refreshSummaries]);
 
   useEffect(() => {
     fetchInbox();
   }, [fetchInbox]);
 
   useEffect(() => {
-    const onSync = () => {
+    const onFriendshipSync = () => {
       fetchInbox();
     };
-    window.addEventListener("sync-friendship", onSync);
-    return () => window.removeEventListener("sync-friendship", onSync);
-  }, [fetchInbox]);
+    const onMessageSync = () => {
+      if (currentUser) {
+        refreshSummaries(currentUser.id, peerIdsRef.current);
+      }
+    };
+    window.addEventListener("sync-friendship", onFriendshipSync);
+    window.addEventListener("chat-message-sync", onMessageSync);
+    return () => {
+      window.removeEventListener("sync-friendship", onFriendshipSync);
+      window.removeEventListener("chat-message-sync", onMessageSync);
+    };
+  }, [fetchInbox, refreshSummaries, currentUser]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const channel = supabase
+      .channel(`inbox-msgs-${currentUser.id}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "messages" },
+        (payload) => {
+          const newMsg = payload.new as {
+            sender_id: string;
+            receiver_id: string;
+            content: string;
+            created_at: string;
+            is_read: boolean;
+          };
+          const uid = currentUser.id;
+          if (newMsg.sender_id !== uid && newMsg.receiver_id !== uid) return;
+
+          const activeId = activeFriendIdRef.current;
+          const peerId = newMsg.sender_id === uid ? newMsg.receiver_id : newMsg.sender_id;
+          const skipUnread = activeId === peerId;
+
+          setSummaries((prev) =>
+            applyMessageInsert(prev, uid, newMsg, { skipUnreadIncrement: skipUnread })
+          );
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "messages" },
+        () => {
+          refreshSummaries(currentUser.id, peerIdsRef.current);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentUser, supabase, refreshSummaries]);
+
+  const sortedConversations = useMemo(() => {
+    const ids = sortPeerIdsByRecent(
+      conversations.map((c) => c.id),
+      summaries
+    );
+    return ids.map((id) => conversations.find((c) => c.id === id)!).filter(Boolean);
+  }, [conversations, summaries]);
 
   if (!currentUser) {
     return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-zinc-500 font-mono">載入收件匣中...</div>;
@@ -90,6 +190,25 @@ function InboxPageContent() {
     fetchInbox();
   };
 
+  const handleSelectContact = (contactId: string) => {
+    setSummaries((prev) => clearUnreadForPeer(prev, contactId));
+    setActiveFriendId(contactId);
+  };
+
+  const statusSubtitle = (contact: InboxContact) => {
+    if (contact.friendshipStatus === "pending") {
+      return (
+        <p className="text-[10px] text-amber-400 font-bold mt-0.5 truncate">
+          ⏳ {contact.isSender ? "已發送洽詢" : "收到新請求"}
+        </p>
+      );
+    }
+    if (contact.friendshipStatus === "none") {
+      return <p className="text-[10px] text-emerald-400 font-bold mt-0.5 truncate">⚡ 初次洽詢對象</p>;
+    }
+    return null;
+  };
+
   return (
     <div className="bg-slate-950 min-h-[calc(100dvh-3.5rem)] py-4 px-3 sm:py-6 sm:px-8">
       <div className="max-w-6xl mx-auto flex flex-col md:flex-row gap-4 md:gap-6 h-[calc(100dvh-6rem)] md:h-[80vh]">
@@ -99,49 +218,24 @@ function InboxPageContent() {
           } md:h-full`}
         >
           <h2 className="text-xl font-black text-white mb-4 px-2">訊息收件匣</h2>
-          <div className="flex-1 overflow-y-auto space-y-2 [&::-webkit-scrollbar]:hidden">
-            {conversations.length === 0 ? (
+          <div className="flex-1 overflow-y-auto space-y-1 [&::-webkit-scrollbar]:hidden">
+            {sortedConversations.length === 0 ? (
               <p className="text-zinc-500 text-sm font-bold text-center mt-10">尚無任何對話紀錄</p>
             ) : (
-              conversations.map((contact) => (
-                <button
-                  key={contact.id}
-                  onClick={() => setActiveFriendId(contact.id)}
-                  className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-all ${
-                    activeFriendId === contact.id
-                      ? "bg-blue-600/20 border border-blue-500/30"
-                      : "bg-slate-950/50 hover:bg-slate-800 border border-slate-800/50"
-                  }`}
-                >
-                  <div
-                    className="w-12 h-12 rounded-full bg-slate-700 bg-cover bg-center shrink-0 border-2 border-slate-600 relative"
-                    style={{ backgroundImage: contact.avatar_url ? `url(${contact.avatar_url})` : "none" }}
-                  >
-                    {!contact.avatar_url && (
-                      <span className="w-full h-full flex items-center justify-center font-black text-zinc-500">
-                        {contact.full_name?.[0]}
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-left min-w-0 flex-1">
-                    <div className="flex items-center justify-between">
-                      <p className={`text-sm font-black truncate ${activeFriendId === contact.id ? "text-blue-400" : "text-white"}`}>
-                        {contact.full_name}
-                      </p>
-                    </div>
-                    {contact.friendshipStatus === "pending" && (
-                      <p className="text-[10px] text-amber-400 font-bold mt-0.5">
-                        ⏳ {contact.isSender ? "已發送洽詢" : "收到新請求"}
-                      </p>
-                    )}
-                    {contact.friendshipStatus === "none" && (
-                      <p className="text-[10px] text-emerald-400 font-bold mt-0.5">⚡ 初次洽詢對象</p>
-                    )}
-                    {contact.friendshipStatus === "accepted" && (
-                      <p className="text-[10px] text-zinc-500 font-bold mt-0.5">點擊查看對話</p>
-                    )}
-                  </div>
-                </button>
+              sortedConversations.map((contact) => (
+                  <ConversationPreview
+                    key={contact.id}
+                    name={contact.full_name || "未知使用者"}
+                    avatarUrl={contact.avatar_url}
+                    summary={summaries[contact.id]}
+                    subtitle={
+                      contact.friendshipStatus !== "accepted" && !summaries[contact.id]?.lastMessage
+                        ? statusSubtitle(contact) ?? undefined
+                        : undefined
+                    }
+                    isActive={activeFriendId === contact.id}
+                    onClick={() => handleSelectContact(contact.id)}
+                  />
               ))
             )}
           </div>
@@ -162,8 +256,8 @@ function InboxPageContent() {
                 <ChatBox
                   currentUserId={currentUser.id}
                   targetUserId={activeFriendId}
-                  targetName={activeContact.full_name}
-                  targetAvatarUrl={activeContact.avatar_url}
+                  targetName={activeContact.full_name || undefined}
+                  targetAvatarUrl={activeContact.avatar_url || undefined}
                   friendshipStatus={activeContact.friendshipStatus}
                   isSender={activeContact.isSender}
                   onRejected={handleRejected}

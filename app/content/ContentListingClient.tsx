@@ -3,13 +3,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { BackButton } from "@/components/BackButton";
+import { ListingPageHeader } from "@/components/listing/ListingPageHeader";
 import { ContentCard } from "@/components/content/ContentCard";
 import { CategoryFilterModal } from "@/components/CategoryFilterModal";
 import { SportFilterModal } from "@/components/SportFilterModal";
 import { CONTENT_CATEGORIES, normalizeCategories, normalizeSports } from "@/lib/content/constants";
+import { LISTING_PAGE_MAX_WIDTH } from "@/lib/listing-sections";
 import { stripHtml } from "@/lib/content/body";
 import type { ContentPost } from "@/lib/types/content";
-import { Sparkles, Loader2, Search } from "lucide-react";
+import { Loader2, Search } from "lucide-react";
 
 export default function ContentListingClient() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
@@ -72,24 +74,11 @@ export default function ContentListingClient() {
   const categoryOptions = CONTENT_CATEGORIES.map((c) => ({ id: c.id, label: c.label }));
 
   return (
-    <div className="bg-slate-950 min-h-screen text-zinc-200">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <BackButton label="返回首頁" href="/" />
+    <div className="bg-slate-950 min-h-screen text-zinc-200 font-sans selection:bg-violet-500/30 pb-24">
+      <div className={`${LISTING_PAGE_MAX_WIDTH} mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10`}>
+        <BackButton label="返回首頁" />
 
-        <header className="mt-6 mb-10">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-12 h-12 rounded-2xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
-              <Sparkles className="w-6 h-6 text-violet-400" />
-            </div>
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">Sports Tips</h1>
-              <p className="text-sm text-zinc-500 mt-0.5">Train smarter · Eat better · Play longer</p>
-            </div>
-          </div>
-          <p className="text-sm text-zinc-400 max-w-2xl leading-relaxed">
-            Expert guides on training, nutrition, recovery, and getting more from your sport — curated for the SportyFind community.
-          </p>
-        </header>
+        <ListingPageHeader section="content" />
 
         <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-800 p-4 md:p-5 rounded-3xl mb-8 shadow-lg flex flex-col md:flex-row gap-4 items-center">
           <div className="relative w-full md:flex-1">
@@ -139,7 +128,7 @@ export default function ContentListingClient() {
             暫無符合條件的文章，請稍後再來或調整篩選條件。
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6">
             {filtered.map((post) => (
               <ContentCard key={post.id} post={post} />
             ))}

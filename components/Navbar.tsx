@@ -24,7 +24,7 @@ const navLinks = [
 export interface Notification {
   id: string;
   // ✅ Added coach_enquiry and coach_review to the type union
-  type: "friend_request" | "friend_accepted" | "team_join_request" | "team_request_accepted" | "team_request_rejected" | "event_registration" | "event_kicked" | "coach_enquiry" | "coach_review";
+  type: "friend_request" | "friend_accepted" | "team_join_request" | "team_request_accepted" | "team_request_rejected" | "event_registration" | "event_kicked" | "event_accepted" | "coach_enquiry" | "coach_review";
   is_read: boolean;
   created_at: string;
   friendship_id: string | null;
@@ -196,7 +196,7 @@ function NotificationBell({
       router.push(`/team/${notif.team_id}`);
     } else if (notif.type === "event_registration" && notif.event_id) {
       router.push(`/events/${notif.event_id}`);
-    } else if (notif.type === "event_kicked" && notif.event_id) {
+    } else if ((notif.type === "event_kicked" || notif.type === "event_accepted") && notif.event_id) {
       router.push(`/events/${notif.event_id}`);
     } else {
       router.push("/profile?tab=friends");
@@ -297,6 +297,9 @@ function NotificationBell({
                         )}
                         {notif.type === "event_kicked" && (
                           <><span className="text-white">系統通知</span>：您已被主辦方移除出某活動的參賽名單</>
+                        )}
+                        {notif.type === "event_accepted" && (
+                          <><span className="text-white">系統通知</span>：您的主辦活動參賽申請已獲批准 🎉</>
                         )}
                         {/* ✅ NEW: coach enquiry notification text */}
                         {notif.type === "coach_enquiry" && (

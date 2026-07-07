@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowRight, Calendar } from "lucide-react";
+import { ArrowRight, Calendar, Sparkles } from "lucide-react";
 import { normalizeCategories, normalizeSports } from "@/lib/content/constants";
 import type { ContentPost } from "@/lib/types/content";
 import { ContentBadges } from "@/components/content/ContentBadges";
@@ -15,7 +15,7 @@ export function ContentCard({ post }: { post: ContentPost }) {
   return (
     <Link
       href={`/content/${post.slug}`}
-      className="group flex flex-col bg-slate-900/60 border border-slate-800 rounded-2xl overflow-hidden hover:border-blue-500/40 hover:-translate-y-0.5 transition-all duration-300 shadow-lg hover:shadow-xl"
+      className="group flex flex-col bg-slate-900/60 border border-slate-800 rounded-2xl overflow-hidden hover:border-violet-500/40 hover:-translate-y-0.5 transition-all duration-300 shadow-lg hover:shadow-xl"
     >
       <div className="relative aspect-[16/9] bg-slate-800 overflow-hidden">
         {post.cover_image_url ? (
@@ -27,8 +27,10 @@ export function ContentCard({ post }: { post: ContentPost }) {
             sizes="(max-width: 768px) 100vw, 33vw"
           />
         ) : (
-          <div className="absolute inset-0 flex items-center justify-center text-4xl bg-gradient-to-br from-slate-800 to-slate-900">
-            📚
+          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-violet-950/40 to-slate-900">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-600 flex items-center justify-center text-white shadow-lg shadow-violet-500/20">
+              <Sparkles className="w-6 h-6" strokeWidth={2.5} />
+            </div>
           </div>
         )}
         <div className="absolute top-3 left-3 flex flex-wrap gap-1.5 max-w-[90%]">
@@ -36,7 +38,7 @@ export function ContentCard({ post }: { post: ContentPost }) {
         </div>
       </div>
       <div className="p-5 flex flex-col flex-1">
-        <h2 className="text-base font-black text-white group-hover:text-blue-400 transition line-clamp-2 leading-snug">
+        <h2 className="text-base font-black text-white group-hover:text-violet-400 transition line-clamp-2 leading-snug">
           {post.title}
         </h2>
         {post.excerpt && (
@@ -48,7 +50,7 @@ export function ContentCard({ post }: { post: ContentPost }) {
             {new Date(date).toLocaleDateString("zh-HK", { year: "numeric", month: "short", day: "numeric" })}
           </span>
           <span className="text-xs font-black text-violet-400 flex items-center gap-1 group-hover:gap-2 transition-all">
-            Read more <ArrowRight className="w-3.5 h-3.5" />
+            閱讀全文 <ArrowRight className="w-3.5 h-3.5" />
           </span>
         </div>
       </div>

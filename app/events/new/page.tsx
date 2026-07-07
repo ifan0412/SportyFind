@@ -251,6 +251,7 @@ export default function CreateEventPage() {
   const [eventType, setEventType] = useState("practice");
   const [sportCategory, setSportCategory] = useState("volleyball");
   const [registrationType, setRegistrationType] = useState<"individual" | "team">("individual");
+  const [individualJoinMode, setIndividualJoinMode] = useState<"fcfs" | "approval">("fcfs");
   const [organizerTeamId, setOrganizerTeamId] = useState<string>("");
   const [locationName, setLocationName] = useState("");
   const [locationAddress, setLocationAddress] = useState("");
@@ -367,6 +368,7 @@ export default function CreateEventPage() {
         max_capacity: maxCapacity ? parseInt(maxCapacity, 10) : null,
         fee: fee ? parseFloat(fee) : 0,
         late_cancellation_hours: parseInt(lateHours || "24", 10),
+        approval_mode: registrationType === "individual" ? individualJoinMode : null,
         status: "published",
       };
 
@@ -454,7 +456,7 @@ export default function CreateEventPage() {
                     <Users className="w-4 h-4 text-blue-400" /> 個人約戰 / 團練
                   </div>
                   <p className="text-[11px] leading-relaxed text-zinc-400">
-                    以「個人」為報名單位。先到先得，開放參賽者設定攜伴人數 (+Companion)，滿額自動排候補。
+                    以「個人」為報名單位。可選先到先得或主辦審核，開放攜伴人數設定。
                   </p>
                 </button>
 
@@ -475,6 +477,44 @@ export default function CreateEventPage() {
                   </p>
                 </button>
               </div>
+
+              {registrationType === "individual" && (
+                <div className="pt-3 border-t border-slate-800/80 space-y-2">
+                  <label className="text-[11px] font-black text-zinc-500 uppercase tracking-wider block">
+                    個人報名規則
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIndividualJoinMode("fcfs")}
+                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                        individualJoinMode === "fcfs"
+                          ? "bg-emerald-600/15 border-emerald-500/50 text-white"
+                          : "bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700"
+                      }`}
+                    >
+                      <div className="font-black text-xs mb-0.5">先到先得 (FCFS)</div>
+                      <p className="text-[10px] leading-relaxed text-zinc-500">
+                        有空位即確認出席，滿額自動排候補；報名者可見出席名單與候補隊列。
+                      </p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIndividualJoinMode("approval")}
+                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                        individualJoinMode === "approval"
+                          ? "bg-purple-600/15 border-purple-500/50 text-white"
+                          : "bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700"
+                      }`}
+                    >
+                      <div className="font-black text-xs mb-0.5">主辦審核制</div>
+                      <p className="text-[10px] leading-relaxed text-zinc-500">
+                        申請後待主辦批准；報名者僅見已確認出席者與自己的審核狀態。
+                      </p>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* 2. 運動項目與性質 */}

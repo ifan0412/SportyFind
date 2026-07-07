@@ -8,6 +8,8 @@ import { CONTENT_CATEGORIES, CONTENT_SPORTS, normalizeCategories, normalizeSport
 import { saveContentPost } from "@/lib/content/savePost";
 import type { ContentLink, ContentPost } from "@/lib/types/content";
 import { RichTextEditor } from "@/components/admin/RichTextEditor";
+import { ImageCropModal } from "@/components/media/ImageCropModal";
+import { readFileAsDataUrl } from "@/lib/image-crop";
 import { ImagePlus, Loader2, Plus, Trash2 } from "lucide-react";
 
 interface ContentEditorProps {
@@ -41,6 +43,7 @@ export function ContentEditor({ post }: ContentEditorProps) {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
 
   const handleTitleChange = (value: string) => {
     setTitle(value);
@@ -161,6 +164,7 @@ export function ContentEditor({ post }: ContentEditorProps) {
   };
 
   return (
+    <>
     <form onSubmit={handleSubmit} className="space-y-8">
       {error && (
         <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm font-bold">
@@ -232,9 +236,10 @@ export function ContentEditor({ post }: ContentEditorProps) {
               accept="image/*"
               className="hidden"
               disabled={uploading}
-              onChange={(e) => {
+              onChange={async (e) => {
                 const file = e.target.files?.[0];
-                if (file) handleCoverUpload(file);
+                e.target.value = "";
+                if (file) setCropImageSrc(await readFileAsDataUrl(file));
               }}
             />
           </label>
@@ -425,5 +430,18 @@ export function ContentEditor({ post }: ContentEditorProps) {
         </button>
       </div>
     </form>
+
+    <ImageCropModal
+      open={cropImageSrc !== null}
+      imageSrc={cropImageSrc}
+      preset="hero-cover"
+      filename="content-cover.jpg"
+      onCancel={() => setCropImageSrc(null)}
+      onConfirm={(file) => {
+        setCropImageSrc(null);
+        void handleCoverUpload(file);
+      }}
+    />
+  </>
   );
 }

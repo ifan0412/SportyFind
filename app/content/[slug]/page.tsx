@@ -10,6 +10,7 @@ import { normalizeRichHtml } from "@/lib/content/rich-html";
 import { SITE } from "@/lib/site";
 import type { ContentLink, ContentPost } from "@/lib/types/content";
 import { ContentBadges } from "@/components/content/ContentBadges";
+import { ARTICLE_PAGE_MAX_WIDTH } from "@/lib/listing-sections";
 import { ArrowRight, Calendar, Clock, ExternalLink } from "lucide-react";
 
 interface PageProps {
@@ -75,37 +76,36 @@ export default async function ContentDetailPage({ params }: PageProps) {
         .filter(Boolean);
 
   return (
-    <article className="bg-slate-950 min-h-screen text-zinc-200">
-      {/* Hero banner */}
+    <article className="bg-slate-950 min-h-screen text-zinc-200 font-sans pb-24">
       {article.cover_image_url ? (
-        <div className="relative w-full min-h-[320px] sm:min-h-[420px] flex items-end">
+        <div className="relative w-full h-44 md:h-auto md:aspect-[16/9] md:max-h-[480px] overflow-hidden bg-slate-900">
           <Image
             src={article.cover_image_url}
             alt={article.title}
             fill
-            className="object-cover"
+            className="object-cover object-center"
             priority
             sizes="100vw"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/70 to-slate-950/30" />
           <div className="absolute inset-0 bg-gradient-to-r from-slate-950/40 to-transparent" />
 
-          <div className="relative z-10 w-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-10 pt-24">
-            <BackButton label="Back to Sports Tips" href="/content" />
+          <div className={`relative z-10 w-full ${ARTICLE_PAGE_MAX_WIDTH} mx-auto px-4 sm:px-6 pb-8 pt-20 md:pt-24`}>
+            <BackButton label="返回運動貼士" href="/content" />
 
             <div className="flex flex-wrap gap-2 mb-4 mt-4">
               <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-full bg-violet-500/20 text-violet-200 border border-violet-400/30 backdrop-blur-sm">
-                Sports Tips
+                運動貼士
               </span>
               <ContentBadges categories={categories} sports={sports} overlay />
             </div>
 
-            <h1 className="text-3xl sm:text-5xl font-black text-white tracking-tight leading-[1.1] mb-4 max-w-3xl drop-shadow-lg">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-white tracking-tight leading-tight mb-4 max-w-3xl drop-shadow-lg">
               {article.title}
             </h1>
 
             {article.excerpt && (
-              <p className="text-base sm:text-lg text-zinc-300 leading-relaxed mb-5 max-w-2xl drop-shadow">
+              <p className="text-sm sm:text-base text-zinc-300 leading-relaxed mb-5 max-w-2xl drop-shadow">
                 {article.excerpt}
               </p>
             )}
@@ -113,7 +113,7 @@ export default async function ContentDetailPage({ params }: PageProps) {
             <div className="flex flex-wrap items-center gap-4 text-xs text-zinc-400 font-bold">
               <time dateTime={published} className="flex items-center gap-1.5">
                 <Calendar className="w-3.5 h-3.5" />
-                {new Date(published).toLocaleDateString("en-US", {
+                {new Date(published).toLocaleDateString("zh-HK", {
                   year: "numeric",
                   month: "long",
                   day: "numeric",
@@ -121,27 +121,42 @@ export default async function ContentDetailPage({ params }: PageProps) {
               </time>
               <span className="flex items-center gap-1.5">
                 <Clock className="w-3.5 h-3.5" />
-                {readMin} min read
+                約 {readMin} 分鐘閱讀
               </span>
             </div>
           </div>
         </div>
       ) : (
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
-          <BackButton label="Back to Sports Tips" href="/content" />
+        <div className={`${ARTICLE_PAGE_MAX_WIDTH} mx-auto px-4 sm:px-6 py-8`}>
+          <BackButton label="返回運動貼士" href="/content" />
           <header className="mt-6 mb-8">
-            <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight leading-tight mb-4">
+            <div className="flex flex-wrap gap-2 mb-4">
+              <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-full bg-violet-500/20 text-violet-200 border border-violet-400/30">
+                運動貼士
+              </span>
+              <ContentBadges categories={categories} sports={sports} />
+            </div>
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-white tracking-tight leading-tight mb-4">
               {article.title}
             </h1>
             {article.excerpt && (
-              <p className="text-base sm:text-lg text-zinc-400 leading-relaxed mb-4">{article.excerpt}</p>
+              <p className="text-sm sm:text-base text-zinc-400 leading-relaxed mb-4">{article.excerpt}</p>
             )}
+            <div className="flex flex-wrap items-center gap-4 text-xs text-zinc-500 font-bold">
+              <time dateTime={published}>
+                {new Date(published).toLocaleDateString("zh-HK", {
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                })}
+              </time>
+              <span>約 {readMin} 分鐘閱讀</span>
+            </div>
           </header>
         </div>
       )}
 
-      {/* Article body */}
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-12">
+      <div className={`${ARTICLE_PAGE_MAX_WIDTH} mx-auto px-4 sm:px-6 py-8 md:py-10`}>
         {bodyIsHtml ? (
           <div
             className="content-article-body rich-body max-w-none text-[15px] sm:text-[17px] leading-relaxed text-zinc-300"
@@ -157,7 +172,7 @@ export default async function ContentDetailPage({ params }: PageProps) {
 
         {links.length > 0 && (
           <section className="mt-14 pt-10 border-t border-slate-800">
-            <h2 className="text-sm font-black text-white uppercase tracking-wider mb-5">Related links</h2>
+            <h2 className="text-sm font-black text-white uppercase tracking-wider mb-5">相關連結</h2>
             <div className="grid gap-3 sm:grid-cols-2">
               {links.map((link, i) => {
                 const isExternal = link.url.startsWith("http");
@@ -187,7 +202,7 @@ export default async function ContentDetailPage({ params }: PageProps) {
 
         {categoryMetas.length > 0 && (
           <div className="mt-10 space-y-3">
-            <p className="text-xs text-violet-300 font-bold">Ready to take action?</p>
+            <p className="text-xs text-violet-300 font-bold">想在平台上採取行動？</p>
             <div className="grid gap-3 sm:grid-cols-2">
               {categoryMetas.map((meta) => meta && (
                 <Link
@@ -197,9 +212,9 @@ export default async function ContentDetailPage({ params }: PageProps) {
                 >
                   <div>
                     <p className="text-sm font-bold text-white group-hover:text-violet-200 transition">
-                      {meta.labelEn}
+                      {meta.label}
                     </p>
-                    <p className="text-[11px] text-zinc-500 mt-0.5">Explore on SportyFind</p>
+                    <p className="text-[11px] text-zinc-500 mt-0.5">前往 SportyFind 探索</p>
                   </div>
                   <ArrowRight className="w-4 h-4 text-violet-400 group-hover:translate-x-0.5 transition shrink-0" />
                 </Link>

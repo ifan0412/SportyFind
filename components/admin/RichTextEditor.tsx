@@ -65,7 +65,7 @@ function ToolbarButton({
       disabled={disabled}
       onMouseDown={(e) => e.preventDefault()}
       onClick={onClick}
-      className={`p-2 rounded-lg transition ${
+      className={`p-2 rounded-lg transition touch-manipulation min-w-[2rem] min-h-[2rem] flex items-center justify-center ${
         active
           ? "bg-blue-600/20 text-blue-400"
           : "text-zinc-400 hover:bg-slate-800 hover:text-white disabled:opacity-40"
@@ -94,6 +94,7 @@ export function RichTextEditor({
   const editorWrapperRef = useRef<HTMLDivElement>(null);
   const editorInstanceRef = useRef<Editor | null>(null);
   const [charCount, setCharCount] = useState(() => plainTextLength(value || ""));
+  const [, setToolbarRevision] = useState(0);
   const imagesEnabled = enableImages ?? variant === "default";
   const editorMinHeight = minHeight ?? (variant === "compact" ? "140px" : "280px");
 
@@ -142,10 +143,10 @@ export function RichTextEditor({
     immediatelyRender: false,
     autofocus: false,
     editorProps: {
-      attributes: {
-        class:
-          "tiptap rich-body max-w-none px-4 py-3 focus:outline-none text-[15px] leading-relaxed text-zinc-200",
-        style: `min-height: ${editorMinHeight}`,
+        attributes: {
+          class:
+            "tiptap rich-body max-w-none px-4 py-3 focus:outline-none text-[15px] leading-relaxed text-zinc-200 min-h-[inherit]",
+          style: `min-height: ${editorMinHeight}`,
         autocapitalize: "sentences",
         autocorrect: "on",
         spellcheck: "true",
@@ -238,6 +239,25 @@ export function RichTextEditor({
     editorInstanceRef.current = editor;
   }, [editor]);
 
+  useEffect(() => {
+    if (!editor) return;
+    const refreshToolbar = () => setToolbarRevision((n) => n + 1);
+    editor.on("selectionUpdate", refreshToolbar);
+    editor.on("transaction", refreshToolbar);
+    return () => {
+      editor.off("selectionUpdate", refreshToolbar);
+      editor.off("transaction", refreshToolbar);
+    };
+  }, [editor]);
+
+  const applyFontSize = (size: string) => {
+    if (!editor) return;
+    requestAnimationFrame(() => {
+      if (size === "1rem") editor.chain().focus().unsetFontSize().run();
+      else editor.chain().focus().setFontSize(size).run();
+    });
+  };
+
   const setLink = () => {
     if (!editor) return;
     const prev = editor.getAttributes("link").href as string | undefined;
@@ -274,7 +294,8 @@ export function RichTextEditor({
 
   return (
     <div className="border border-slate-800 rounded-2xl overflow-hidden bg-slate-950">
-      <div className="flex flex-wrap items-center gap-0.5 p-2 border-b border-slate-800 bg-slate-900/80">
+      <div className="border-b border-slate-800 bg-slate-900/80 overflow-x-auto [&::-webkit-scrollbar]:hidden touch-pan-x">
+        <div className="flex items-center gap-0.5 p-2 flex-nowrap min-w-max">
         <ToolbarButton onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive("bold")} title="粗體">
           <Bold className="w-4 h-4" />
         </ToolbarButton>
@@ -293,12 +314,8 @@ export function RichTextEditor({
         <select
           title="字體大小"
           value={currentFontSize}
-          onChange={(e) => {
-            const size = e.target.value;
-            if (size === "1rem") editor.chain().focus().unsetFontSize().run();
-            else editor.chain().focus().setFontSize(size).run();
-          }}
-          className="h-8 px-2 rounded-lg bg-slate-950 border border-slate-800 text-xs text-zinc-300 focus:outline-none focus:border-blue-500 touch-manipulation"
+          onChange={(e) => applyFontSize(e.target.value)}
+          className="h-8 min-w-[4.5rem] px-2 rounded-lg bg-slate-950 border border-slate-800 text-xs text-zinc-300 focus:outline-none focus:border-blue-500 touch-manipulation"
         >
           {FONT_SIZE_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
@@ -357,11 +374,13 @@ export function RichTextEditor({
         <ToolbarButton onClick={() => editor.chain().focus().redo().run()} disabled={!editor.can().redo()} title="重做">
           <Redo className="w-4 h-4" />
         </ToolbarButton>
+        </div>
       </div>
 
       <div
         ref={editorWrapperRef}
         className="rich-text-editor-surface cursor-text"
+        style={{ minHeight: editorMinHeight }}
         onClick={() => focusEditor(editor)}
       >
         <EditorContent editor={editor} />

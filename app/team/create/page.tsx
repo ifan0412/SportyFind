@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { SportCategory, RecruitmentStatus } from "@/types/team";
 import { SPORT_CATEGORIES } from "@/lib/sports-categories";
+import { ImageCropModal } from "@/components/media/ImageCropModal";
+import { readFileAsDataUrl } from "@/lib/image-crop";
 
 type SportMetadata = Record<string, string | boolean | string[] | unknown>;
 
@@ -38,56 +40,7 @@ const DEFAULT_FORM: FormData = {
 
 const SPORT_OPTIONS = SPORT_CATEGORIES;
 
-type FieldType = "text" | "select" | "boolean" | "multiselect";
-interface MetaField {
-  key: string;
-  label: string;
-  type: FieldType;
-  placeholder?: string;
-  options?: { value: string; label: string }[];
-}
-
-const REGION_OPTIONS = [
-  { value: "全港",  label: "🌐 全港 All HK" },
-  { value: "港島",  label: "🏙️ 港島 Hong Kong Island" },
-  { value: "九龍",  label: "🌆 九龍 Kowloon" },
-  { value: "新界",  label: "🏞️ 新界 New Territories" },
-];
-
-const COMPETITIVE_FIELDS: MetaField[] = [
-  { key: "league_name",        label: "聯賽 / 組別名稱 (League & Division)", type: "text",        placeholder: "例如：香港甲一排球聯賽 Div 1" },
-  { key: "location_regions",   label: "活動地區 (Regions)",                  type: "multiselect", options: REGION_OPTIONS },
-  { key: "training_frequency", label: "訓練頻率",                            type: "text",        placeholder: "例如：每週二、四" },
-];
-
-const RACKET_FIELDS: MetaField[] = [
-  { key: "avg_skill_level",      label: "平均技術水平",        type: "text",   placeholder: "例如：NTRP 3.0-4.0 / 初中級" },
-  {
-    key: "play_style", label: "比賽形式", type: "select",
-    options: [
-      { value: "singles", label: "單打 Singles" },
-      { value: "doubles", label: "雙打 Doubles" },
-      { value: "mixed",   label: "混雙 Mixed" },
-      { value: "all",     label: "皆可 All" },
-    ],
-  },
-  { key: "court_surface",        label: "場地類型",           type: "text",   placeholder: "例如：硬地 / 室內木地板" },
-  { key: "equipment_provided",   label: "提供公用器材 (球/羽毛球等)", type: "boolean" },
-];
-
-const ENDURANCE_FIELDS: MetaField[] = [
-  { key: "primary_focus",        label: "訓練重點",           type: "text",   placeholder: "例如：健力三項 / 馬拉松配速" },
-  { key: "home_base",            label: "集合地點",           type: "text",   placeholder: "例如：Anytime Fitness 尖沙咀 / 跑馬地" },
-  { key: "avg_pace",             label: "平均配速",           type: "text",   placeholder: "例如：5:30/km" },
-  { key: "required_gear",        label: "必備裝備",           type: "text",   placeholder: "例如：反光背心" },
-];
-
-function getMetaFields(sport: SportCategory | ""): MetaField[] {
-  if (sport === "volleyball" || sport === "basketball" || sport === "soccer") return COMPETITIVE_FIELDS;
-  if (sport === "tennis" || sport === "badminton" || sport === "pickleball") return RACKET_FIELDS;
-  if (sport === "gym" || sport === "running") return ENDURANCE_FIELDS;
-  return [];
-}
+import { getTeamMetaFields, cleanTeamMetadata, regionsToLocationString } from "@/lib/team-metadata-fields";
 
 function StepIndicator({ current, total }: { current: number; total: number }) {
   const labels = ["基礎資訊", "專項詳情", "介紹與送出"];
@@ -136,6 +89,8 @@ export default function CreateTeamPage() {
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
+  const [cropTarget, setCropTarget] = useState<"logo" | "cover" | null>(null);
+  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -156,20 +111,32 @@ export default function CreateTeamPage() {
     setMeta(key, next);
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: "logo" | "cover") => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, type: "logo" | "cover") => {
     const file = e.target.files?.[0];
     if (!file) return;
+    e.target.value = "";
+    setCropImageSrc(await readFileAsDataUrl(file));
+    setCropTarget(type);
+  };
+
+  const closeCropModal = () => {
+    setCropTarget(null);
+    setCropImageSrc(null);
+  };
+
+  const handleCropConfirm = (file: File) => {
     const objectUrl = URL.createObjectURL(file);
-    if (type === "logo") {
+    if (cropTarget === "logo") {
       setLogoFile(file);
       setLogoPreview(objectUrl);
-    } else {
+    } else if (cropTarget === "cover") {
       setCoverFile(file);
       setCoverPreview(objectUrl);
     }
+    closeCropModal();
   };
 
-  const metaFields = getMetaFields(formData.sport_category);
+  const metaFields = getTeamMetaFields(formData.sport_category);
   const canProceed = currentStep === 1 ? formData.sport_category !== "" && formData.name_en.trim() !== "" : true;
 
   const handleSubmit = async () => {
@@ -216,9 +183,8 @@ export default function CreateTeamPage() {
         finalCoverUrl = publicUrl;
       }
 
-      // 自動解析地區欄位作為主表格欄位
-      const regionData = formData.sport_metadata.location_regions as string[] | undefined;
-      const locationString = regionData && regionData.length > 0 ? regionData.join("、") : null;
+      const cleanedMeta = cleanTeamMetadata(formData.sport_metadata);
+      const regionData = cleanedMeta.location_regions as string[] | undefined;
 
       const payload = {
         name_en:            formData.name_en.trim(),
@@ -229,14 +195,14 @@ export default function CreateTeamPage() {
         bio:                formData.bio.trim() || null,
         logo_url:           finalLogoUrl,
         cover_url:          finalCoverUrl,
-        location_region:    locationString,
+        location_region:    regionsToLocationString(regionData ?? []),
         social_links: {
           phone:   formData.contact_phone.trim() || undefined,
           email:   formData.contact_email.trim() || undefined,
           ig:      formData.social_ig.trim()      || undefined,
           fb:      formData.social_fb.trim()      || undefined,
         },
-        sport_metadata: formData.sport_metadata as SportMetadata,
+        sport_metadata: cleanedMeta as SportMetadata,
         created_by: user.id,
       };
 
@@ -420,7 +386,7 @@ export default function CreateTeamPage() {
                       <div className="text-center py-2">
                         <span className="text-xl">🏞️</span>
                         <p className="text-xs font-bold text-zinc-400 mt-1">選擇或拖曳橫幅大圖</p>
-                        <span className="text-[10px] text-zinc-600">最佳寬高比 16:9 橫圖</span>
+                        <span className="text-[10px] text-zinc-600">上傳後可裁切並預覽手機／桌面效果</span>
                       </div>
                     )}
                   </label>
@@ -483,6 +449,15 @@ export default function CreateTeamPage() {
         </div>
 
       </div>
+
+      <ImageCropModal
+        open={cropTarget !== null}
+        imageSrc={cropImageSrc}
+        preset={cropTarget === "logo" ? "logo" : "team-cover"}
+        filename={cropTarget === "logo" ? "team-logo.jpg" : "team-cover.jpg"}
+        onCancel={closeCropModal}
+        onConfirm={handleCropConfirm}
+      />
     </div>
   );
 }

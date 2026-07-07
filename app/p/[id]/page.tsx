@@ -16,6 +16,7 @@ import { RichBody } from "@/components/content/RichBody";
 import { SportCategoryBadge } from "@/components/sports/SportCategoryBadge";
 import { stripHtml, truncatePlainBio } from "@/lib/content/body";
 import { reopenOrSendFriendRequest } from "@/lib/friendships";
+import { mapHighlightGalleryFiles } from "@/lib/highlights-gallery";
 import { ServicePublishBadge } from "@/components/services/ServicePublishBadge";
 import { PhysioServiceTypeBadges } from "@/components/physio/PhysioServiceTypePicker";
 import { normalizePhysioServiceTypes, physioCardServiceTags } from "@/lib/physio-service-types";
@@ -201,12 +202,14 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
         }
   
         const { data: storageFiles } = await supabase.storage.from("highlights").list(`${id}/`, { limit: 20 });
-        if (storageFiles && storageFiles.length > 0) {
-          const fetchedGallery = storageFiles.filter(f => f.name !== ".emptyFolderPlaceholder").map(file => {
-            const { data: urlData } = supabase.storage.from("highlights").getPublicUrl(`${id}/${file.name}`);
-            return { id: file.id || file.name, sportName: "賽場高光", url: urlData.publicUrl };
-          });
-          setGalleryMedia(fetchedGallery);
+        if (storageFiles) {
+          setGalleryMedia(
+            mapHighlightGalleryFiles(supabase, id, storageFiles, "賽場高光").map(({ id: mediaId, sportName, url }) => ({
+              id: mediaId,
+              sportName,
+              url,
+            }))
+          );
         }
       } catch (err) { setIsNotFound(true); } finally { setIsLoading(false); }
     };

@@ -144,11 +144,14 @@ export function ChatBox({
   const markAsRead = useCallback(
     async (messageIds: string[]) => {
       if (messageIds.length === 0) return;
-      await supabase
+      const { error } = await supabase
         .from("messages")
         .update({ is_read: true })
         .in("id", messageIds)
         .eq("receiver_id", currentUserId);
+      if (!error) {
+        window.dispatchEvent(new CustomEvent("chat-message-sync"));
+      }
     },
     [currentUserId, supabase]
   );

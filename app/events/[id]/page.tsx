@@ -9,7 +9,18 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import EventLobbyBoard from "@/components/EventLobbyBoard";
+import CalendarExportButton from "@/components/CalendarExportButton";
 import { profileLink } from "@/lib/profile-links";
+import { formatEventPeriod } from "@/lib/event-datetime";
+import {
+  countFilledSlots,
+  getEventApprovalMode,
+  getVisibleRegistrations,
+  isConfirmedRegStatus,
+  isPendingRegStatus,
+  isWaitlistRegStatus,
+  normalizeRegStatus,
+} from "@/lib/event-registration";
 
 export default function EventDetailPage() {
   const params = useParams();
@@ -37,6 +48,16 @@ export default function EventDetailPage() {
   // 取消報名理由 Modal 狀態
   const [isQuitModalOpen, setIsQuitModalOpen] = useState(false);
   const [quitReason, setQuitReason] = useState("");
+
+  // 主辦審核確認 Modal
+  const [hostAction, setHostAction] = useState<{
+    regId: string;
+    newStatus: string;
+    targetUserId?: string | null;
+    displayName: string;
+    action: "approve" | "reject";
+    companionCount: number;
+  } | null>(null);
 
   const fetchEventDetails = useCallback(async () => {
     try {
@@ -166,6 +187,159 @@ export default function EventDetailPage() {
 
   const canViewLobby = Boolean(isOrganizer || activeIndivReg || activeTeamReg);
 
+  const approvalMode = getEventApprovalMode(event);
+  const visibleRegistrations = getVisibleRegistrations(registrations, {
+    isOrganizer,
+    currentUserId: currentUser?.id,
+    registrationType: event.registration_type,
+    approvalMode,
+  });
+  const confirmedRegistrations = visibleRegistrations.filter((r) =>
+    isConfirmedRegStatus(r.status)
+  );
+  const waitlistRegistrations = visibleRegistrations.filter((r) =>
+    isWaitlistRegStatus(r.status)
+  );
+  const pendingRegistrations = isOrganizer
+    ? registrations.filter(
+        (r) =>
+          normalizeRegStatus(r.status) !== "cancelled" && isPendingRegStatus(r.status)
+      )
+    : visibleRegistrations.filter((r) => isPendingRegStatus(r.status));
+  const myPendingReg =
+    event.registration_type === "individual" &&
+    approvalMode === "approval" &&
+    activeIndivReg &&
+    isPendingRegStatus(activeIndivReg.status)
+      ? activeIndivReg
+      : null;
+
+  const renderRegistrationRow = (reg: any) => {
+    const normRegStatus = normalizeRegStatus(reg.status);
+    const displayName =
+      reg.alias ||
+      reg.profiles?.full_name ||
+      reg.team?.name_zh ||
+      reg.team?.name_en ||
+      "未知球員";
+
+    return (
+      <div
+        key={reg.id}
+        className="p-4 rounded-2xl bg-slate-950 border border-slate-800/80 flex items-center justify-between gap-4"
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          {reg.profiles ? (
+            <Link href={profileLink(reg.profiles.id || reg.user_id, returnTo)} className="shrink-0">
+              <div
+                className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center font-black text-xs shrink-0 overflow-hidden"
+                style={{
+                  backgroundImage: reg.profiles.avatar_url ? `url(${reg.profiles.avatar_url})` : "none",
+                  backgroundSize: "cover",
+                }}
+              >
+                {!reg.profiles.avatar_url && (reg.profiles.full_name?.[0] || "?")}
+              </div>
+            </Link>
+          ) : (
+            <div className="w-10 h-10 rounded-full bg-amber-600/20 text-amber-400 flex items-center justify-center shrink-0">
+              <Shield className="w-5 h-5" />
+            </div>
+          )}
+
+          <div className="min-w-0">
+            <div className="font-bold text-sm text-white truncate flex items-center gap-2">
+              {reg.profiles ? (
+                <Link
+                  href={profileLink(reg.profiles.id || reg.user_id, returnTo)}
+                  className="hover:text-blue-400 transition truncate"
+                >
+                  {displayName}
+                </Link>
+              ) : (
+                displayName
+              )}
+              {reg.companion_count > 0 && (
+                <span className="text-xs text-blue-400 bg-blue-950 px-2 py-0.5 rounded-md">
+                  +{reg.companion_count} 攜伴
+                </span>
+              )}
+            </div>
+
+            {reg.note && (
+              <div className="text-xs text-amber-300/90 bg-amber-950/40 border border-amber-500/20 px-2.5 py-1 rounded-lg mt-1.5 truncate max-w-sm">
+                💬 {reg.note}
+              </div>
+            )}
+
+            <div className="text-[11px] text-zinc-500 flex items-center gap-2 mt-1">
+              <span>
+                報名於{" "}
+                {new Date(reg.registered_at).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </span>
+              {reg.has_late_infraction && (
+                <span className="text-red-400 font-bold flex items-center gap-1">
+                  <AlertTriangle className="w-3 h-3" /> 臨場異動違規
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          {isConfirmedRegStatus(normRegStatus) && (
+            <span className="px-3 py-1 rounded-full text-xs font-black bg-emerald-950 text-emerald-400 border border-emerald-500/30">
+              確認出席
+            </span>
+          )}
+          {isWaitlistRegStatus(normRegStatus) && (
+            <span className="px-3 py-1 rounded-full text-xs font-black bg-amber-950 text-amber-400 border border-amber-500/30">
+              候補名單
+            </span>
+          )}
+          {["kicked", "rejected"].includes(normRegStatus) && (
+            <span className="px-3 py-1 rounded-full text-xs font-black bg-red-950 text-red-400 border border-red-500/30">
+              資格移除
+            </span>
+          )}
+          {isPendingRegStatus(normRegStatus) && (
+            <span className="px-3 py-1 rounded-full text-xs font-black bg-slate-800 text-zinc-400">
+              審核中
+            </span>
+          )}
+
+          {isOrganizer && reg.user_id !== currentUser?.id && (
+            <div className="flex items-center gap-1">
+              {!isConfirmedRegStatus(normRegStatus) && (
+                <button
+                  type="button"
+                  onClick={() => requestHostAction(reg, "approve")}
+                  className="p-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white transition text-xs font-bold cursor-pointer"
+                  title="通過審核 / 恢復資格"
+                >
+                  ✓
+                </button>
+              )}
+              {!["kicked", "rejected"].includes(normRegStatus) && (
+                <button
+                  type="button"
+                  onClick={() => requestHostAction(reg, "reject")}
+                  className="p-2 rounded-xl bg-slate-800 hover:bg-red-500/20 text-zinc-400 hover:text-red-400 transition text-xs cursor-pointer"
+                  title="移除資格 / 婉拒申請"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   const currentFilledCount = registrations
     .filter(r => ["going", "confirmed", "accepted"].includes(String(r.status || "").toLowerCase()))
     .reduce((acc, curr) => acc + (event.registration_type === "individual" ? (1 + (curr.companion_count || 0)) : 1), 0);
@@ -184,7 +358,7 @@ export default function EventDetailPage() {
   const handleShare = async () => {
     const shareUrl = window.location.href;
     const shareTitle = `⚡ 運動約戰：${event.title}`;
-    const shareText = `時間：${formatDateTime(event.start_time)}\n地點：${event.location_name}\n快點擊連結查看詳情與報名吧！`;
+    const shareText = `時間：${formatEventPeriod(event.start_time, event.end_time)}\n地點：${event.location_name}\n快點擊連結查看詳情與報名吧！`;
 
     if (navigator.share) {
       try {
@@ -235,8 +409,15 @@ export default function EventDetailPage() {
     if (!currentUser) return router.push("/auth");
     setActionLoading(true);
     try {
+      const approvalMode = getEventApprovalMode(event);
+
       if (rejectedIndivReg) {
-        const newStatus = isFull ? "waitlist" : "going";
+        const newStatus =
+          approvalMode === "approval"
+            ? "pending"
+            : isFull
+              ? "waitlist"
+              : "going";
         const { error } = await supabase
           .from("event_registrations")
           .update({
@@ -248,6 +429,13 @@ export default function EventDetailPage() {
           })
           .eq("id", rejectedIndivReg.id);
         if (error) throw error;
+        alert(
+          approvalMode === "approval"
+            ? "🎉 參賽申請已重新送出，請等候主辦審核！"
+            : newStatus === "waitlist"
+              ? "⏳ 已排入候補名單！"
+              : "🎉 報名成功！"
+        );
       } else {
         const { data, error } = await supabase.rpc("upsert_individual_rsvp", {
           p_event_id: eventId,
@@ -264,10 +452,10 @@ export default function EventDetailPage() {
           alert(data.message);
           return;
         }
+        alert(data?.message || "🎉 報名送出成功！");
       }
 
       try { await supabase.rpc("notify_event_registration", { p_event_id: eventId }); } catch (e) {}
-      alert("🎉 報名送出成功！");
       setJoinAlias("");
       setJoinNote("");
       await fetchEventDetails();
@@ -391,9 +579,24 @@ export default function EventDetailPage() {
     }
   };
 
-  const handleUpdateStatus = async (regId: string, newStatus: string, targetUserId?: string | null) => {
+  const handleUpdateStatus = async (
+    regId: string,
+    newStatus: string,
+    targetUserId?: string | null,
+    companionCount = 0
+  ) => {
     setActionLoading(true);
     try {
+      const approveStatus = event.registration_type === "team" ? "accepted" : "going";
+      if (newStatus === approveStatus) {
+        const slotsNeeded = event.registration_type === "individual" ? 1 + companionCount : 1;
+        const filled = countFilledSlots(registrations, event.registration_type);
+        if (event.max_capacity && filled + slotsNeeded > event.max_capacity) {
+          alert("名額已滿，無法批准更多參賽者。請先移除或拒絕其他申請。");
+          return;
+        }
+      }
+
       const { error } = await supabase
         .from("event_registrations")
         .update({ status: newStatus, last_updated_at: new Date().toISOString() })
@@ -405,6 +608,13 @@ export default function EventDetailPage() {
         await supabase.rpc("notify_event_kick", { p_event_id: eventId, p_user_id: targetUserId });
       }
 
+      if (newStatus === approveStatus && targetUserId) {
+        try {
+          await supabase.rpc("notify_event_accepted", { p_event_id: eventId, p_user_id: targetUserId });
+        } catch (e) {}
+      }
+
+      setHostAction(null);
       await fetchEventDetails();
       router.refresh();
     } catch (err: any) {
@@ -414,26 +624,31 @@ export default function EventDetailPage() {
     }
   };
 
-  const formatDateTime = (isoString: string) => {
-    const d = new Date(isoString);
-    return d.toLocaleString("zh-HK", {
-      month: "short", day: "numeric", weekday: "short",
-      hour: "numeric", minute: "2-digit", hour12: true
+  const requestHostAction = (
+    reg: any,
+    action: "approve" | "reject"
+  ) => {
+    const displayName =
+      reg.alias ||
+      reg.profiles?.full_name ||
+      reg.team?.name_zh ||
+      reg.team?.name_en ||
+      "未知球員";
+    const newStatus =
+      action === "approve"
+        ? event.registration_type === "team"
+          ? "accepted"
+          : "going"
+        : "kicked";
+
+    setHostAction({
+      regId: reg.id,
+      newStatus,
+      targetUserId: reg.user_id,
+      displayName,
+      action,
+      companionCount: reg.companion_count || 0,
     });
-  };
-
-  const formatTimeOnly = (isoString: string) => {
-    const d = new Date(isoString);
-    return d.toLocaleString("zh-HK", { hour: "numeric", minute: "2-digit", hour12: true });
-  };
-
-  const formatEventPeriod = (startIso: string, endIso: string) => {
-    const start = new Date(startIso);
-    const end = new Date(endIso);
-    if (start.toDateString() === end.toDateString()) {
-      return `${formatDateTime(startIso)} - ${formatTimeOnly(endIso)}`;
-    }
-    return `${formatDateTime(startIso)} → ${formatDateTime(endIso)}`;
   };
 
   const organizerName = event.organizer_team
@@ -493,6 +708,16 @@ export default function EventDetailPage() {
             }`}>
               {event.registration_type === "individual" ? "👤 個人" : "🛡️ 團隊"}
             </span>
+
+            {event.registration_type === "individual" && (
+              <span className={`px-3 py-1 rounded-full text-xs font-black border ${
+                approvalMode === "approval"
+                  ? "bg-indigo-950/50 text-indigo-300 border-indigo-500/30"
+                  : "bg-emerald-950/50 text-emerald-300 border-emerald-500/30"
+              }`}>
+                {approvalMode === "approval" ? "主辦審核" : "先到先得"}
+              </span>
+            )}
           </div>
 
           <h1 className="text-2xl sm:text-4xl font-black tracking-tight mb-2">{event.title}</h1>
@@ -562,16 +787,40 @@ export default function EventDetailPage() {
               ) : event.registration_type === "individual" ? (
                 activeIndivReg ? (
                   <div className="space-y-4">
-                    <div className="p-4 bg-emerald-950/40 border border-emerald-500/40 rounded-2xl text-center">
-                      <div className="text-xs font-black text-emerald-400 uppercase mb-1">您的狀態</div>
+                    <div className={`p-4 rounded-2xl text-center border ${
+                      isConfirmedRegStatus(activeIndivReg.status)
+                        ? "bg-emerald-950/40 border-emerald-500/40"
+                        : isPendingRegStatus(activeIndivReg.status)
+                          ? "bg-slate-800/60 border-slate-600/40"
+                          : "bg-amber-950/40 border-amber-500/40"
+                    }`}>
+                      <div className={`text-xs font-black uppercase mb-1 ${
+                        isConfirmedRegStatus(activeIndivReg.status)
+                          ? "text-emerald-400"
+                          : isPendingRegStatus(activeIndivReg.status)
+                            ? "text-zinc-400"
+                            : "text-amber-400"
+                      }`}>
+                        您的狀態
+                      </div>
                       <div className="text-xl font-black text-white">
-                        {activeIndivReg.status === "going" && "✅ 確認出席 (Going)"}
-                        {activeIndivReg.status === "waitlist" && "⏳ 候補排隊中 (Waitlist)"}
+                        {isConfirmedRegStatus(activeIndivReg.status) && "✅ 確認出席 (Going)"}
+                        {isPendingRegStatus(activeIndivReg.status) && "🛡️ 審核中 (Pending)"}
+                        {isWaitlistRegStatus(activeIndivReg.status) && "⏳ 候補排隊中 (Waitlist)"}
                       </div>
                       {activeIndivReg.companion_count > 0 && (
                         <div className="text-xs text-zinc-300 mt-1">攜伴人數：+{activeIndivReg.companion_count} 人</div>
                       )}
+                      {isPendingRegStatus(activeIndivReg.status) && (
+                        <div className="text-[11px] text-zinc-400 mt-2">主辦批准後您將收到通知並正式列入參賽名單。</div>
+                      )}
                     </div>
+
+                    {isConfirmedRegStatus(activeIndivReg.status) && (
+                      <div className="flex justify-center">
+                        <CalendarExportButton event={event} />
+                      </div>
+                    )}
 
                     <button
                       type="button"
@@ -650,7 +899,15 @@ export default function EventDetailPage() {
                       onClick={handleIndividualJoin}
                       className="w-full py-3.5 rounded-xl bg-amber-600 hover:bg-amber-500 disabled:bg-slate-800 text-white font-black text-sm transition shadow-lg active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
                     >
-                      {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : isFull ? "排入候補名單" : "立即報名參賽"}
+                      {actionLoading ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : approvalMode === "approval" ? (
+                        "送出參賽申請"
+                      ) : isFull ? (
+                        "排入候補名單"
+                      ) : (
+                        "立即報名參賽"
+                      )}
                     </button>
                   </div>
                 )
@@ -666,6 +923,10 @@ export default function EventDetailPage() {
                     <div className="text-xs text-zinc-300 mt-1">
                       代表球隊：{activeTeamReg.team?.name_zh || activeTeamReg.team?.name_en || "未命名球隊"}
                     </div>
+                  </div>
+
+                  <div className="flex justify-center">
+                    <CalendarExportButton event={event} />
                   </div>
 
                   <button
@@ -758,99 +1019,87 @@ export default function EventDetailPage() {
             <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl">
               <h3 className="text-lg font-black mb-6 border-b border-slate-800 pb-3 flex items-center justify-between">
                 <span>參賽名單總覽</span>
-                <span className="text-xs text-zinc-500 font-normal">共 {registrations.filter(r => r.status !== 'cancelled').length} 筆報名</span>
+                <span className="text-xs text-zinc-500 font-normal">
+                  {approvalMode === "approval" && !isOrganizer
+                    ? `已確認 ${confirmedRegistrations.length} 人`
+                    : `共 ${visibleRegistrations.length} 筆報名`}
+                </span>
               </h3>
 
-              <div className="space-y-3">
-                {registrations.filter(r => r.status !== 'cancelled').length === 0 ? (
-                  <div className="py-12 text-center text-zinc-500 text-sm font-bold">目前尚無人報名，快搶下第一席！</div>
+              {!isOrganizer && approvalMode === "approval" && (
+                <p className="text-[11px] text-zinc-500 mb-4 -mt-2">
+                  審核制活動僅顯示已確認出席者；其他待審申請不對外公開。
+                </p>
+              )}
+
+              <div className="space-y-6">
+                {event.registration_type === "team" ? (
+                  visibleRegistrations.length === 0 ? (
+                    <div className="py-12 text-center text-zinc-500 text-sm font-bold">
+                      目前尚無人報名，快搶下第一席！
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {visibleRegistrations.map((reg) => renderRegistrationRow(reg))}
+                    </div>
+                  )
+                ) : visibleRegistrations.length === 0 && !myPendingReg ? (
+                  <div className="py-12 text-center text-zinc-500 text-sm font-bold">
+                    目前尚無人報名，快搶下第一席！
+                  </div>
                 ) : (
-                  registrations.filter(r => r.status !== 'cancelled').map(reg => {
-                    const normRegStatus = String(reg.status || "").toLowerCase();
-                    return (
-                      <div 
-                        key={reg.id}
-                        className="p-4 rounded-2xl bg-slate-950 border border-slate-800/80 flex items-center justify-between gap-4"
-                      >
-                        <div className="flex items-center gap-3 min-w-0">
-                          {reg.profiles ? (
-                            <Link href={profileLink(reg.profiles.id || reg.user_id, returnTo)} className="shrink-0">
-                              <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center font-black text-xs shrink-0 overflow-hidden"
-                                   style={{ backgroundImage: reg.profiles.avatar_url ? `url(${reg.profiles.avatar_url})` : 'none', backgroundSize: 'cover' }}>
-                                {!reg.profiles.avatar_url && (reg.profiles.full_name?.[0] || "?")}
-                              </div>
-                            </Link>
-                          ) : (
-                            <div className="w-10 h-10 rounded-full bg-amber-600/20 text-amber-400 flex items-center justify-center shrink-0">
-                              <Shield className="w-5 h-5" />
-                            </div>
-                          )}
+                  <>
+                    {myPendingReg && (
+                      <div>
+                        <h4 className="text-xs font-black text-zinc-500 uppercase tracking-wider mb-2">
+                          您的申請
+                        </h4>
+                        {renderRegistrationRow(myPendingReg)}
+                      </div>
+                    )}
 
-                          <div className="min-w-0">
-                            <div className="font-bold text-sm text-white truncate flex items-center gap-2">
-                              {reg.profiles ? (
-                                <Link href={profileLink(reg.profiles.id || reg.user_id, returnTo)} className="hover:text-blue-400 transition truncate">
-                                  {reg.alias || reg.profiles?.full_name || reg.team?.name_zh || reg.team?.name_en || "未知球員"}
-                                </Link>
-                              ) : (
-                                reg.alias || reg.profiles?.full_name || reg.team?.name_zh || reg.team?.name_en || "未知球員"
-                              )}
-                              {reg.companion_count > 0 && (
-                                <span className="text-xs text-blue-400 bg-blue-950 px-2 py-0.5 rounded-md">+{reg.companion_count} 攜伴</span>
-                              )}
-                            </div>
-
-                            {reg.note && (
-                              <div className="text-xs text-amber-300/90 bg-amber-950/40 border border-amber-500/20 px-2.5 py-1 rounded-lg mt-1.5 truncate max-w-sm">
-                                💬 {reg.note}
-                              </div>
-                            )}
-
-                            <div className="text-[11px] text-zinc-500 flex items-center gap-2 mt-1">
-                              <span>報名於 {new Date(reg.registered_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                              {reg.has_late_infraction && (
-                                <span className="text-red-400 font-bold flex items-center gap-1">
-                                  <AlertTriangle className="w-3 h-3" /> 臨場異動違規
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2 shrink-0">
-                          {["going", "confirmed", "accepted"].includes(normRegStatus) && <span className="px-3 py-1 rounded-full text-xs font-black bg-emerald-950 text-emerald-400 border border-emerald-500/30">確認出席</span>}
-                          {["waitlist", "waiting"].includes(normRegStatus) && <span className="px-3 py-1 rounded-full text-xs font-black bg-amber-950 text-amber-400 border border-amber-500/30">候補名單</span>}
-                          {["kicked", "rejected"].includes(normRegStatus) && <span className="px-3 py-1 rounded-full text-xs font-black bg-red-950 text-red-400 border border-red-500/30">資格移除</span>}
-                          {["pending", "reviewing"].includes(normRegStatus) && <span className="px-3 py-1 rounded-full text-xs font-black bg-slate-800 text-zinc-400">審核中</span>}
-
-                          {isOrganizer && reg.user_id !== currentUser?.id && (
-                            <div className="flex items-center gap-1">
-                              {!["accepted", "going", "confirmed"].includes(normRegStatus) && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleUpdateStatus(reg.id, event.registration_type === "team" ? "accepted" : "going")}
-                                  className="p-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white transition text-xs font-bold cursor-pointer"
-                                  title="通過審核 / 恢復資格"
-                                >
-                                  ✓
-                                </button>
-                              )}
-                              {!["kicked", "rejected"].includes(normRegStatus) && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleUpdateStatus(reg.id, "kicked", reg.user_id)}
-                                  className="p-2 rounded-xl bg-slate-800 hover:bg-red-500/20 text-zinc-400 hover:text-red-400 transition text-xs cursor-pointer"
-                                  title="移除資格 / 婉拒申請"
-                                >
-                                  ✕
-                                </button>
-                              )}
-                            </div>
-                          )}
+                    {confirmedRegistrations.length > 0 && (
+                      <div>
+                        <h4 className="text-xs font-black text-emerald-500/80 uppercase tracking-wider mb-2">
+                          確認出席 ({confirmedRegistrations.length})
+                        </h4>
+                        <div className="space-y-3">
+                          {confirmedRegistrations.map((reg) => renderRegistrationRow(reg))}
                         </div>
                       </div>
-                    );
-                  })
+                    )}
+
+                    {waitlistRegistrations.length > 0 && (
+                      <div>
+                        <h4 className="text-xs font-black text-amber-500/80 uppercase tracking-wider mb-2">
+                          候補名單 ({waitlistRegistrations.length})
+                        </h4>
+                        <div className="space-y-3">
+                          {waitlistRegistrations.map((reg) => renderRegistrationRow(reg))}
+                        </div>
+                      </div>
+                    )}
+
+                    {isOrganizer && pendingRegistrations.length > 0 && (
+                      <div>
+                        <h4 className="text-xs font-black text-zinc-400 uppercase tracking-wider mb-2">
+                          待審核 ({pendingRegistrations.length})
+                        </h4>
+                        <div className="space-y-3">
+                          {pendingRegistrations.map((reg) => renderRegistrationRow(reg))}
+                        </div>
+                      </div>
+                    )}
+
+                    {isOrganizer &&
+                      confirmedRegistrations.length === 0 &&
+                      waitlistRegistrations.length === 0 &&
+                      pendingRegistrations.length === 0 && (
+                        <div className="py-12 text-center text-zinc-500 text-sm font-bold">
+                          目前尚無人報名，快搶下第一席！
+                        </div>
+                      )}
+                  </>
                 )}
               </div>
             </div>
@@ -863,6 +1112,66 @@ export default function EventDetailPage() {
         )}
 
       </div>
+
+      {/* 主辦審核確認 Modal */}
+      {hostAction && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl">
+            <h3 className="text-lg font-black text-white mb-2 flex items-center gap-2">
+              {hostAction.action === "approve" ? (
+                <><UserCheck className="w-5 h-5 text-blue-400" /> 確認通過審核？</>
+              ) : (
+                <><AlertTriangle className="w-5 h-5 text-red-400" /> 確認婉拒 / 移除？</>
+              )}
+            </h3>
+
+            <p className="text-sm text-zinc-300 mb-4">
+              {hostAction.action === "approve" ? (
+                <>
+                  確定要批准 <span className="font-black text-white">{hostAction.displayName}</span>
+                  {hostAction.companionCount > 0 && (
+                    <span className="text-blue-400">（含 {hostAction.companionCount} 位攜伴）</span>
+                  )}
+                  的參賽申請嗎？對方將收到通知。
+                </>
+              ) : (
+                <>
+                  確定要婉拒或移除 <span className="font-black text-white">{hostAction.displayName}</span> 的參賽資格嗎？此動作將通知對方。
+                </>
+              )}
+            </p>
+
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setHostAction(null)}
+                className="px-5 py-2.5 rounded-xl bg-slate-800 text-zinc-300 font-bold text-xs cursor-pointer"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                disabled={actionLoading}
+                onClick={() =>
+                  handleUpdateStatus(
+                    hostAction.regId,
+                    hostAction.newStatus,
+                    hostAction.targetUserId,
+                    hostAction.companionCount
+                  )
+                }
+                className={`px-5 py-2.5 rounded-xl disabled:bg-slate-800 text-white font-black text-xs transition cursor-pointer ${
+                  hostAction.action === "approve"
+                    ? "bg-blue-600 hover:bg-blue-500"
+                    : "bg-red-600 hover:bg-red-500"
+                }`}
+              >
+                {actionLoading ? "處理中..." : hostAction.action === "approve" ? "確認通過" : "確認移除"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 退出活動詢問理由 Modal */}
       {isQuitModalOpen && (
