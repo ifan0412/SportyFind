@@ -304,6 +304,24 @@
   text-align: left;
 }
 
+/* TipTap editor — mobile focus & caret visibility */
+.rich-text-editor-surface .tiptap {
+  -webkit-user-select: text;
+  user-select: text;
+  touch-action: manipulation;
+  caret-color: #e4e4e7;
+  cursor: text;
+}
+
+.rich-text-editor-surface .ProseMirror {
+  outline: none;
+  min-height: inherit;
+}
+
+.rich-text-editor-surface .ProseMirror-focused {
+  outline: none;
+}
+
 /* TipTap editor placeholder */
 .tiptap p.is-editor-empty:first-child::before {
   color: #71717a;

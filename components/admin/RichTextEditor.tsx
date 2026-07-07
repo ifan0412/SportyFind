@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useEditor, EditorContent } from "@tiptap/react";
+import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
 import Link from "@tiptap/extension-link";
@@ -11,7 +11,7 @@ import TextAlign from "@tiptap/extension-text-align";
 import { FontSize, TextStyle } from "@tiptap/extension-text-style";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { plainTextLength } from "@/lib/content/body";
-import { normalizeRichHtml } from "@/lib/content/rich-html";
+import { normalizeRichHtml, richHtmlEquivalent } from "@/lib/content/rich-html";
 import { PreserveEmptyParagraph } from "@/lib/tiptap/preserve-paragraph";
 import { FONT_SIZE_OPTIONS } from "@/lib/tiptap/font-size";
 import {
@@ -63,6 +63,7 @@ function ToolbarButton({
       type="button"
       title={title}
       disabled={disabled}
+      onMouseDown={(e) => e.preventDefault()}
       onClick={onClick}
       className={`p-2 rounded-lg transition ${
         active
@@ -88,6 +89,10 @@ export function RichTextEditor({
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const uploadingRef = useRef(false);
+  /** Tracks HTML we emitted so parent echo doesn't reset the editor mid-typing */
+  const lastEmittedHtml = useRef(normalizeRichHtml(value || ""));
+  const editorWrapperRef = useRef<HTMLDivElement>(null);
+  const editorInstanceRef = useRef<Editor | null>(null);
   const [charCount, setCharCount] = useState(() => plainTextLength(value || ""));
   const imagesEnabled = enableImages ?? variant === "default";
   const editorMinHeight = minHeight ?? (variant === "compact" ? "140px" : "280px");
@@ -106,6 +111,12 @@ export function RichTextEditor({
     },
     [supabase]
   );
+
+  const focusEditor = useCallback((ed: Editor) => {
+    if (!ed.isFocused) {
+      ed.chain().focus("end").run();
+    }
+  }, []);
 
   const editor = useEditor({
     extensions: [
@@ -127,12 +138,27 @@ export function RichTextEditor({
         : []),
       Placeholder.configure({ placeholder: placeholder || "開始撰寫內容…" }),
     ],
-    content: value || "",
+    content: normalizeRichHtml(value || ""),
     immediatelyRender: false,
+    autofocus: false,
     editorProps: {
       attributes: {
-        class: `tiptap rich-body max-w-none px-4 py-3 focus:outline-none text-[15px] leading-relaxed text-zinc-200`,
+        class:
+          "tiptap rich-body max-w-none px-4 py-3 focus:outline-none text-[15px] leading-relaxed text-zinc-200",
         style: `min-height: ${editorMinHeight}`,
+        autocapitalize: "sentences",
+        autocorrect: "on",
+        spellcheck: "true",
+        "aria-label": placeholder || "Rich text editor",
+      },
+      handleDOMEvents: {
+        touchstart: () => {
+          const ed = editorInstanceRef.current;
+          if (ed && !ed.isFocused) {
+            ed.chain().focus().run();
+          }
+          return false;
+        },
       },
       handleDrop: imagesEnabled
         ? (view, event, _slice, moved) => {
@@ -180,20 +206,37 @@ export function RichTextEditor({
     },
     onUpdate: ({ editor: ed }) => {
       const html = normalizeRichHtml(ed.getHTML());
+      lastEmittedHtml.current = html;
       onChange(html);
       setCharCount(ed.getText().length);
     },
+    onBlur: ({ editor: ed }) => {
+      const html = normalizeRichHtml(ed.getHTML());
+      lastEmittedHtml.current = html;
+      if (!richHtmlEquivalent(html, value)) {
+        onChange(html);
+      }
+    },
   });
 
+  // Only apply external value changes — never reset while the user is editing
   useEffect(() => {
     if (!editor) return;
-    const current = editor.getHTML();
-    const next = value || "";
-    if (current !== next) {
-      editor.commands.setContent(normalizeRichHtml(next), { emitUpdate: false });
+
+    const next = normalizeRichHtml(value || "");
+    if (next === lastEmittedHtml.current) return;
+    if (editor.isFocused) return;
+
+    if (!richHtmlEquivalent(editor.getHTML(), next)) {
+      editor.commands.setContent(next, { emitUpdate: false });
+      lastEmittedHtml.current = next;
       setCharCount(editor.getText().length);
     }
   }, [editor, value]);
+
+  useEffect(() => {
+    editorInstanceRef.current = editor;
+  }, [editor]);
 
   const setLink = () => {
     if (!editor) return;
@@ -218,7 +261,14 @@ export function RichTextEditor({
   const currentFontSize =
     (editor?.getAttributes("textStyle").fontSize as string | undefined) || "1rem";
 
-  if (!editor) return null;
+  if (!editor) {
+    return (
+      <div
+        className="border border-slate-800 rounded-2xl bg-slate-950 animate-pulse"
+        style={{ minHeight: editorMinHeight }}
+      />
+    );
+  }
 
   const counterOverSuggested = suggestedLength != null && charCount > suggestedLength;
 
@@ -243,6 +293,7 @@ export function RichTextEditor({
         <select
           title="字體大小"
           value={currentFontSize}
+          onMouseDown={(e) => e.preventDefault()}
           onChange={(e) => {
             const size = e.target.value;
             if (size === "1rem") editor.chain().focus().unsetFontSize().run();
@@ -309,7 +360,13 @@ export function RichTextEditor({
         </ToolbarButton>
       </div>
 
-      <EditorContent editor={editor} />
+      <div
+        ref={editorWrapperRef}
+        className="rich-text-editor-surface cursor-text"
+        onClick={() => focusEditor(editor)}
+      >
+        <EditorContent editor={editor} />
+      </div>
 
       {showCharCount && (
         <div className="flex justify-end px-4 py-2 border-t border-slate-800/80 bg-slate-900/40">

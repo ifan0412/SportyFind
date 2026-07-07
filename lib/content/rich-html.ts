@@ -13,3 +13,8 @@ export function normalizeRichHtml(html: string): string {
 
   return out;
 }
+
+/** Compare editor HTML semantically for controlled-value sync */
+export function richHtmlEquivalent(a: string, b: string): boolean {
+  return normalizeRichHtml(a || "") === normalizeRichHtml(b || "");
+}
