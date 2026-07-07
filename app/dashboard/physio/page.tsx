@@ -28,6 +28,12 @@ import { QualificationPicker } from "@/components/qualifications/QualificationPi
 import { PHYSIO_QUALIFICATIONS, filterPhysioQualificationTags } from "@/lib/qualifications";
 import { profileLink } from "@/lib/profile-links";
 import { useProfileReturnTo } from "@/lib/use-profile-return-to";
+import { CoachPricingFields } from "@/components/coach/CoachPricingFields";
+import {
+  formatPhysioServicePrice,
+  normalizeServicePricingMode,
+  physioPricingModeLabel,
+} from "@/lib/coach-pricing";
 
 // ─── Physio Enquiries Inbox ───────────────────────────────────────────────────
 function PhysioEnquiriesInbox({ physioId }: { physioId: string }) {
@@ -231,7 +237,7 @@ function PhysioServicesManager({ physioId }: { physioId: string }) {
   }, [selectedService, supabase]);
 
   const handleCreateNewService = async () => {
-    const payload = { physio_id: physioId, title: "", service_type: "運動復健", service_types: [] as string[], session_rate: 0, districts: [], subdistricts: [], description: "", photos: [], draft_photos: [], sort_order: services.length + 1, is_active: false, service_centre: "", full_address: "" };
+    const payload = { physio_id: physioId, title: "", service_type: "運動復健", service_types: [] as string[], session_rate: 0, pricing_mode: "session", districts: [], subdistricts: [], description: "", photos: [], draft_photos: [], sort_order: services.length + 1, is_active: false, service_centre: "", full_address: "" };
     const { data, error } = await supabase.from("physio_services").insert(payload).select().single();
     if (error) { alert("新增失敗: " + error.message); return; }
     if (data) { setServices([data, ...services]); setSelectedService(data); setEditForm({ ...data, districts: [], subdistricts: [] }); setIsEditingInfo(true); setDetailTab("info"); }
@@ -251,11 +257,18 @@ function PhysioServicesManager({ physioId }: { physioId: string }) {
       alert("發佈前請至少選擇一個診療類別");
       return;
     }
+    const pricingMode = normalizeServicePricingMode(editForm.pricing_mode || "session");
+    if (publish && pricingMode !== "dm" && !(Number(editForm.session_rate) > 0)) {
+      setIsSavingInfo(false);
+      alert("發佈前請填寫項目標價，或改選「私訊詢價」");
+      return;
+    }
     const payload = {
       title: (editForm.title ?? "").trim(),
       service_types: serviceTypes,
       service_type: serviceTypes[0] || "運動復健",
-      session_rate: Number(editForm.session_rate) || 0,
+      pricing_mode: pricingMode,
+      session_rate: pricingMode === "dm" ? 0 : Number(editForm.session_rate) || 0,
       districts,
       subdistricts: normalizeSubdistrictIds(editForm.subdistricts),
       description: editForm.description || "",
@@ -387,7 +400,17 @@ function PhysioServicesManager({ physioId }: { physioId: string }) {
                       <PhysioServiceTypeBadges types={normalizePhysioServiceTypes(srv.service_types, srv.service_type)} size="xs" />
                       <ServicePublishBadge isActive={!!srv.is_active} />
                     </div>
-                    <span className="text-base font-black text-emerald-400">HK$ {srv.session_rate} <span className="text-xs text-zinc-500 font-normal">/節</span></span>
+                    {(() => {
+                      const p = formatPhysioServicePrice(srv);
+                      return (
+                        <span className={`text-base font-black shrink-0 ${p.isDm ? "text-zinc-400" : "text-emerald-400"}`}>
+                          {p.main}
+                          {p.unit && (
+                            <span className="text-xs text-zinc-500 font-normal ml-0.5">{p.unit}</span>
+                          )}
+                        </span>
+                      );
+                    })()}
                   </div>
                   <div>
                     <h4 className="text-lg font-black text-white group-hover:text-emerald-400 transition line-clamp-1">{srv.title}</h4>
@@ -462,13 +485,17 @@ function PhysioServicesManager({ physioId }: { physioId: string }) {
                 />
               </div>
               <div>
-                <label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">每節收費 (HKD/節)</label>
-                <input
-                  type="number"
-                  value={editForm.session_rate ?? ""}
-                  onChange={(e) => setEditForm({ ...editForm, session_rate: e.target.value === "" ? "" : Number(e.target.value) })}
-                  placeholder="800"
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-sm text-emerald-400 font-black placeholder:text-zinc-600"
+                <CoachPricingFields
+                  pricingMode={editForm.pricing_mode || "session"}
+                  price={editForm.session_rate}
+                  accent="emerald"
+                  audience="patient"
+                  onPricingModeChange={(mode) =>
+                    setEditForm({ ...editForm, pricing_mode: mode })
+                  }
+                  onPriceChange={(value) =>
+                    setEditForm({ ...editForm, session_rate: value })
+                  }
                 />
               </div>
               <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4">
@@ -532,7 +559,23 @@ function PhysioServicesManager({ physioId }: { physioId: string }) {
             <div className="space-y-4 pt-2">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
                 <div><span className="text-xs text-zinc-500 block font-bold mb-1">診療類別</span><PhysioServiceTypeBadges types={normalizePhysioServiceTypes(selectedService.service_types, selectedService.service_type)} size="xs" /></div>
-                <div><span className="text-xs text-zinc-500 block font-bold">每節收費</span><span className="font-extrabold text-emerald-400">${selectedService.session_rate} HKD / 節</span></div>
+                <div>
+                  <span className="text-xs text-zinc-500 block font-bold">項目收費</span>
+                  {(() => {
+                    const p = formatPhysioServicePrice(selectedService);
+                    return (
+                      <>
+                        <span className={`font-extrabold ${p.isDm ? "text-zinc-300" : "text-emerald-400"}`}>
+                          {p.main}
+                          {p.unit && <span className="text-zinc-500 font-normal text-xs ml-1">{p.unit}</span>}
+                        </span>
+                        <span className="text-[10px] text-zinc-600 block mt-0.5">
+                          {physioPricingModeLabel(selectedService.pricing_mode)}
+                        </span>
+                      </>
+                    );
+                  })()}
+                </div>
                 <div><span className="text-xs text-zinc-500 block font-bold">診療地區</span><span className="font-extrabold text-white">{formatDistrictList(normalizeDistrictIds(selectedService.districts, selectedService.location), 4) || "未設定"}</span></div>
                 {selectedService.service_centre && (
                   <div><span className="text-xs text-zinc-500 block font-bold">服務中心</span><span className="font-extrabold text-emerald-300">{selectedService.service_centre}</span></div>

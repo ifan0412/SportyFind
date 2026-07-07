@@ -16,7 +16,7 @@ export function SportCategoryBadge({
 }: {
   category: string | null | undefined;
   variant?: BadgeVariant;
-  size?: "sm" | "xs" | "md";
+  size?: "sm" | "xs" | "md" | "lg";
 }) {
   const sport = getSportCategory(category);
   if (!sport) return null;
@@ -24,11 +24,14 @@ export function SportCategoryBadge({
   const sizeClass =
     size === "xs"
       ? "text-[10px] px-2 py-0.5"
+      : size === "lg"
+        ? "text-base px-4 py-2 gap-2"
       : size === "md"
         ? "text-sm px-3.5 py-1.5 gap-1.5"
         : "text-xs px-3 py-1";
 
-  const emojiClass = size === "md" ? "text-base" : "text-sm";
+  const emojiClass =
+    size === "lg" ? "text-xl" : size === "md" ? "text-base" : "text-sm";
 
   return (
     <span

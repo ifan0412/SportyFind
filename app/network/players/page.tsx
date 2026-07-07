@@ -116,8 +116,8 @@ const LEVEL_OPTIONS: OptionItem[] = [
 ];
 
 const DISTRICT_OPTIONS: OptionItem[] = [
-  { label: "港島區 Hong Kong Island", value: "Island" },
-  { label: "九龍區 Kowloon", value: "Kowloon" },
+  { label: "港島區", value: "Island" },
+  { label: "九龍區", value: "Kowloon" },
   { label: "新界區 New Territories", value: "N.T." },
 ];
 

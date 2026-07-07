@@ -31,6 +31,12 @@ import { QualificationPicker } from "@/components/qualifications/QualificationPi
 import { COACH_QUALIFICATIONS, normalizeQualificationTags, filterCoachQualificationTags } from "@/lib/qualifications";
 import { profileLink } from "@/lib/profile-links";
 import { useProfileReturnTo } from "@/lib/use-profile-return-to";
+import { CoachPricingFields } from "@/components/coach/CoachPricingFields";
+import {
+  formatCoachServicePrice,
+  normalizeCoachPricingMode,
+  coachPricingModeLabel,
+} from "@/lib/coach-pricing";
 
 // ─── Enquiries Inbox ──────────────────────────────────────────────────────────
 function CoachEnquiriesInbox({ coachId }: { coachId: string }) {
@@ -285,6 +291,7 @@ function CoachServicesManager({ coachId }: { coachId: string }) {
       title: "",
       sport_category: "volleyball",
       hourly_rate: 0,
+      pricing_mode: "hourly",
       districts: [],
       subdistricts: [],
       description: "",
@@ -318,10 +325,17 @@ function CoachServicesManager({ coachId }: { coachId: string }) {
       alert("發佈前請選擇專項類別");
       return;
     }
+    const pricingMode = normalizeCoachPricingMode(editForm.pricing_mode);
+    if (publish && pricingMode !== "dm" && !(Number(editForm.hourly_rate) > 0)) {
+      setIsSavingInfo(false);
+      alert("發佈前請填寫課程標價，或改選「私訊詢價」");
+      return;
+    }
     const payload = {
       title: (editForm.title ?? "").trim(),
       sport_category: editForm.sport_category,
-      hourly_rate: Number(editForm.hourly_rate) || 0,
+      pricing_mode: pricingMode,
+      hourly_rate: pricingMode === "dm" ? 0 : Number(editForm.hourly_rate) || 0,
       districts,
       subdistricts: normalizeSubdistrictIds(editForm.subdistricts),
       description: editForm.description || "",
@@ -468,7 +482,17 @@ function CoachServicesManager({ coachId }: { coachId: string }) {
                       <SportCategoryBadge category={srv.sport_category} variant="amber" size="xs" />
                       <ServicePublishBadge isActive={!!srv.is_active} />
                     </div>
-                    <span className="text-base font-black text-emerald-400">HK$ {srv.hourly_rate} <span className="text-xs text-zinc-500 font-normal">/小時</span></span>
+                    {(() => {
+                      const p = formatCoachServicePrice(srv);
+                      return (
+                        <span className={`text-base font-black shrink-0 ${p.isDm ? "text-zinc-400" : "text-emerald-400"}`}>
+                          {p.main}
+                          {p.unit && (
+                            <span className="text-xs text-zinc-500 font-normal ml-0.5">{p.unit}</span>
+                          )}
+                        </span>
+                      );
+                    })()}
                   </div>
                   <div>
                     <h4 className="text-lg font-black text-white group-hover:text-amber-400 transition line-clamp-1">{srv.title}</h4>
@@ -556,19 +580,16 @@ function CoachServicesManager({ coachId }: { coachId: string }) {
                 />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[10px] text-zinc-500 font-bold uppercase block mb-1">授課時薪 (HKD/小時)</label>
-                  <input
-                    type="number"
-                    value={editForm.hourly_rate ?? ""}
-                    onChange={(e) =>
-                      setEditForm({
-                        ...editForm,
-                        hourly_rate: e.target.value === "" ? "" : Number(e.target.value),
-                      })
+                <div className="sm:col-span-2">
+                  <CoachPricingFields
+                    pricingMode={editForm.pricing_mode}
+                    price={editForm.hourly_rate}
+                    onPricingModeChange={(mode) =>
+                      setEditForm({ ...editForm, pricing_mode: mode })
                     }
-                    placeholder="500"
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-sm text-emerald-400 font-black placeholder:text-zinc-600"
+                    onPriceChange={(value) =>
+                      setEditForm({ ...editForm, hourly_rate: value })
+                    }
                   />
                 </div>
                 <div>
@@ -627,7 +648,23 @@ function CoachServicesManager({ coachId }: { coachId: string }) {
             <div className="space-y-4 pt-2">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
                 <div><span className="text-xs text-zinc-500 block font-bold mb-1">專項類別</span><SportCategoryBadge category={selectedService.sport_category} variant="amber" /></div>
-                <div><span className="text-xs text-zinc-500 block font-bold">授課收費</span><span className="font-extrabold text-emerald-400">${selectedService.hourly_rate} HKD / 小時</span></div>
+                <div>
+                  <span className="text-xs text-zinc-500 block font-bold">授課收費</span>
+                  {(() => {
+                    const p = formatCoachServicePrice(selectedService);
+                    return (
+                      <>
+                        <span className={`font-extrabold ${p.isDm ? "text-zinc-300" : "text-emerald-400"}`}>
+                          {p.main}
+                          {p.unit && <span className="text-zinc-500 font-normal text-xs ml-1">{p.unit}</span>}
+                        </span>
+                        <span className="text-[10px] text-zinc-600 block mt-0.5">
+                          {coachPricingModeLabel(selectedService.pricing_mode)}
+                        </span>
+                      </>
+                    );
+                  })()}
+                </div>
                 <div><span className="text-xs text-zinc-500 block font-bold">授課地區</span><span className="font-extrabold text-white">{formatDistrictList(normalizeDistrictIds(selectedService.districts, selectedService.location), 4) || "—"}</span></div>
                 {selectedService.subdistricts?.length > 0 && (
                   <div><span className="text-xs text-zinc-500 block font-bold">細分區域</span><span className="font-extrabold text-zinc-300 text-sm">{formatSubdistrictList(normalizeSubdistrictIds(selectedService.subdistricts), 5)}</span></div>

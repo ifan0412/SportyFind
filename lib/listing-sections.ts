@@ -33,7 +33,7 @@ export const LISTING_SECTIONS: Record<ListingSectionId, ListingSectionConfig> = 
     shadow: "shadow-blue-500/20",
     title: "運動夥伴",
     subtitle: "探索全港運動員檔案，發掘你的下一個隊友或強敵。",
-    tagline: "探索球員",
+    tagline: "探索夥伴",
   },
   team: {
     icon: Shield,

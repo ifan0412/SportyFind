@@ -8,7 +8,7 @@ export default function HomePage() {
     {
       href: "/network",
       title: "運動夥伴",
-      subtitle: "探索球員",
+      subtitle: "探索夥伴",
       icon: Users,
       color: "from-blue-500 to-blue-600",
       bgHover: "hover:bg-blue-600/5",

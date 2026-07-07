@@ -17,6 +17,7 @@ import {
   normalizeSubdistrictIds,
 } from "@/lib/hk-locations";
 import { RichBody } from "@/components/content/RichBody";
+import { formatPhysioServicePrice } from "@/lib/coach-pricing";
 import { PhysioServiceTypeBadges } from "@/components/physio/PhysioServiceTypePicker";
 import { normalizePhysioServiceTypes } from "@/lib/physio-service-types";
 
@@ -197,6 +198,7 @@ export default function PhysioServiceDetailPage({ params }: { params: Promise<{ 
   );
 
   const isMyOwnService = currentUser?.id === service.physio_id;
+  const priceDisplay = formatPhysioServicePrice(service);
 
   return (
     <div className="bg-slate-950 min-h-screen py-10 px-4 sm:px-6 lg:px-8 text-white">
@@ -265,8 +267,13 @@ export default function PhysioServiceDetailPage({ params }: { params: Promise<{ 
             <div className="flex items-center gap-3">
               <DollarSign className="w-5 h-5 text-emerald-400 shrink-0" />
               <div>
-                <div className="text-xs text-zinc-500 font-bold">項目收費 (HKD)</div>
-                <div className="font-extrabold text-emerald-400 text-base">${service.session_rate} <span className="text-xs text-zinc-400 font-normal">/ 每節</span></div>
+                <div className="text-xs text-zinc-500 font-bold">項目收費</div>
+                <div className={`font-extrabold text-base ${priceDisplay.isDm ? "text-zinc-300" : "text-emerald-400"}`}>
+                  {priceDisplay.main}
+                  {priceDisplay.unit && (
+                    <span className="text-xs text-zinc-400 font-normal ml-1">{priceDisplay.unit}</span>
+                  )}
+                </div>
               </div>
             </div>
           </div>

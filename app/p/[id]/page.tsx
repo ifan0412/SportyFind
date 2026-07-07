@@ -23,6 +23,7 @@ import { PhysioServiceTypeBadges } from "@/components/physio/PhysioServiceTypePi
 import { normalizePhysioServiceTypes, physioCardServiceTags } from "@/lib/physio-service-types";
 import { filterPhysioQualificationTags, filterCoachQualificationTags } from "@/lib/qualifications";
 import { QualificationBadges } from "@/components/qualifications/QualificationBadges";
+import { formatCoachServicePrice, formatPhysioServicePrice } from "@/lib/coach-pricing";
 
 const FacebookIcon = ({ className }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" /></svg>
@@ -515,7 +516,7 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
                       <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-xl mt-2">
                         <div className="space-y-2 max-w-2xl">
                           <h3 className="text-sm font-black text-amber-400 uppercase tracking-wider flex items-center gap-2">
-                            <span>🎓</span> 專業教學導讀
+                            <span>🎓</span> 專業教學簡介
                           </h3>
                           <RichBody
                             html={profile.coach_bio}
@@ -604,9 +605,17 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
                                     <SportCategoryBadge category={srv.sport_category} variant="amber" size="xs" />
                                     {currentUserId === id && <ServicePublishBadge isActive={!!srv.is_active} />}
                                   </div>
-                                  <span className="text-base font-black text-emerald-400">
-                                    HK$ {srv.hourly_rate} <span className="text-xs text-zinc-500 font-normal">/小時</span>
-                                  </span>
+                                  {(() => {
+                                    const p = formatCoachServicePrice(srv);
+                                    return (
+                                      <span className={`text-base font-black ${p.isDm ? "text-zinc-400" : "text-emerald-400"}`}>
+                                        {p.main}
+                                        {p.unit && (
+                                          <span className="text-xs text-zinc-500 font-normal ml-0.5">{p.unit}</span>
+                                        )}
+                                      </span>
+                                    );
+                                  })()}
                                 </div>
 
                                 <Link href={`/coaches/services/${srv.id}`} className="block">
@@ -761,9 +770,17 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
                                       <PhysioServiceTypeBadges types={normalizePhysioServiceTypes(srv.service_types, srv.service_type)} size="xs" />
                                       {currentUserId === id && <ServicePublishBadge isActive={!!srv.is_active} />}
                                     </div>
-                                    <span className="text-base font-black text-emerald-400">
-                                      HK$ {srv.session_rate} <span className="text-xs text-zinc-500 font-normal">/節</span>
-                                    </span>
+                                  {(() => {
+                                    const p = formatPhysioServicePrice(srv);
+                                    return (
+                                      <span className={`text-base font-black ${p.isDm ? "text-zinc-400" : "text-emerald-400"}`}>
+                                        {p.main}
+                                        {p.unit && (
+                                          <span className="text-xs text-zinc-500 font-normal ml-0.5">{p.unit}</span>
+                                        )}
+                                      </span>
+                                    );
+                                  })()}
                                   </div>
 
                                   <Link href={`/physio/services/${srv.id}`} className="block">

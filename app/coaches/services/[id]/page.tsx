@@ -18,6 +18,7 @@ import {
 } from "@/lib/hk-locations";
 import { RichBody } from "@/components/content/RichBody";
 import { SportCategoryBadge } from "@/components/sports/SportCategoryBadge";
+import { formatCoachServicePrice } from "@/lib/coach-pricing";
 
 export default function CoachServiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: serviceId } = use(params);
@@ -209,6 +210,7 @@ export default function CoachServiceDetailPage({ params }: { params: Promise<{ i
   );
 
   const isMyOwnCourse = currentUser?.id === service.coach_id;
+  const priceDisplay = formatCoachServicePrice(service);
 
   return (
     <div className="bg-slate-950 min-h-screen py-10 px-4 sm:px-6 lg:px-8 text-white">
@@ -230,27 +232,34 @@ export default function CoachServiceDetailPage({ params }: { params: Promise<{ i
 
         {/* 課程詳細資訊主卡 */}
         <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl relative">
-          <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-            <span className="px-3 py-1 rounded-full text-xs font-black bg-amber-500/10 text-amber-400 border border-amber-500/20 uppercase tracking-wider">
-              {service.sport_category && (
-                <SportCategoryBadge category={service.sport_category} variant="amber" />
-              )}{" "}
-              專業訓練
-            </span>
+          <div className="flex flex-wrap items-center justify-between gap-4 mb-5">
+            {service.sport_category ? (
+              <SportCategoryBadge category={service.sport_category} variant="amber" size="lg" />
+            ) : (
+              <span />
+            )}
             <span className="text-xs font-bold text-amber-400 bg-amber-950/50 border border-amber-500/30 px-3 py-1 rounded-full flex items-center gap-1.5">
               🔥 已有 {enquiryCount} 人發送諮詢單
             </span>
           </div>
 
-          <h1 className="text-2xl sm:text-4xl font-black tracking-tight mb-4">{service.title}</h1>
+          <h1 className="text-2xl sm:text-4xl font-black tracking-tight mb-5">{service.title}</h1>
 
-          <Link href={`/p/${service.coach_id}?tab=coach`} className="inline-flex items-center gap-3 p-3 rounded-2xl bg-slate-950 border border-slate-800 hover:border-slate-700 transition mb-6 group cursor-pointer">
-            <div className="w-10 h-10 rounded-full bg-slate-800 bg-cover bg-center shrink-0 flex items-center justify-center" style={service.coach?.avatar_url ? { backgroundImage: `url(${service.coach.avatar_url})` } : undefined}>
-              {!service.coach?.avatar_url && <UserIcon className="w-5 h-5 text-zinc-500" />}
+          <Link
+            href={`/p/${service.coach_id}?tab=coach`}
+            className="inline-flex items-center gap-4 mb-6 group cursor-pointer rounded-2xl px-2 py-2 -mx-2 hover:bg-slate-800/50 transition"
+          >
+            <div
+              className="w-14 h-14 rounded-full bg-slate-800 bg-cover bg-center shrink-0 flex items-center justify-center ring-2 ring-slate-700 group-hover:ring-amber-500/40 transition"
+              style={service.coach?.avatar_url ? { backgroundImage: `url(${service.coach.avatar_url})` } : undefined}
+            >
+              {!service.coach?.avatar_url && <UserIcon className="w-6 h-6 text-zinc-500" />}
             </div>
             <div>
-              <div className="text-xs text-zinc-400">授課教練</div>
-              <div className="text-sm font-bold text-white group-hover:text-amber-400 transition">{service.coach?.full_name || "專業教練"}</div>
+              <div className="text-xs text-zinc-500 font-bold">授課教練</div>
+              <div className="text-base sm:text-lg font-black text-white group-hover:text-amber-400 transition">
+                {service.coach?.full_name || "專業教練"}
+              </div>
             </div>
           </Link>
 
@@ -275,8 +284,13 @@ export default function CoachServiceDetailPage({ params }: { params: Promise<{ i
             <div className="flex items-center gap-3">
               <DollarSign className="w-5 h-5 text-emerald-400 shrink-0" />
               <div>
-                <div className="text-xs text-zinc-500 font-bold">課程報價 (HKD)</div>
-                <div className="font-extrabold text-emerald-400 text-base">${service.hourly_rate} <span className="text-xs text-zinc-400 font-normal">/ 每小時</span></div>
+                <div className="text-xs text-zinc-500 font-bold">課程報價</div>
+                <div className={`font-extrabold text-base ${priceDisplay.isDm ? "text-zinc-300" : "text-emerald-400"}`}>
+                  {priceDisplay.main}
+                  {priceDisplay.unit && (
+                    <span className="text-xs text-zinc-400 font-normal ml-1">{priceDisplay.unit}</span>
+                  )}
+                </div>
               </div>
             </div>
           </div>

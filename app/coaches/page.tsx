@@ -19,6 +19,7 @@ import { stripHtml } from "@/lib/content/body";
 import { filterCoachQualificationTags } from "@/lib/qualifications";
 import { QualificationBadges } from "@/components/qualifications/QualificationBadges";
 import { SportCategoryBadge } from "@/components/sports/SportCategoryBadge";
+import { formatCoachServicePrice } from "@/lib/coach-pricing";
 import { MapPin, User as UserIcon } from "lucide-react";
 
 interface CoachServiceRow {
@@ -32,6 +33,7 @@ interface CoachServiceRow {
   subdistricts: string[] | null;
   teaching_experience_years: number | null;
   hourly_rate: number;
+  pricing_mode?: string | null;
   profiles: {
     full_name: string | null;
     headline: string | null;
@@ -69,7 +71,7 @@ export default function CoachesPage() {
         .from("coach_services")
         .select(`
           id, coach_id, sport_category, title, description, location,
-          districts, subdistricts, teaching_experience_years, hourly_rate,
+          districts, subdistricts, teaching_experience_years, hourly_rate, pricing_mode,
           profiles!coach_id (
             full_name, headline, avatar_url, coach_teaching_experience_years, coach_qualification_tags
           )
@@ -88,7 +90,7 @@ export default function CoachesPage() {
           .from("coach_services")
           .select(`
             id, coach_id, sport_category, title, description, location,
-            districts, subdistricts, teaching_experience_years, hourly_rate,
+            districts, subdistricts, teaching_experience_years, hourly_rate, pricing_mode,
             profiles!coach_id (
               full_name, headline, avatar_url, coach_teaching_experience_years
             )
@@ -194,10 +196,17 @@ export default function CoachesPage() {
                     <div className="space-y-4">
                       <div className="flex items-center justify-between gap-2">
                         <SportCategoryBadge category={srv.sport_category} variant="amber" size="md" />
-                        <span className="text-base font-black text-emerald-400 shrink-0">
-                          HK$ {srv.hourly_rate}
-                          <span className="text-xs text-zinc-500 font-normal ml-0.5">/小時</span>
-                        </span>
+                        {(() => {
+                          const p = formatCoachServicePrice(srv);
+                          return (
+                            <span className={`text-base font-black shrink-0 ${p.isDm ? "text-zinc-400" : "text-emerald-400"}`}>
+                              {p.main}
+                              {p.unit && (
+                                <span className="text-xs text-zinc-500 font-normal ml-0.5">{p.unit}</span>
+                              )}
+                            </span>
+                          );
+                        })()}
                       </div>
 
                       <Link
