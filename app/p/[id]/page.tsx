@@ -17,7 +17,9 @@ import { SportCategoryBadge } from "@/components/sports/SportCategoryBadge";
 import { stripHtml } from "@/lib/content/body";
 import { ServicePublishBadge } from "@/components/services/ServicePublishBadge";
 import { PhysioServiceTypeBadges } from "@/components/physio/PhysioServiceTypePicker";
-import { normalizePhysioServiceTypes } from "@/lib/physio-service-types";
+import { normalizePhysioServiceTypes, physioCardServiceTags } from "@/lib/physio-service-types";
+import { filterPhysioQualificationTags, filterCoachQualificationTags } from "@/lib/qualifications";
+import { QualificationBadges } from "@/components/qualifications/QualificationBadges";
 
 const FacebookIcon = ({ className }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" /></svg>
@@ -38,10 +40,13 @@ interface Profile {
   is_physio: boolean | null; physio_rate: number | null; clinic_name: string | null; physio_status: string | null; physio_region: string | null;
   contact_email?: string | null; contact_phone?: string | null; city_region?: string | null; address?: string | null; is_address_public?: boolean; coach_service_centre?: string | null; instagram_url?: string | null; facebook_url?: string | null; threads_url?: string | null;
   coach_districts?: string[] | null; coach_subdistricts?: string[] | null; coach_teaching_experience_years?: number | null;
+  coach_qualification_tags?: string[] | null; coach_qualification_custom?: string | null;
   districts?: string[] | null; subdistricts?: string[] | null;
   physio_districts?: string[] | null; physio_subdistricts?: string[] | null;
   physio_contact_email?: string | null; physio_contact_phone?: string | null; physio_city_region?: string | null; physio_address?: string | null; physio_is_address_public?: boolean; physio_instagram_url?: string | null; physio_facebook_url?: string | null; physio_threads_url?: string | null;
   physio_experience_years?: string | null; physio_qualifications?: string | null; physio_services_offered?: string | null;
+  physio_service_tags?: string[] | null;
+  physio_qualification_tags?: string[] | null; physio_qualification_custom?: string | null;
   height_cm?: number | null; weight_kg?: number | null; show_physical_stats?: boolean | null;
 }
 
@@ -451,6 +456,19 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
                             emptyText="目前尚未填寫專屬的專業教學導讀。"
                             className="text-sm leading-relaxed"
                           />
+                          {filterCoachQualificationTags(profile.coach_qualification_tags).length > 0 && (
+                            <div className="pt-2">
+                              <QualificationBadges
+                                tags={filterCoachQualificationTags(profile.coach_qualification_tags)}
+                                accent="amber"
+                                size="xs"
+                                max={6}
+                              />
+                            </div>
+                          )}
+                          {profile.coach_qualification_custom && (
+                            <p className="text-xs text-zinc-400 font-medium pt-1">{profile.coach_qualification_custom}</p>
+                          )}
                         </div>
 
                         <div className="bg-slate-950 px-6 py-4 rounded-2xl border border-slate-800/80 text-center shrink-0 w-full md:w-auto">
@@ -581,10 +599,34 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
                             emptyText="目前尚未填寫專業資歷與簡介。"
                             className="text-sm leading-relaxed"
                           />
+                          <div className="flex flex-wrap items-center gap-2 pt-3">
+                            {profile.physio_experience_years && (
+                              <span className="text-[11px] font-black px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                {profile.physio_experience_years} 年經驗
+                              </span>
+                            )}
+                            {physioCardServiceTags(profile.physio_service_tags, null, physioServices).length > 0 && (
+                              <PhysioServiceTypeBadges
+                                types={physioCardServiceTags(profile.physio_service_tags, null, physioServices)}
+                                size="xs"
+                                max={6}
+                              />
+                            )}
+                            {filterPhysioQualificationTags(profile.physio_qualification_tags).length > 0 && (
+                              <QualificationBadges
+                                tags={filterPhysioQualificationTags(profile.physio_qualification_tags)}
+                                accent="emerald"
+                                size="xs"
+                                max={6}
+                              />
+                            )}
+                          </div>
+                          {profile.physio_qualification_custom && (
+                            <p className="text-xs text-zinc-400 font-medium pt-2">{profile.physio_qualification_custom}</p>
+                          )}
                           {profile.clinic_name && (
-                            <p className="text-xs text-zinc-500 font-bold">
+                            <p className="text-xs text-zinc-500 font-bold pt-2">
                               所屬：{profile.clinic_name}
-                              {profile.physio_experience_years ? ` · ${profile.physio_experience_years} 年經驗` : ""}
                             </p>
                           )}
                         </div>

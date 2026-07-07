@@ -13,16 +13,27 @@ export const PHYSIO_SERVICE_TYPES = [
 
 export type PhysioServiceType = (typeof PHYSIO_SERVICE_TYPES)[number];
 
+const PHYSIO_SERVICE_TYPE_SET = new Set<string>(PHYSIO_SERVICE_TYPES);
+
+/** Only allow known short service-type labels — never render bio / free text as tags */
+export function filterPhysioServiceTypeTags(types: string[]): string[] {
+  return [...new Set(types.filter((t) => PHYSIO_SERVICE_TYPE_SET.has(t)))];
+}
+
 /** Normalize DB array or legacy single service_type string */
 export function normalizePhysioServiceTypes(
   types: unknown,
   legacySingle?: string | null
 ): string[] {
   if (Array.isArray(types)) {
-    const filtered = types.filter((t): t is string => typeof t === "string" && t.length > 0);
-    if (filtered.length) return [...new Set(filtered)];
+    const filtered = types.filter((t): t is string => typeof t === "string" && t.trim().length > 0);
+    const known = filterPhysioServiceTypeTags(filtered);
+    if (known.length) return known;
   }
-  if (legacySingle?.trim()) return [legacySingle.trim()];
+  if (legacySingle?.trim()) {
+    const t = legacySingle.trim();
+    if (PHYSIO_SERVICE_TYPE_SET.has(t)) return [t];
+  }
   return [];
 }
 
@@ -37,7 +48,7 @@ export function aggregatePhysioServiceTypes(
   return [...new Set(all)];
 }
 
-/** Profile-level service tags (array column or legacy text) */
+/** Profile-level service tags (array column only — never parse long legacy bio text) */
 export function normalizePhysioProfileTags(
   tags: unknown,
   legacyText?: string | null
@@ -45,25 +56,25 @@ export function normalizePhysioProfileTags(
   const fromArray = normalizePhysioServiceTypes(tags);
   if (fromArray.length) return fromArray;
   if (legacyText?.trim()) {
-    return [
-      ...new Set(
-        legacyText
-          .split(/[,、，]/)
-          .map((s) => s.trim())
-          .filter((s) => s.length > 0)
-      ),
-    ];
+    const parts = legacyText
+      .split(/[,、，]/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+    const known = parts.filter((p) =>
+      (PHYSIO_SERVICE_TYPES as readonly string[]).includes(p)
+    );
+    if (known.length) return [...new Set(known)];
   }
   return [];
 }
 
-/** Merge profile tags with per-service types for listing cards */
+/** Merge profile tags with per-service types for listing cards (no legacy text fallback) */
 export function physioCardServiceTags(
   profileTags: unknown,
-  legacyText: string | null | undefined,
+  _legacyText: string | null | undefined,
   services: { service_types?: unknown; service_type?: string | null }[]
 ): string[] {
-  const profile = normalizePhysioProfileTags(profileTags, legacyText);
+  const profile = normalizePhysioServiceTypes(profileTags);
   const fromServices = aggregatePhysioServiceTypes(services);
   return [...new Set([...profile, ...fromServices])];
 }

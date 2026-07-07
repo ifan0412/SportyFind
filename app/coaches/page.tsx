@@ -14,6 +14,8 @@ import {
 } from "@/lib/hk-locations";
 import { sportMatchesFilter } from "@/lib/sports-categories";
 import { stripHtml } from "@/lib/content/body";
+import { filterCoachQualificationTags } from "@/lib/qualifications";
+import { QualificationBadges } from "@/components/qualifications/QualificationBadges";
 import { SportCategoryBadge } from "@/components/sports/SportCategoryBadge";
 import { MapPin, User as UserIcon } from "lucide-react";
 
@@ -33,6 +35,7 @@ interface CoachServiceRow {
     headline: string | null;
     avatar_url: string | null;
     coach_teaching_experience_years: number | null;
+    coach_qualification_tags?: string[] | null;
   } | null;
 }
 
@@ -66,7 +69,7 @@ export default function CoachesPage() {
           id, coach_id, sport_category, title, description, location,
           districts, subdistricts, teaching_experience_years, hourly_rate,
           profiles!coach_id (
-            full_name, headline, avatar_url, coach_teaching_experience_years
+            full_name, headline, avatar_url, coach_teaching_experience_years, coach_qualification_tags
           )
         `)
         .eq("is_active", true);
@@ -74,7 +77,23 @@ export default function CoachesPage() {
       if (currentUserId) query = query.neq("coach_id", currentUserId);
 
       const { data, error } = await query;
-      if (!error && data) setServices(data as unknown as CoachServiceRow[]);
+      if (!error && data) {
+        setServices(data as unknown as CoachServiceRow[]);
+      } else if (error?.message?.includes("coach_qualification_tags")) {
+        let fallbackQuery = supabase
+          .from("coach_services")
+          .select(`
+            id, coach_id, sport_category, title, description, location,
+            districts, subdistricts, teaching_experience_years, hourly_rate,
+            profiles!coach_id (
+              full_name, headline, avatar_url, coach_teaching_experience_years
+            )
+          `)
+          .eq("is_active", true);
+        if (currentUserId) fallbackQuery = fallbackQuery.neq("coach_id", currentUserId);
+        const { data: fallback } = await fallbackQuery;
+        if (fallback) setServices(fallback as unknown as CoachServiceRow[]);
+      }
       setIsLoading(false);
     };
     fetchCourses();
@@ -166,6 +185,7 @@ export default function CoachesPage() {
                 const districts = normalizeDistrictIds(srv.districts, srv.location);
                 const districtLabel = formatDistrictList(districts, 2) || "全港 / 地點可商議";
                 const exp = experienceYears(srv);
+                const qualificationTags = filterCoachQualificationTags(srv.profiles?.coach_qualification_tags);
 
                 return (
                   <div
@@ -206,6 +226,10 @@ export default function CoachesPage() {
                           </div>
                         </div>
                       </Link>
+
+                      {qualificationTags.length > 0 && (
+                        <QualificationBadges tags={qualificationTags} accent="amber" size="xs" max={3} />
+                      )}
 
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="inline-flex items-center gap-1 text-[10px] font-bold text-zinc-300 bg-slate-950/60 px-2.5 py-1 rounded-full border border-slate-800">

@@ -18,11 +18,13 @@ import {
   normalizeSubdistrictIds,
 } from "@/lib/hk-locations";
 import { PhysioServiceTypePicker, PhysioServiceTypeBadges } from "@/components/physio/PhysioServiceTypePicker";
-import { normalizePhysioProfileTags, normalizePhysioServiceTypes } from "@/lib/physio-service-types";
+import { normalizePhysioProfileTags, normalizePhysioServiceTypes, filterPhysioServiceTypeTags } from "@/lib/physio-service-types";
 import { RichTextEditor } from "@/components/admin/RichTextEditor";
 import { RichBody } from "@/components/content/RichBody";
 import { BIO_CHAR_SUGGESTED_MAX, BIO_CHAR_SUGGESTED_RANGE, stripHtml } from "@/lib/content/body";
 import { ServicePublishBadge } from "@/components/services/ServicePublishBadge";
+import { QualificationPicker } from "@/components/qualifications/QualificationPicker";
+import { PHYSIO_QUALIFICATIONS, filterPhysioQualificationTags } from "@/lib/qualifications";
 
 // ─── Physio Enquiries Inbox ───────────────────────────────────────────────────
 function PhysioEnquiriesInbox({ physioId }: { physioId: string }) {
@@ -572,7 +574,11 @@ function PhysioSettingsPanel({ profile, onSaved }: { profile: any; onSaved: () =
     physio_qualifications: profile?.physio_qualifications || "",
     clinic_name: profile?.clinic_name || "",
     physio_experience_years: profile?.physio_experience_years || "",
-    physio_service_tags: normalizePhysioProfileTags(profile?.physio_service_tags, profile?.physio_services_offered),
+    physio_service_tags: filterPhysioServiceTypeTags(
+      normalizePhysioProfileTags(profile?.physio_service_tags, profile?.physio_services_offered)
+    ),
+    physio_qualification_tags: filterPhysioQualificationTags(profile?.physio_qualification_tags),
+    physio_qualification_custom: profile?.physio_qualification_custom || "",
     physio_contact_email: profile?.physio_contact_email || "",
     physio_contact_phone: profile?.physio_contact_phone || "",
     physio_districts: normalizeDistrictIds(profile?.physio_districts, profile?.physio_city_region),
@@ -588,10 +594,12 @@ function PhysioSettingsPanel({ profile, onSaved }: { profile: any; onSaved: () =
       physio_qualifications: form.physio_qualifications || null,
       clinic_name: form.clinic_name || null,
       physio_experience_years: form.physio_experience_years || null,
-      physio_service_tags: form.physio_service_tags,
+      physio_service_tags: filterPhysioServiceTypeTags(form.physio_service_tags),
       physio_services_offered: form.physio_service_tags.length
-        ? form.physio_service_tags.join("、")
+        ? filterPhysioServiceTypeTags(form.physio_service_tags).join("、")
         : null,
+      physio_qualification_tags: filterPhysioQualificationTags(form.physio_qualification_tags),
+      physio_qualification_custom: form.physio_qualification_custom || null,
       physio_contact_email: form.physio_contact_email || null,
       physio_contact_phone: form.physio_contact_phone || null,
       physio_districts: form.physio_districts,
@@ -620,6 +628,20 @@ function PhysioSettingsPanel({ profile, onSaved }: { profile: any; onSaved: () =
           placeholder={`建議 ${BIO_CHAR_SUGGESTED_RANGE} 字，簡潔有力地介紹您的專業資歷與治療專長…`}
           showCharCount
           suggestedLength={BIO_CHAR_SUGGESTED_MAX}
+        />
+      </div>
+
+      <div className="pb-6 border-b border-slate-800">
+        <h3 className="text-sm md:text-base font-black text-white mb-1">專業資歷 / 認證</h3>
+        <p className="text-[10px] md:text-xs text-zinc-500 mb-4">選擇的資歷將以標籤顯示於治療師名錄；自由填寫的內容顯示於您的公開名片。</p>
+        <QualificationPicker
+          options={PHYSIO_QUALIFICATIONS}
+          selectedTags={form.physio_qualification_tags}
+          onTagsChange={(tags) => setForm({ ...form, physio_qualification_tags: tags })}
+          customValue={form.physio_qualification_custom}
+          onCustomChange={(v) => setForm({ ...form, physio_qualification_custom: v })}
+          accent="emerald"
+          customPlaceholder="例如：香港理工大學物理治療系、APTA 會員…"
         />
       </div>
 

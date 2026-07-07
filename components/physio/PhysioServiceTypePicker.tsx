@@ -1,6 +1,6 @@
 "use client";
 
-import { PHYSIO_SERVICE_TYPES } from "@/lib/physio-service-types";
+import { PHYSIO_SERVICE_TYPES, filterPhysioServiceTypeTags } from "@/lib/physio-service-types";
 
 const chipBase =
   "px-3 py-1.5 rounded-full text-xs font-bold transition border cursor-pointer";
@@ -61,10 +61,10 @@ export function PhysioServiceTypeBadge({
   type: string | null | undefined;
   size?: "xs" | "sm";
 }) {
-  if (!type?.trim()) return null;
+  if (!type?.trim() || !(PHYSIO_SERVICE_TYPES as readonly string[]).includes(type.trim())) return null;
   return (
     <span
-      className={`inline-flex items-center rounded-full font-black border tracking-wider bg-emerald-500/15 text-emerald-400 border-emerald-500/30 ${badgeSizes[size]}`}
+      className={`inline-flex items-center rounded-full font-black border tracking-wider bg-emerald-500/15 text-emerald-400 border-emerald-500/30 whitespace-nowrap ${badgeSizes[size]}`}
     >
       {type}
     </span>
@@ -80,7 +80,7 @@ export function PhysioServiceTypeBadges({
   size?: "xs" | "sm";
   max?: number;
 }) {
-  const unique = [...new Set(types.filter(Boolean))];
+  const unique = filterPhysioServiceTypeTags([...new Set(types.filter(Boolean))]);
   if (!unique.length) return null;
   const shown = unique.slice(0, max);
   const extra = unique.length - shown.length;

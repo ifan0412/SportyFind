@@ -26,6 +26,8 @@ import { SportCategoryPicker } from "@/components/sports/SportCategoryPicker";
 import type { SportCategoryId } from "@/lib/sports-categories";
 import { stripHtml } from "@/lib/content/body";
 import { ServicePublishBadge } from "@/components/services/ServicePublishBadge";
+import { QualificationPicker } from "@/components/qualifications/QualificationPicker";
+import { COACH_QUALIFICATIONS, normalizeQualificationTags, filterCoachQualificationTags } from "@/lib/qualifications";
 
 // ─── Enquiries Inbox ──────────────────────────────────────────────────────────
 function CoachEnquiriesInbox({ coachId }: { coachId: string }) {
@@ -683,6 +685,8 @@ function CoachSettingsPanel({ profile, onSaved }: { profile: any; onSaved: () =>
     coach_districts: normalizeDistrictIds(profile?.coach_districts, profile?.city_region),
     coach_subdistricts: normalizeSubdistrictIds(profile?.coach_subdistricts),
     coach_teaching_experience_years: profile?.coach_teaching_experience_years ?? "",
+    coach_qualification_tags: normalizeQualificationTags(profile?.coach_qualification_tags),
+    coach_qualification_custom: profile?.coach_qualification_custom || "",
     address: profile?.address || "",
     is_address_public: profile?.is_address_public ?? true,
   });
@@ -700,6 +704,8 @@ function CoachSettingsPanel({ profile, onSaved }: { profile: any; onSaved: () =>
       coach_teaching_experience_years: form.coach_teaching_experience_years
         ? Number(form.coach_teaching_experience_years)
         : null,
+      coach_qualification_tags: filterCoachQualificationTags(form.coach_qualification_tags),
+      coach_qualification_custom: form.coach_qualification_custom || null,
       city_region: formatDistrictList(form.coach_districts, 3) || null,
       address: form.address || null,
       is_address_public: form.is_address_public,
@@ -725,6 +731,21 @@ function CoachSettingsPanel({ profile, onSaved }: { profile: any; onSaved: () =>
           suggestedLength={BIO_CHAR_SUGGESTED_MAX}
         />
       </div>
+
+      <div className="pb-6 border-b border-slate-800">
+        <h3 className="text-sm md:text-base font-black text-white mb-1">專業資歷 / 認證</h3>
+        <p className="text-[10px] md:text-xs text-zinc-500 mb-4">選擇的資歷將以標籤顯示於教練名錄；自由填寫的內容顯示於您的公開名片。</p>
+        <QualificationPicker
+          options={COACH_QUALIFICATIONS}
+          selectedTags={form.coach_qualification_tags}
+          onTagsChange={(tags) => setForm({ ...form, coach_qualification_tags: tags })}
+          customValue={form.coach_qualification_custom}
+          onCustomChange={(v) => setForm({ ...form, coach_qualification_custom: v })}
+          accent="amber"
+          customPlaceholder="例如：NSCA-CSCS、香港體育學院教練課程畢業…"
+        />
+      </div>
+
       <div>
         <h3 className="text-sm md:text-base font-black text-white mb-1">對外聯絡與服務地點</h3>
         <p className="text-[10px] md:text-xs text-zinc-500 mb-4">填寫後的聯絡方式將於學員點擊洽詢預約時呈現。</p>
