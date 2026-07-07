@@ -34,7 +34,7 @@ const ThreadsIcon = ({ className }: { className?: string }) => (
 );
 
 interface Profile {
-  id: string; full_name: string | null; handle: string | null; headline: string | null; bio: string | null; coach_bio?: string | null; location: string | null; avatar_url: string | null; status_tag: string | null; display_sports: string[] | null;
+  id: string; full_name: string | null; handle: string | null; headline: string | null; bio: string | null; athlete_bio?: string | null; coach_bio?: string | null; location: string | null; avatar_url: string | null; status_tag: string | null; display_sports: string[] | null;
   is_player: boolean | null;
   is_coach: boolean | null;
   is_physio: boolean | null; physio_rate: number | null; clinic_name: string | null; physio_status: string | null; physio_region: string | null;
@@ -416,7 +416,7 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
                       <span>👤</span> 運動員 Bio
                     </h3>
                     <RichBody
-                      html={profile.bio}
+                      html={profile.athlete_bio}
                       emptyText="目前尚未填寫運動員簡介。"
                       className="text-sm leading-relaxed"
                     />

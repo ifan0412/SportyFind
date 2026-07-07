@@ -35,6 +35,7 @@ interface Profile {
   handle: string | null;
   headline: string | null;
   bio: string | null;
+  athlete_bio?: string | null;
   coach_bio?: string | null;
   location: string | null;
   country: string | null;
@@ -111,7 +112,7 @@ const TEAM_SPORT_ZH: Record<string, string> = Object.fromEntries(
 type PrivateTabId = "dashboard" | "friends" | "teams" | "account";
 
 const DEFAULT_FORM = {
-  first_name: "", last_name: "", handle: "", full_name: "", headline: "", location: "", country: "", region: "", bio: "", avatar_url: "", status_tag: "committed", display_sports: [] as string[],
+  first_name: "", last_name: "", handle: "", full_name: "", headline: "", location: "", country: "", region: "", bio: "", athlete_bio: "", avatar_url: "", status_tag: "committed", display_sports: [] as string[],
   is_player: true,
   is_coach: false,
   is_physio: false,
@@ -295,6 +296,7 @@ function ProfilePageContent() {
           country: prof.country ?? "",
           region: prof.region ?? "",
           bio: prof.bio ?? "",
+          athlete_bio: prof.athlete_bio ?? "",
           avatar_url: prof.avatar_url ?? "",
           status_tag: prof.status_tag ?? "committed",
           display_sports: prof.display_sports ?? [],
@@ -433,6 +435,7 @@ function ProfilePageContent() {
         ? Number(editForm.coach_teaching_experience_years)
         : null,
       bio: editForm.bio,
+      athlete_bio: editForm.athlete_bio || null,
       avatar_url: finalAvatarUrl,
       status_tag: editForm.status_tag,
       display_sports: editForm.display_sports,

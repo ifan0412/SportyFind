@@ -17,8 +17,8 @@ export function DashboardTab({ editForm, isSaving, onFieldChange, onSave }: Dash
           <span>👤</span> 運動員 Bio
         </h3>
         <RichTextEditor
-          value={editForm.bio || ""}
-          onChange={(html) => onFieldChange("bio", html)}
+          value={editForm.athlete_bio || ""}
+          onChange={(html) => onFieldChange("athlete_bio", html)}
           placeholder="介紹你的運動背景、專項風格與目標..."
           variant="compact"
           minHeight="180px"

@@ -36,6 +36,7 @@ interface ProfileRolePreviewProps {
     id: string;
     full_name?: string | null;
     bio?: string | null;
+    athlete_bio?: string | null;
     coach_bio?: string | null;
     is_coach?: boolean | null;
     is_physio?: boolean | null;
@@ -199,7 +200,7 @@ export function ProfileRolePreview({
                 <span>👤</span> 運動員 Bio
               </h3>
               <RichBody
-                html={profile.bio}
+                html={profile.athlete_bio}
                 emptyText="目前尚未填寫運動員簡介。"
                 className="text-sm leading-relaxed"
               />
