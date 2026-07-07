@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { MapPin, Star, AlertCircle, Settings } from "lucide-react";
+import { MapPin, Star, AlertCircle, Settings, Users, GraduationCap, Activity } from "lucide-react";
 import {
   formatDistrictList,
   normalizeDistrictIds,
@@ -109,7 +109,7 @@ export function ProfileRolePreview({
                 : "text-zinc-500 hover:text-white hover:bg-slate-800/50"
             }`}
           >
-            <span className="text-lg md:text-xl mb-0.5">👤</span>
+            <Users className="w-5 h-5 mb-0.5" strokeWidth={2.5} />
             <span className="text-[10px] md:text-xs font-black leading-tight">運動員簡歷</span>
           </button>
         )}
@@ -123,8 +123,8 @@ export function ProfileRolePreview({
                 : "text-zinc-500 hover:text-amber-400 hover:bg-slate-800/50"
             }`}
           >
-            <span className="text-lg md:text-xl mb-0.5">🎓</span>
-            <span className="text-[10px] md:text-xs font-black leading-tight">簡介與專業</span>
+            <GraduationCap className="w-5 h-5 mb-0.5" strokeWidth={2.5} />
+            <span className="text-[10px] md:text-xs font-black leading-tight">教練簡介</span>
           </button>
         )}
         {showPhysio && (
@@ -137,7 +137,7 @@ export function ProfileRolePreview({
                 : "text-zinc-500 hover:text-emerald-400 hover:bg-slate-800/50"
             }`}
           >
-            <span className="text-lg md:text-xl mb-0.5">⚕️</span>
+            <Activity className="w-5 h-5 mb-0.5" strokeWidth={2.5} />
             <span className="text-[10px] md:text-xs font-black leading-tight">運動/物理治療</span>
           </button>
         )}

@@ -1,11 +1,11 @@
 "use client";
 
-import { use, useEffect, useState, useMemo, useCallback } from "react";
+import { use, useEffect, useState, useMemo, useCallback, Suspense } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { BackButton } from "@/components/BackButton";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Mail, Phone, MapPin, X, EyeOff, MessageSquare, Zap, Star, AlertCircle } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Mail, Phone, MapPin, X, EyeOff, MessageSquare, Zap, Star, AlertCircle, Users, GraduationCap, Activity } from "lucide-react";
 import {
   formatDistrictList,
   formatSubdistrictList,
@@ -74,9 +74,19 @@ const StatusBadge = ({ tag, type = "athlete" }: { tag: string | null, type?: "at
 };
 
 export default function PublicProfilePage({ params }: { params: Promise<{ id: string }> }) {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-slate-950 flex items-center justify-center text-zinc-500 font-mono">載入名片中...</div>}>
+      <PublicProfilePageContent params={params} />
+    </Suspense>
+  );
+}
+
+function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
-  const router = useRouter(); 
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnTo = searchParams.get("returnTo");
 
   const [contactModalRole, setContactModalRole] = useState<"coach" | "physio" | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -99,8 +109,11 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
 
   const handleTabChange = (role: TopRole) => {
     setActiveRole(role);
-    if (role === "athlete") router.replace(`/p/${id}`, { scroll: false });
-    else router.replace(`/p/${id}?tab=${role}`, { scroll: false });
+    const q = new URLSearchParams();
+    if (returnTo) q.set("returnTo", returnTo);
+    if (role !== "athlete") q.set("tab", role);
+    const qs = q.toString();
+    router.replace(`/p/${id}${qs ? `?${qs}` : ""}`, { scroll: false });
   };
 
   const refetchFriendshipStatus = useCallback(async (uid: string) => {
@@ -309,7 +322,7 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
   return (
     <div className="bg-slate-950 min-h-screen text-zinc-200 font-sans selection:bg-blue-500/30">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <BackButton label="返回" />
+        <BackButton label={returnTo ? "返回上一頁" : "返回"} href={returnTo || undefined} />
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mt-4">
           <div className="lg:col-span-4 xl:col-span-3 space-y-6">
@@ -364,13 +377,13 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
           <div className="lg:col-span-8 xl:col-span-9 flex flex-col">
             <div className="bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 p-1 rounded-2xl flex w-full sticky top-16 z-30 mb-8 shadow-sm overflow-x-auto [&::-webkit-scrollbar]:hidden">
               {hasPublicPlayer && (
-                <button onClick={() => handleTabChange("athlete")} className={`flex-1 flex flex-col items-center justify-center py-2 px-3 rounded-xl transition-all duration-300 min-w-[100px] cursor-pointer ${activeRole === "athlete" ? "bg-slate-50 text-black shadow-lg scale-[1.02]" : "text-zinc-500 hover:text-white hover:bg-slate-800/50"}`}><span className="text-lg md:text-xl mb-0.5">👤</span><span className="text-[10px] md:text-xs font-black leading-tight">運動員簡歷</span></button>
+                <button onClick={() => handleTabChange("athlete")} className={`flex-1 flex flex-col items-center justify-center py-2 px-3 rounded-xl transition-all duration-300 min-w-[100px] cursor-pointer ${activeRole === "athlete" ? "bg-slate-50 text-black shadow-lg scale-[1.02]" : "text-zinc-500 hover:text-white hover:bg-slate-800/50"}`}><Users className="w-5 h-5 mb-0.5" strokeWidth={2.5} /><span className="text-[10px] md:text-xs font-black leading-tight">運動員簡歷</span></button>
               )}
               {hasPublicCoach && (
-                <button onClick={() => handleTabChange("coach")} className={`flex-1 flex flex-col items-center justify-center py-2 px-3 rounded-xl transition-all duration-300 min-w-[100px] cursor-pointer ${activeRole === "coach" ? "bg-amber-500 text-black shadow-lg scale-[1.02]" : "text-zinc-500 hover:text-amber-400 hover:bg-slate-800/50"}`}><span className="text-lg md:text-xl mb-0.5">🎓</span><span className="text-[10px] md:text-xs font-black leading-tight">簡介與專業</span></button>
+                <button onClick={() => handleTabChange("coach")} className={`flex-1 flex flex-col items-center justify-center py-2 px-3 rounded-xl transition-all duration-300 min-w-[100px] cursor-pointer ${activeRole === "coach" ? "bg-amber-500 text-black shadow-lg scale-[1.02]" : "text-zinc-500 hover:text-amber-400 hover:bg-slate-800/50"}`}><GraduationCap className="w-5 h-5 mb-0.5" strokeWidth={2.5} /><span className="text-[10px] md:text-xs font-black leading-tight">教練簡介</span></button>
               )}
               {hasPublicPhysio && (
-                <button onClick={() => handleTabChange("physio")} className={`flex-1 flex flex-col items-center justify-center py-2 px-3 rounded-xl transition-all duration-300 min-w-[100px] cursor-pointer ${activeRole === "physio" ? "bg-emerald-500 text-black shadow-lg scale-[1.02]" : "text-zinc-500 hover:text-emerald-400 hover:bg-slate-800/50"}`}><span className="text-lg md:text-xl mb-0.5">⚕️</span><span className="text-[10px] md:text-xs font-black leading-tight">運動/物理治療</span></button>
+                <button onClick={() => handleTabChange("physio")} className={`flex-1 flex flex-col items-center justify-center py-2 px-3 rounded-xl transition-all duration-300 min-w-[100px] cursor-pointer ${activeRole === "physio" ? "bg-emerald-500 text-black shadow-lg scale-[1.02]" : "text-zinc-500 hover:text-emerald-400 hover:bg-slate-800/50"}`}><Activity className="w-5 h-5 mb-0.5" strokeWidth={2.5} /><span className="text-[10px] md:text-xs font-black leading-tight">運動/物理治療</span></button>
               )}
             </div>
 

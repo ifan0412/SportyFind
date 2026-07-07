@@ -47,6 +47,123 @@ interface NotificationBellProps {
   router: any;
 }
 
+interface ProfileFlags {
+  is_coach: boolean;
+  is_physio: boolean;
+}
+
+function ProfileNavMenu({
+  pathname,
+  profileFlags,
+  onNavigate,
+  variant,
+}: {
+  pathname: string;
+  profileFlags: ProfileFlags;
+  onNavigate?: () => void;
+  variant: "desktop" | "mobile-inline" | "mobile-menu";
+}) {
+  const isProfileActive = pathname === "/profile" || pathname.startsWith("/profile/");
+  const isCoachActive = pathname.startsWith("/dashboard/coach");
+  const isPhysioActive = pathname.startsWith("/dashboard/physio");
+
+  const profileIconClass = cn(
+    "relative flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 transition-all duration-200 bg-slate-900",
+    isProfileActive
+      ? "border-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.3)] text-blue-400"
+      : "border-slate-700 text-slate-400 hover:border-slate-400 hover:text-white"
+  );
+
+  const menuItemClass = (active: boolean) =>
+    cn(
+      "flex items-center gap-2.5 w-full px-3 py-2.5 text-sm font-bold rounded-xl transition-colors text-left",
+      active ? "bg-blue-600/15 text-blue-400" : "text-zinc-300 hover:bg-slate-800 hover:text-white"
+    );
+
+  if (variant === "mobile-inline") {
+    return (
+      <Link href="/profile" onClick={onNavigate} className={profileIconClass} title="我的檔案">
+        <User className="size-4" />
+      </Link>
+    );
+  }
+
+  if (variant === "mobile-menu") {
+    return (
+      <>
+        <li>
+          <Link
+            href="/profile"
+            className={cn(
+              "flex items-center gap-3 rounded-md px-3 py-3 text-sm font-bold transition-colors",
+              isProfileActive ? "text-blue-400" : "text-slate-400 hover:bg-slate-800 hover:text-white"
+            )}
+            onClick={onNavigate}
+          >
+            <User className="size-4" /> 個人檔案管理
+          </Link>
+        </li>
+        {profileFlags.is_coach && (
+          <li>
+            <Link
+              href="/dashboard/coach"
+              className={cn(
+                "flex items-center gap-3 rounded-md px-3 py-3 text-sm font-bold transition-colors",
+                isCoachActive ? "text-amber-400" : "text-slate-400 hover:bg-slate-800 hover:text-white"
+              )}
+              onClick={onNavigate}
+            >
+              <GraduationCap className="size-4" /> 教練後台管理
+            </Link>
+          </li>
+        )}
+        {profileFlags.is_physio && (
+          <li>
+            <Link
+              href="/dashboard/physio"
+              className={cn(
+                "flex items-center gap-3 rounded-md px-3 py-3 text-sm font-bold transition-colors",
+                isPhysioActive ? "text-emerald-400" : "text-slate-400 hover:bg-slate-800 hover:text-white"
+              )}
+              onClick={onNavigate}
+            >
+              <Activity className="size-4" /> 復健後台管理
+            </Link>
+          </li>
+        )}
+      </>
+    );
+  }
+
+  return (
+    <div className="relative group">
+      <Link href="/profile" className={profileIconClass} title="我的檔案">
+        <User className="size-4" />
+      </Link>
+      <div className="absolute right-0 top-full pt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+        <div className="w-52 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden p-1.5">
+          <Link href="/profile" className={menuItemClass(isProfileActive)}>
+            <User className="size-4 shrink-0" />
+            我的檔案
+          </Link>
+          {profileFlags.is_coach && (
+            <Link href="/dashboard/coach" className={menuItemClass(isCoachActive)}>
+              <GraduationCap className="size-4 shrink-0" />
+              教練後台管理
+            </Link>
+          )}
+          {profileFlags.is_physio && (
+            <Link href="/dashboard/physio" className={menuItemClass(isPhysioActive)}>
+              <Activity className="size-4 shrink-0" />
+              復健後台管理
+            </Link>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function NotificationBell({
   notifications,
   onMarkAllRead,
@@ -234,6 +351,7 @@ export function Navbar() {
 
   const [mobileOpen, setMobileOpen] = useState(false);
   const [user, setUser]             = useState<SupabaseAuthUser | null>(null);
+  const [profileFlags, setProfileFlags] = useState<ProfileFlags>({ is_coach: false, is_physio: false });
   const [notifications, setNotifications] = useState<Notification[]>([]);
 
   const processingIds = useRef<Set<string>>(new Set());
@@ -256,6 +374,18 @@ export function Navbar() {
 
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
+  const fetchProfileFlags = useCallback(async (uid: string) => {
+    const { data } = await supabase
+      .from("profiles")
+      .select("is_coach, is_physio")
+      .eq("id", uid)
+      .maybeSingle();
+    setProfileFlags({
+      is_coach: !!data?.is_coach,
+      is_physio: !!data?.is_physio,
+    });
+  }, [supabase]);
+
   const fetchNotifications = useCallback(async (uid: string) => {
     const { data } = await supabase
       .from("notifications")
@@ -273,19 +403,25 @@ export function Navbar() {
     const init = async () => {
       const { data } = await supabase.auth.getUser();
       setUser(data.user ?? null);
-      if (data.user) await fetchNotifications(data.user.id);
+      if (data.user) {
+        await Promise.all([fetchNotifications(data.user.id), fetchProfileFlags(data.user.id)]);
+      } else {
+        setProfileFlags({ is_coach: false, is_physio: false });
+      }
     };
     init();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setUser(session?.user ?? null);
-      if (event === "SIGNED_IN" && session?.user) await fetchNotifications(session.user.id);
-      if (event === "SIGNED_OUT") { setNotifications([]); }
+      if (event === "SIGNED_IN" && session?.user) {
+        await Promise.all([fetchNotifications(session.user.id), fetchProfileFlags(session.user.id)]);
+      }
+      if (event === "SIGNED_OUT") { setNotifications([]); setProfileFlags({ is_coach: false, is_physio: false }); }
       if (event === "SIGNED_IN" || event === "SIGNED_OUT") router.refresh();
     });
 
     return () => subscription.unsubscribe();
-  }, [supabase, router, fetchNotifications]);
+  }, [supabase, router, fetchNotifications, fetchProfileFlags]);
 
   useEffect(() => {
     let channel: ReturnType<typeof supabase.channel> | null = null;
@@ -480,18 +616,7 @@ export function Navbar() {
               >
                 <Calendar className="size-4" />
               </Link>
-              <Link
-                href="/profile"
-                className={cn(
-                  "relative flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 transition-all duration-200 bg-slate-900",
-                  pathname === "/profile" 
-                    ? "border-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.3)] text-blue-400" 
-                    : "border-slate-700 text-slate-400 hover:border-slate-400 hover:text-white"
-                )}
-                title="個人檔案"
-              >
-                <User className="size-4" />
-              </Link>
+              <ProfileNavMenu pathname={pathname} profileFlags={profileFlags} variant="desktop" />
               <button
                 onClick={handleLogout}
                 className="flex items-center justify-center p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-colors"
@@ -513,7 +638,12 @@ export function Navbar() {
         </ul>
 
         <div className="flex items-center gap-2 md:hidden">
-          {user && <NotificationBell {...bellProps} />}
+          {user && (
+            <>
+              <ProfileNavMenu pathname={pathname} profileFlags={profileFlags} variant="mobile-inline" />
+              <NotificationBell {...bellProps} />
+            </>
+          )}
           <button
             type="button"
             className="inline-flex size-9 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
@@ -579,18 +709,12 @@ export function Navbar() {
                     <Calendar className="size-4" /> 我的賽事 / 行程中心
                   </Link>
                 </li>
-                <li>
-                  <Link
-                    href="/profile"
-                    className={cn(
-                      "flex items-center gap-3 rounded-md px-3 py-3 text-sm font-bold transition-colors",
-                      pathname === "/profile" ? "text-blue-400" : "text-slate-400 hover:bg-slate-800 hover:text-white",
-                    )}
-                    onClick={() => setMobileOpen(false)}
-                  >
-                    <User className="size-4" /> 個人檔案 / 管理
-                  </Link>
-                </li>
+                <ProfileNavMenu
+                  pathname={pathname}
+                  profileFlags={profileFlags}
+                  variant="mobile-menu"
+                  onNavigate={() => setMobileOpen(false)}
+                />
                 <li>
                   <button
                     onClick={() => { setMobileOpen(false); handleLogout(); }}

@@ -1,11 +1,18 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, Suspense } from "react";
 import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { BackButton } from "@/components/BackButton";
 import { SportFilterModal } from "@/components/SportFilterModal";
 import { sportMatchesFilter } from "@/lib/sports-categories";
+import {
+  getPositionOptionsForSports,
+  metadataMatchesPositionFilter,
+  positionsFromMetadata,
+} from "@/lib/sport-positions";
+import { profileLink } from "@/lib/profile-links";
+import { useProfileReturnTo } from "@/lib/use-profile-return-to";
 
 interface ProfileRow {
   id: string;
@@ -24,6 +31,7 @@ interface ProfileRow {
   is_physio: boolean | null;
   physio_status: string | null;
   all_sport_names?: string[];
+  user_sports?: { sports?: { name: string } | null; metadata?: Record<string, unknown> }[];
 }
 
 function PlayerStatusBadge({ tag }: { tag: string | null }) {
@@ -37,7 +45,16 @@ function PlayerStatusBadge({ tag }: { tag: string | null }) {
 }
 
 export default function NetworkPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-slate-950 flex items-center justify-center text-zinc-500 font-mono text-sm">搜尋體育人才中...</div>}>
+      <NetworkPageContent />
+    </Suspense>
+  );
+}
+
+function NetworkPageContent() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+  const returnTo = useProfileReturnTo();
 
   const [profiles, setProfiles] = useState<ProfileRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -45,7 +62,15 @@ export default function NetworkPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("");
   const [selectedSports, setSelectedSports] = useState<string[]>([]);
+  const [selectedPositions, setSelectedPositions] = useState<string[]>([]);
+  const [isPositionFilterExpanded, setIsPositionFilterExpanded] = useState(false);
   const [isSportModalOpen, setIsSportModalOpen] = useState(false);
+
+  const positionOptions = useMemo(
+    () => getPositionOptionsForSports(selectedSports),
+    [selectedSports]
+  );
+  const showPositionFilter = selectedSports.length > 0 && positionOptions.length > 0;
 
   useEffect(() => {
     const fetchData = async () => {
@@ -58,6 +83,7 @@ export default function NetworkPage() {
           `
           id, full_name, location, headline, bio, avatar_url, status_tag, display_sports, is_coach, coach_status, is_physio, physio_status,
           height_cm, weight_kg, show_physical_stats, user_sports (
+            metadata,
             sports ( name )
           )
         `
@@ -85,13 +111,25 @@ export default function NetworkPage() {
   }, [supabase]);
 
   const filteredProfiles = profiles.filter((p) => {
-    const matchSearch = (p.full_name || "").toLowerCase().includes(searchTerm.toLowerCase()) || (p.location || "").toLowerCase().includes(searchTerm.toLowerCase());
+    const positionLabels = (p.user_sports || []).flatMap((us) => positionsFromMetadata(us.metadata));
+    const matchSearch =
+      (p.full_name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (p.location || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      positionLabels.some((pos) => pos.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchSport =
       selectedSports.length === 0
         ? true
         : (p.all_sport_names || []).some((name) => sportMatchesFilter(name, selectedSports));
+    const matchPosition =
+      !showPositionFilter || selectedPositions.length === 0
+        ? true
+        : (p.user_sports || []).some(
+            (us) =>
+              sportMatchesFilter(us.sports?.name, selectedSports) &&
+              metadataMatchesPositionFilter(us.metadata, selectedPositions)
+          );
     const matchStatus = filterStatus ? p.status_tag === filterStatus : true;
-    return matchSearch && matchSport && matchStatus;
+    return matchSearch && matchSport && matchPosition && matchStatus;
   });
 
   return (
@@ -122,6 +160,82 @@ export default function NetworkPage() {
             <button onClick={() => setFilterStatus("recruiting")} className={`whitespace-nowrap px-4 py-2.5 rounded-xl text-xs font-bold border transition cursor-pointer ${filterStatus === "recruiting" ? "bg-slate-100 border-slate-200 text-black" : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"}`}>🟢 尋找新血</button>
           </div>
         </div>
+
+        {showPositionFilter && (
+          <div className="mb-6 px-1 animate-fadeIn">
+            <div className="bg-slate-900/50 border border-slate-800 rounded-2xl overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setIsPositionFilterExpanded((v) => !v)}
+                className={`w-full flex items-center justify-between gap-3 px-4 py-3 text-left transition cursor-pointer ${
+                  isPositionFilterExpanded || selectedPositions.length > 0
+                    ? "bg-blue-600/5 border-b border-slate-800/80"
+                    : "hover:bg-slate-900/80"
+                }`}
+              >
+                <span className="text-sm font-bold text-zinc-300">
+                  場上位置{" "}
+                  <span className={selectedPositions.length > 0 ? "text-blue-400" : "text-zinc-500"}>
+                    {selectedPositions.length > 0 ? `(${selectedPositions.length})` : "(全部)"}
+                  </span>
+                </span>
+                <span className="flex items-center gap-2 shrink-0">
+                  {selectedPositions.length > 0 && (
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedPositions([]);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setSelectedPositions([]);
+                        }
+                      }}
+                      className="text-[10px] font-bold text-blue-400 hover:text-blue-300 transition"
+                    >
+                      清除
+                    </span>
+                  )}
+                  <span className={`text-[10px] text-zinc-500 transition-transform duration-200 ${isPositionFilterExpanded ? "rotate-180" : ""}`}>
+                    ▼
+                  </span>
+                </span>
+              </button>
+
+              {isPositionFilterExpanded && (
+                <div className="px-4 pb-3.5 pt-3">
+                  <div className="flex flex-wrap gap-2">
+                    {positionOptions.map((pos) => {
+                      const active = selectedPositions.includes(pos);
+                      return (
+                        <button
+                          key={pos}
+                          type="button"
+                          onClick={() =>
+                            setSelectedPositions((prev) =>
+                              active ? prev.filter((p) => p !== pos) : [...prev, pos]
+                            )
+                          }
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                            active
+                              ? "bg-blue-600/20 border-blue-500 text-blue-300"
+                              : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"
+                          }`}
+                        >
+                          {pos}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         <div>
           <div className="mb-4 px-1 flex justify-between items-center">
@@ -175,7 +289,7 @@ export default function NetworkPage() {
                         p.display_sports.slice(0, 3).map((sport: string) => <span key={sport} className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-blue-950/40 text-blue-300 border border-blue-500/20">{sport}</span>)
                       ) : <span className="text-[10px] text-zinc-600 italic">尚未勾選專項</span>}
                     </div>
-                    <Link href={`/p/${p.id}`} className="block w-full py-2.5 rounded-xl bg-slate-800 hover:bg-blue-600 text-zinc-200 hover:text-white text-xs font-black text-center transition duration-200 shadow active:scale-95">查看完整檔案</Link>
+                    <Link href={profileLink(p.id, returnTo)} className="block w-full py-2.5 rounded-xl bg-slate-800 hover:bg-blue-600 text-zinc-200 hover:text-white text-xs font-black text-center transition duration-200 shadow active:scale-95">查看完整檔案</Link>
                   </div>
                 </div>
               ))}
@@ -184,7 +298,7 @@ export default function NetworkPage() {
         </div>
       </div>
 
-      <SportFilterModal isOpen={isSportModalOpen} onClose={() => setIsSportModalOpen(false)} selectedSports={selectedSports} onApply={setSelectedSports} />
+      <SportFilterModal isOpen={isSportModalOpen} onClose={() => setIsSportModalOpen(false)} selectedSports={selectedSports} onApply={(sports) => { setSelectedSports(sports); setSelectedPositions([]); setIsPositionFilterExpanded(false); }} />
     </div>
   );
 }

@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
+import { profileLink } from "@/lib/profile-links";
 import {
   formatDistrictList,
   formatSubdistrictList,
@@ -21,6 +22,7 @@ import { normalizePhysioServiceTypes } from "@/lib/physio-service-types";
 
 export default function PhysioServiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: serviceId } = use(params);
+  const returnTo = `/physio/services/${serviceId}`;
   const router = useRouter();
 
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
@@ -372,13 +374,17 @@ export default function PhysioServiceDetailPage({ params }: { params: Promise<{ 
                 reviews.map(rev => (
                   <div key={rev.id} className="pt-4 first:pt-0 space-y-2">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2.5">
-                        <div
-                          className="w-8 h-8 rounded-full bg-slate-800 bg-cover bg-center border border-slate-700"
-                          style={rev.patient?.avatar_url ? { backgroundImage: `url(${rev.patient.avatar_url})` } : undefined}
-                        />
-                        <div>
-                          <div className="text-xs font-bold text-white">{rev.patient?.full_name || "運動員"}</div>
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <Link href={profileLink(rev.patient?.id || rev.patient_id, returnTo)} className="shrink-0">
+                          <div
+                            className="w-8 h-8 rounded-full bg-slate-800 bg-cover bg-center border border-slate-700"
+                            style={rev.patient?.avatar_url ? { backgroundImage: `url(${rev.patient.avatar_url})` } : undefined}
+                          />
+                        </Link>
+                        <div className="min-w-0">
+                          <Link href={profileLink(rev.patient?.id || rev.patient_id, returnTo)} className="text-xs font-bold text-white hover:text-emerald-400 transition block truncate">
+                            {rev.patient?.full_name || "運動員"}
+                          </Link>
                           <div className="text-[10px] text-zinc-500">{new Date(rev.created_at).toLocaleDateString()}</div>
                         </div>
                       </div>

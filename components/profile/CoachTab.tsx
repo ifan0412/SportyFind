@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
+import { profileLink } from "@/lib/profile-links";
+import { useProfileReturnTo } from "@/lib/use-profile-return-to";
 import { RichTextEditor } from "@/components/admin/RichTextEditor";
 import { RichBody } from "@/components/content/RichBody";
 import { BIO_CHAR_SUGGESTED_MAX, BIO_CHAR_SUGGESTED_RANGE } from "@/lib/content/body";
@@ -36,6 +38,7 @@ function CoachEnquiriesInbox({ fallbackCoachId }: { fallbackCoachId?: string }) 
   const [leads, setLeads] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const supabase = createSupabaseBrowserClient();
+  const returnTo = useProfileReturnTo();
 
   useEffect(() => {
     const fetchLeads = async () => {
@@ -111,12 +114,12 @@ function CoachEnquiriesInbox({ fallbackCoachId }: { fallbackCoachId?: string }) 
           leads.map(lead => (
             <div key={lead.id} className="p-4 rounded-2xl bg-slate-950 border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition hover:border-slate-700">
               <div className="flex items-start gap-3.5 min-w-0">
-                <Link href={`/p/${lead.student?.id || lead.student_id}`} className="shrink-0 cursor-pointer">
+                <Link href={profileLink(lead.student?.id || lead.student_id, returnTo)} className="shrink-0 cursor-pointer">
                   <div className="w-11 h-11 rounded-full bg-slate-800 bg-cover bg-center border border-slate-700" style={lead.student?.avatar_url ? { backgroundImage: `url(${lead.student.avatar_url})` } : undefined} />
                 </Link>
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <Link href={`/p/${lead.student?.id || lead.student_id}`} className="font-bold text-sm text-white hover:text-amber-400 transition cursor-pointer">
+                    <Link href={profileLink(lead.student?.id || lead.student_id, returnTo)} className="font-bold text-sm text-white hover:text-amber-400 transition cursor-pointer">
                       {lead.student?.full_name || "未知運動員"}
                     </Link>
                     <span className="text-[10px] px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20 font-bold">
@@ -153,6 +156,7 @@ function CoachServicesManager() {
   const [services, setServices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const supabase = createSupabaseBrowserClient();
+  const returnTo = useProfileReturnTo();
 
   const [selectedService, setSelectedService] = useState<any | null>(null);
   const [detailTab, setDetailTab] = useState<"info" | "reviews" | "media" | "leads">("info");
@@ -625,11 +629,13 @@ function CoachServicesManager() {
               ) : (
                 courseReviews.map(rev => (
                   <div key={rev.id} className="bg-slate-900/60 border border-slate-800 p-4 rounded-2xl flex items-start justify-between gap-4">
-                    <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-full bg-slate-800 bg-cover bg-center shrink-0 border border-slate-700" style={rev.student?.avatar_url ? { backgroundImage: `url(${rev.student.avatar_url})` } : undefined} />
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-sm text-white">{rev.student?.full_name || "學員"}</span>
+                    <div className="flex items-start gap-3 min-w-0">
+                      <Link href={profileLink(rev.student?.id || rev.student_id, returnTo)} className="shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-slate-800 bg-cover bg-center shrink-0 border border-slate-700" style={rev.student?.avatar_url ? { backgroundImage: `url(${rev.student.avatar_url})` } : undefined} />
+                      </Link>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Link href={profileLink(rev.student?.id || rev.student_id, returnTo)} className="font-bold text-sm text-white hover:text-amber-400 transition">{rev.student?.full_name || "學員"}</Link>
                           <span className="text-xs text-amber-400 font-black">{"★".repeat(rev.rating)}</span>
                         </div>
                         <p className="text-xs text-zinc-300 mt-1">{rev.comment}</p>
@@ -693,10 +699,12 @@ function CoachServicesManager() {
               ) : (
                 courseLeads.map(lead => (
                   <div key={lead.id} className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 flex items-center justify-between gap-4">
-                    <div className="flex items-start gap-3">
-                      <div className="w-9 h-9 rounded-full bg-slate-800 bg-cover bg-center shrink-0 border border-slate-700" style={lead.student?.avatar_url ? { backgroundImage: `url(${lead.student.avatar_url})` } : undefined} />
-                      <div>
-                        <div className="font-bold text-sm text-white">{lead.student?.full_name || "學員"}</div>
+                    <div className="flex items-start gap-3 min-w-0">
+                      <Link href={profileLink(lead.student?.id || lead.student_id, returnTo)} className="shrink-0">
+                        <div className="w-9 h-9 rounded-full bg-slate-800 bg-cover bg-center shrink-0 border border-slate-700" style={lead.student?.avatar_url ? { backgroundImage: `url(${lead.student.avatar_url})` } : undefined} />
+                      </Link>
+                      <div className="min-w-0">
+                        <Link href={profileLink(lead.student?.id || lead.student_id, returnTo)} className="font-bold text-sm text-white hover:text-amber-400 transition block">{lead.student?.full_name || "學員"}</Link>
                         <p className="text-xs text-zinc-300 mt-1 bg-slate-950 p-2.5 rounded-lg border border-slate-800">💬 {lead.message}</p>
                         <span className="text-[10px] text-zinc-500 mt-1 block">{new Date(lead.created_at).toLocaleString()}</span>
                       </div>

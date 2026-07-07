@@ -9,6 +9,8 @@ export type FieldDef = {
     options?: string[]; 
     placeholder?: string;
     unit?: string;
+    optional?: boolean;
+    multi?: boolean;
   };
   
   // 共通的球齡選項
@@ -28,7 +30,7 @@ export type FieldDef = {
   export const PRO_SPORT_SCHEMA: Record<string, FieldDef[]> = {
     "Volleyball": [
       EXPERIENCE_FIELD,
-      { key: "position", label: "場上主打位置", type: "select", options: ["主攻手 (OH - Outside Hitter)", "副攻手 (OPP - Opposite)", "快攻手/攔中 (MB - Middle Blocker)", "舉球員/二傳 (S - Setter)", "自由球員 (L - Libero)"] },
+      { key: "positions", label: "場上主打位置（可多選）", type: "select", multi: true, options: ["主攻手 (OH - Outside Hitter)", "副攻手 (OPP - Opposite)", "快攻手/攔中 (MB - Middle Blocker)", "舉球員/二傳 (S - Setter)", "自由球員 (L - Libero)"] },
       { key: "spike_reach", label: "最高扣球打點 (Spike Reach)", type: "number", placeholder: "例: 310", unit: "cm" },
       { key: "block_reach", label: "最高攔網高度 (Block Height)", type: "number", placeholder: "例: 295", unit: "cm" },
       { key: "dominant_hand", label: "扣球慣用手", type: "select", options: ["右手 (Right)", "左手 (Left / 左撇優勢)"] }
@@ -36,7 +38,7 @@ export type FieldDef = {
   
     "Basketball": [
       EXPERIENCE_FIELD,
-      { key: "position", label: "場上定位", type: "select", options: ["PG 控球後衛", "SG 得分後衛", "SF 小前鋒", "PF 大前鋒", "C 中鋒"] },
+      { key: "positions", label: "場上定位（可多選）", type: "select", multi: true, options: ["PG 控球後衛", "SG 得分後衛", "SF 小前鋒", "PF 大前鋒", "C 中鋒"] },
       { key: "playstyle", label: "打法特色", type: "select", options: ["切入破壞 (Slashing)", "3&D 3分防守鎖", "組織串聯 (Playmaker)", "禁區低位單打 (Post Scorer)", "全能進攻 (Scoring Machine)"] },
       { key: "wingspan_cm", label: "臂展 (Wingspan)", type: "number", placeholder: "例: 195", unit: "cm" }
     ],
@@ -57,7 +59,7 @@ export type FieldDef = {
   
     "Soccer / Football": [
       EXPERIENCE_FIELD,
-      { key: "position", label: "擅長位置", type: "select", options: ["門將 (GK)", "中後衛 (CB)", "邊後衛/翼衛 (FB/WB)", "防守中場 (CDM)", "組織中場/前腰 (CM/CAM)", "邊鋒 (Winger)", "前鋒/中鋒 (ST/CF)"] },
+      { key: "positions", label: "擅長位置（可多選）", type: "select", multi: true, options: ["門將 (GK)", "中後衛 (CB)", "邊後衛/翼衛 (FB/WB)", "防守中場 (CDM)", "組織中場/前腰 (CM/CAM)", "邊鋒 (Winger)", "前鋒/中鋒 (ST/CF)"] },
       { key: "preferred_foot", label: "慣用腳", type: "select", options: ["右腳強勢", "左腳強勢", "左右開弓 (逆足能力強)"] },
       { key: "league_experience", label: "參賽經歷", type: "select", options: ["休閒聯誼賽 (7人/11人)", "業餘聯賽 (丙組/公開組)", "半職業 / 校隊代表", "職業等級"] }
     ],
@@ -65,8 +67,8 @@ export type FieldDef = {
     "Running / Marathon": [
       EXPERIENCE_FIELD,
       { key: "preferred_distance", label: "專攻距離", type: "select", options: ["短距離/衝刺 (5K/10K)", "半程馬拉松 (Half Marathon 21K)", "全程馬拉松 (Full Marathon 42K)", "越野跑 / 超馬 (Trail / Ultra)"] },
-      { key: "marathon_pb", label: "馬拉松 PB (最佳成績)", type: "text", placeholder: "例: Sub 3:30 或 4:15:00 (若無可留空)" },
-      { key: "target_pace", label: "平時練跑平均配速", type: "text", placeholder: "例: 5'15'' / km" }
+      { key: "marathon_pb", label: "馬拉松 PB (最佳成績)", type: "text", placeholder: "例: Sub 3:30 或 4:15:00 (若無可留空)", optional: true },
+      { key: "target_pace", label: "平時練跑平均配速", type: "text", placeholder: "例: 5'15'' / km", optional: true }
     ],
   
     "Gym / Fitness": [
@@ -74,11 +76,17 @@ export type FieldDef = {
       { key: "training_focus", label: "主要訓練流派", type: "select", options: ["健美 / 肌肥大 (Bodybuilding)", "健力三項 (Powerlifting SBD)", "街頭健身 / 自體重 (Calisthenics)", "功能性 / CrossFit (Functional)"] },
       { key: "frequency", label: "一週訓練頻率", type: "select", options: ["1 - 2 次 (維持體能)", "3 - 4 次 (規律精進)", "5 次或以上 (重度訓練/選手)"] }
     ],
+
+    "Pickleball": [
+      EXPERIENCE_FIELD,
+      { key: "positions", label: "場上定位（可多選）", type: "select", multi: true, options: ["近網 (Kitchen)", "底線進攻", "過渡區", "全能雙打"] },
+      { key: "playstyle", label: "球風特色", type: "select", options: ["穩定控點 (Control)", "進攻壓制 (Aggressive)", "防守反擊 (Counter)", "網前靈活 (Net Play)"] }
+    ],
   
     "default": [
       EXPERIENCE_FIELD,
       { key: "general_level", label: "自評實力程度", type: "select", options: ["入門新手 (Beginner)", "具備基礎/休閒玩家 (Intermediate)", "高階競爭者 (Advanced)", "退役或現役選手 (Pro/Competitor)"] },
-      { key: "highlight_skill", label: "特殊招式或備註", type: "text", placeholder: "例: 擅長反手拍、具備教練執照等..." }
+      { key: "highlight_skill", label: "特殊招式或備註", type: "text", placeholder: "例: 擅長反手拍、具備教練執照等...", optional: true }
     ]
   };
 
@@ -90,7 +98,7 @@ const SCHEMA_BY_SLUG: Record<string, FieldDef[]> = {
   soccer: PRO_SPORT_SCHEMA["Soccer / Football"],
   running: PRO_SPORT_SCHEMA["Running / Marathon"],
   gym: PRO_SPORT_SCHEMA["Gym / Fitness"],
-  pickleball: PRO_SPORT_SCHEMA.default,
+  pickleball: PRO_SPORT_SCHEMA["Pickleball"],
   boxing: PRO_SPORT_SCHEMA.default,
   yoga: PRO_SPORT_SCHEMA.default,
 };

@@ -14,11 +14,13 @@ export function QualificationBadges({
   accent = "amber",
   size = "sm",
   max = 4,
+  align = "center",
 }: {
   tags: string[];
   accent?: "amber" | "emerald" | "blue";
   size?: "xs" | "sm";
   max?: number;
+  align?: "left" | "center";
 }) {
   const unique = [...new Set(tags.filter(Boolean))];
   if (!unique.length) return null;
@@ -28,7 +30,7 @@ export function QualificationBadges({
   const style = accentStyles[accent];
 
   return (
-    <div className="flex flex-wrap items-center justify-center gap-1.5">
+    <div className={`flex flex-wrap items-center gap-1.5 ${align === "left" ? "justify-start" : "justify-center"}`}>
       {shown.map((tag) => (
         <span
           key={tag}

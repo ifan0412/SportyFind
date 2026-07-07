@@ -2,14 +2,15 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { 
-  Calendar, MapPin, Users, Shield, Trophy, Search, 
-  Plus, Loader2, User as UserIcon, Filter, Clock
+import {
+  Calendar, MapPin, Shield, Trophy,
+  Plus, Loader2, User as UserIcon, Clock,
 } from "lucide-react";
 import Link from "next/link";
-import { SPORT_CATEGORIES, getSportCategory, sportMatchesFilter } from "@/lib/sports-categories";
+import { getSportCategory, sportMatchesFilter } from "@/lib/sports-categories";
 import { SportFilterModal } from "@/components/SportFilterModal";
 import { LocationFilterModal } from "@/components/LocationFilterModal";
+import { BackButton } from "@/components/BackButton";
 import {
   districtsForFilterModal,
   formatDistrictList,
@@ -34,8 +35,7 @@ export default function EventsLobbyPage() {
 
   const [events, setEvents] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  
-  // 篩選器狀態
+
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSports, setSelectedSports] = useState<string[]>([]);
   const [isSportModalOpen, setIsSportModalOpen] = useState(false);
@@ -57,7 +57,6 @@ export default function EventsLobbyPage() {
           creator_profile:profiles!creator_id (id, full_name, avatar_url),
           event_registrations (id, status, companion_count)
         `)
-        // 僅撈取尚未開賽的活動，時間過期自動下架
         .gte("start_time", new Date().toISOString())
         .order("start_time", { ascending: true });
 
@@ -99,7 +98,7 @@ export default function EventsLobbyPage() {
       const matchTeamZh = ev.organizer_team?.name_zh?.toLowerCase().includes(q);
       const matchTeamEn = ev.organizer_team?.name_en?.toLowerCase().includes(q);
       const matchCreator = ev.creator_profile?.full_name?.toLowerCase().includes(q);
-      
+
       if (!matchTitle && !matchLocation && !matchTeamZh && !matchTeamEn && !matchCreator) {
         return false;
       }
@@ -129,21 +128,20 @@ export default function EventsLobbyPage() {
   };
 
   return (
-    <div className="bg-slate-950 min-h-screen py-10 px-4 sm:px-6 lg:px-8 text-white">
-      <div className="max-w-6xl mx-auto space-y-8">
-        
-        {/* 頂部標題與按鈕列 */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-6">
+    <div className="bg-slate-950 min-h-screen text-zinc-200 font-sans selection:bg-blue-500/30 pb-24 relative">
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10">
+        <BackButton label="返回上一頁" />
+
+        <div className="mb-6 md:mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-4 text-center md:text-left mt-2">
           <div>
-            <h1 className="text-2xl sm:text-4xl font-black tracking-tight flex items-center gap-3">
-              <Trophy className="w-8 h-8 text-amber-500" /> 運動約戰大廳
+            <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight mb-2">
+              運動約戰大廳 🏆
             </h1>
-            <p className="text-xs sm:text-sm text-zinc-400 mt-1">
+            <p className="text-zinc-400 text-sm md:text-base font-medium">
               尋找即將開打的球隊友誼賽、訓練營或散客休閒團練（已開賽活動將自動下架）
             </p>
           </div>
-
-          <div className="flex items-center gap-3">
+          <div className="flex items-center justify-center sm:justify-end gap-2 shrink-0">
             <Link
               href="/events/my"
               className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs font-bold text-zinc-300 transition cursor-pointer"
@@ -152,111 +150,109 @@ export default function EventsLobbyPage() {
             </Link>
             <Link
               href="/events/new"
-              className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs transition shadow-lg flex items-center gap-1.5 shrink-0 cursor-pointer"
+              className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs transition shadow-lg flex items-center gap-1.5 cursor-pointer"
             >
               <Plus className="w-4 h-4" /> 發起新約戰
             </Link>
           </div>
         </div>
 
-        {/* 篩選控制器大區塊 */}
-        <div className="space-y-4">
-          <div className="relative">
-            <Search className="w-4 h-4 text-zinc-500 absolute left-4 top-1/2 -translate-y-1/2" />
+        <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-800 p-4 md:p-5 rounded-3xl mb-8 shadow-lg flex flex-col md:flex-row gap-4 items-center">
+          <div className="relative w-full md:flex-1">
+            <span className="absolute left-3.5 top-3.5 text-zinc-500">🔍</span>
             <input
               type="text"
-              placeholder="搜尋活動標題、舉辦場地、主辦球隊或發起人姓名..."
+              placeholder="搜尋活動標題、場地、主辦球隊或發起人..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-800 rounded-2xl pl-11 pr-4 py-3.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-blue-500 transition shadow-inner"
+              className="w-full bg-slate-950 border border-slate-700 rounded-xl py-3 pl-10 pr-4 text-sm text-white focus:outline-none focus:border-blue-500 transition"
             />
           </div>
 
-          {/* 運動 + 地區篩選 */}
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setIsSportModalOpen(true)}
-              className={`px-4 py-2 rounded-xl text-xs font-bold border transition shrink-0 cursor-pointer ${
-                selectedSports.length > 0
-                  ? "bg-blue-600/15 border-blue-500 text-blue-300"
-                  : "bg-slate-900 border-slate-800 text-zinc-400 hover:border-slate-700"
-              }`}
-            >
-              項目 {selectedSports.length > 0 ? `(${selectedSports.length})` : "(全部)"}
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsLocationModalOpen(true)}
-              className={`px-4 py-2 rounded-xl text-xs font-bold border transition shrink-0 cursor-pointer ${
-                selectedDistricts.length > 0
-                  ? "bg-amber-600/15 border-amber-500 text-amber-300"
-                  : "bg-slate-900 border-slate-800 text-zinc-400 hover:border-slate-700"
-              }`}
-            >
-              地區 {selectedDistricts.length > 0 ? `(${selectedDistricts.length})` : "(全部)"}
-            </button>
+          <button
+            type="button"
+            onClick={() => setIsSportModalOpen(true)}
+            className={`w-full md:w-auto flex items-center justify-between gap-3 px-5 py-3 rounded-xl border text-sm font-bold transition flex-shrink-0 cursor-pointer ${
+              selectedSports.length > 0
+                ? "bg-blue-600/10 border-blue-500 text-blue-400"
+                : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"
+            }`}
+          >
+            <span>項目 {selectedSports.length > 0 ? `(${selectedSports.length})` : "(全部)"}</span>
+            <span className="text-[10px]">▼</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsLocationModalOpen(true)}
+            className={`w-full md:w-auto flex items-center justify-between gap-3 px-5 py-3 rounded-xl border text-sm font-bold transition flex-shrink-0 cursor-pointer ${
+              selectedDistricts.length > 0
+                ? "bg-blue-600/10 border-blue-500 text-blue-400"
+                : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"
+            }`}
+          >
+            <span>地區 {selectedDistricts.length > 0 ? `(${selectedDistricts.length})` : "(全區)"}</span>
+            <span className="text-[10px]">▼</span>
+          </button>
+        </div>
+
+        <div className="flex flex-col gap-2.5 mb-6 px-1">
+          <div className="flex items-center gap-2 overflow-x-auto pb-0.5 [&::-webkit-scrollbar]:hidden">
+            <span className="text-[10px] font-bold text-zinc-500 uppercase shrink-0 w-8">模式</span>
+            {REG_TYPE_OPTIONS.map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => setSelectedRegType(opt.id)}
+                className={`whitespace-nowrap px-3.5 py-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                  selectedRegType === opt.id
+                    ? "bg-slate-100 border-slate-200 text-black shadow-[0_0_10px_rgba(255,255,255,0.15)]"
+                    : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"
+                }`}
+              >
+                {opt.id === "individual" ? "👤 " : opt.id === "team" ? "🛡️ " : ""}{opt.label}
+              </button>
+            ))}
           </div>
-
-          {/* 次級篩選列：報名維度 + 名額狀態 */}
-          <div className="flex flex-wrap items-center justify-between gap-4 pt-2 border-t border-slate-800/60">
-            {/* 報名維度過濾 */}
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-xs font-bold text-zinc-500 mr-1 flex items-center gap-1">
-                <Filter className="w-3.5 h-3.5" /> 模式：
-              </span>
-              {REG_TYPE_OPTIONS.map(reg => (
-                <button
-                  key={reg.id}
-                  type="button"
-                  onClick={() => setSelectedRegType(reg.id)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border ${
-                    selectedRegType === reg.id
-                      ? "bg-slate-800 border-slate-600 text-white shadow-sm"
-                      : "bg-slate-950 border-slate-900 text-zinc-500 hover:text-zinc-300"
-                  }`}
-                >
-                  {reg.label}
-                </button>
-              ))}
-            </div>
-
-            {/* 名額狀態過濾 */}
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-xs font-bold text-zinc-500 mr-1">名額：</span>
-              {AVAILABILITY_OPTIONS.map(avail => (
-                <button
-                  key={avail.id}
-                  type="button"
-                  onClick={() => setSelectedAvailability(avail.id)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border ${
-                    selectedAvailability === avail.id
-                      ? "bg-slate-800 border-slate-600 text-white shadow-sm"
-                      : "bg-slate-950 border-slate-900 text-zinc-500 hover:text-zinc-300"
-                  }`}
-                >
-                  {avail.label}
-                </button>
-              ))}
-            </div>
+          <div className="flex items-center gap-2 overflow-x-auto pb-0.5 [&::-webkit-scrollbar]:hidden">
+            <span className="text-[10px] font-bold text-zinc-500 uppercase shrink-0 w-8">名額</span>
+            {AVAILABILITY_OPTIONS.map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => setSelectedAvailability(opt.id)}
+                className={`whitespace-nowrap px-3.5 py-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                  selectedAvailability === opt.id
+                    ? "bg-slate-100 border-slate-200 text-black shadow-[0_0_10px_rgba(255,255,255,0.15)]"
+                    : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* 賽事卡片列表渲染 */}
+        <div className="mb-4 px-1">
+          <span className="text-sm font-bold text-zinc-500">
+            顯示 <span className="text-white">{filteredEvents.length}</span> 場即將開打賽事
+          </span>
+        </div>
+
         {isLoading ? (
           <div className="py-20 text-center text-zinc-500 font-mono flex items-center justify-center gap-2 text-sm">
             <Loader2 className="w-5 h-5 animate-spin text-blue-500" /> 正在尋找即將開打的賽事...
           </div>
         ) : filteredEvents.length === 0 ? (
-          <div className="bg-slate-900/50 border border-dashed border-slate-800 rounded-3xl p-12 text-center space-y-3">
+          <div className="bg-slate-900/40 border border-dashed border-slate-700/50 rounded-3xl py-20 text-center px-4 space-y-3">
             <Clock className="w-10 h-10 text-zinc-600 mx-auto" />
-            <div className="text-base font-bold text-zinc-300">目前沒有符合條件的即將開打賽事</div>
+            <p className="text-zinc-400 font-bold text-sm">目前沒有符合條件的即將開打賽事</p>
             <p className="text-xs text-zinc-500 max-w-md mx-auto">
-              嘗試更換搜尋關鍵字、切換篩選條件，或是點擊右上角發起您的第一場公開約戰！
+              嘗試更換搜尋關鍵字、切換篩選條件，或是發起您的第一場公開約戰！
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6 lg:gap-8">
             {filteredEvents.map((ev) => {
               const validRegs = (ev.event_registrations || []).filter(
                 (r: any) => ["going", "confirmed", "accepted"].includes(String(r.status || "").toLowerCase())
@@ -267,10 +263,9 @@ export default function EventsLobbyPage() {
               );
               const isFull = ev.max_capacity && filledCount >= ev.max_capacity;
 
-              // 🔥 核心修正：精確格式化 X / Y 人 或 X / Y 隊
               const unitLabel = ev.registration_type === "individual" ? "人" : "隊";
-              const countText = ev.max_capacity 
-                ? `${filledCount} / ${ev.max_capacity} ${unitLabel}` 
+              const countText = ev.max_capacity
+                ? `${filledCount} / ${ev.max_capacity} ${unitLabel}`
                 : `${filledCount} ${unitLabel}`;
 
               const organizerName = ev.organizer_team
@@ -283,10 +278,9 @@ export default function EventsLobbyPage() {
                 <Link
                   key={ev.id}
                   href={`/events/${ev.id}`}
-                  className="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-3xl p-6 transition-all duration-200 hover:-translate-y-1 hover:shadow-2xl flex flex-col justify-between group cursor-pointer"
+                  className="bg-slate-900/60 border border-slate-800 hover:border-blue-500/40 rounded-3xl p-6 transition duration-300 group hover:-translate-y-1 shadow-md hover:shadow-xl flex flex-col justify-between cursor-pointer"
                 >
                   <div className="space-y-4">
-                    {/* 卡片頂部標籤列 */}
                     <div className="flex items-center justify-between gap-2">
                       <span className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-blue-950 text-blue-400 border border-blue-500/30">
                         {(() => {
@@ -294,7 +288,6 @@ export default function EventsLobbyPage() {
                           return sport ? `${sport.emoji} ${sport.labelZh}` : "⚡ 運動";
                         })()}
                       </span>
-
                       <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black border ${
                         ev.registration_type === "individual"
                           ? "bg-purple-950/40 text-purple-300 border-purple-500/30"
@@ -304,12 +297,10 @@ export default function EventsLobbyPage() {
                       </span>
                     </div>
 
-                    {/* 活動標題 */}
-                    <h3 className="text-lg font-black text-white group-hover:text-blue-400 transition-colors line-clamp-2">
+                    <h3 className="text-lg font-black text-white group-hover:text-blue-400 transition line-clamp-2">
                       {ev.title}
                     </h3>
 
-                    {/* 活動核心資訊 */}
                     <div className="space-y-2 text-xs text-zinc-300">
                       <div className="flex items-center gap-2">
                         <Calendar className="w-4 h-4 text-blue-400 shrink-0" />
@@ -324,7 +315,6 @@ export default function EventsLobbyPage() {
                     </div>
                   </div>
 
-                  {/* 卡片底部列：主辦人 + X/Y 報名進度徽章 */}
                   <div className="pt-4 mt-5 border-t border-slate-800/80 flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2 min-w-0">
                       <div
@@ -341,15 +331,14 @@ export default function EventsLobbyPage() {
                       </span>
                     </div>
 
-                    {/* 🔥 清晰顯示 X / Y 人 或 X / Y 隊 */}
                     <div className="shrink-0">
                       {isFull ? (
-                        <span className="px-2.5 py-1 rounded-md text-[11px] font-black bg-red-950/80 text-red-400 border border-red-500/40 flex items-center gap-1 shadow-sm">
-                          🔴 額滿候補 • {countText}
+                        <span className="px-2.5 py-1 rounded-md text-[11px] font-black bg-red-950/80 text-red-400 border border-red-500/40">
+                          🔴 額滿 • {countText}
                         </span>
                       ) : (
-                        <span className="px-2.5 py-1 rounded-md text-[11px] font-black bg-emerald-950/80 text-emerald-400 border border-emerald-500/40 flex items-center gap-1 shadow-sm">
-                          🟢 開放中 • {countText}
+                        <span className="px-2.5 py-1 rounded-md text-[11px] font-black bg-emerald-950/80 text-emerald-400 border border-emerald-500/40">
+                          🟢 開放 • {countText}
                         </span>
                       )}
                     </div>
@@ -359,7 +348,6 @@ export default function EventsLobbyPage() {
             })}
           </div>
         )}
-
       </div>
 
       <SportFilterModal

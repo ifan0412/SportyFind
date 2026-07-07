@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { profileLink } from "@/lib/profile-links";
 import type { SportCategory, RecruitmentStatus } from "@/types/team";
 import { SPORT_CATEGORIES } from "@/lib/sports-categories";
 
@@ -122,6 +123,7 @@ function roleBadge(role: string) {
 
 export default function TeamDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const returnTo = `/team/${id}`;
   const router = useRouter();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
@@ -438,13 +440,13 @@ export default function TeamDetailPage() {
                 <p className="text-[10px] font-black text-amber-400/80 uppercase tracking-widest mb-3 pl-1">管理員與領隊</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {adminsAndLeads.map((m) => (
-                    <div key={m.user_id} className="flex items-center gap-3 bg-slate-950/50 border border-slate-800 rounded-2xl px-4 py-3">
+                    <Link key={m.user_id} href={profileLink(m.user_id, returnTo)} className="flex items-center gap-3 bg-slate-950/50 border border-slate-800 rounded-2xl px-4 py-3 hover:border-slate-700 transition">
                       <Avatar src={m.profiles?.avatar_url ?? null} name={m.profiles?.full_name ?? null} size="sm" />
                       <div className="min-w-0">
                         <p className="text-sm font-black text-white truncate">{m.profiles?.full_name ?? "成員"}</p>
                         {roleBadge(m.role)}
                       </div>
-                    </div>
+                    </Link>
                   ))}
                 </div>
               </div>
@@ -457,12 +459,12 @@ export default function TeamDetailPage() {
                 </p>
                 <div className="flex flex-wrap gap-3">
                   {regularMembers.map((m) => (
-                    <div key={m.user_id} className="flex items-center gap-2 bg-slate-950/50 border border-slate-800 rounded-full pl-1.5 pr-4 py-1.5">
+                    <Link key={m.user_id} href={profileLink(m.user_id, returnTo)} className="flex items-center gap-2 bg-slate-950/50 border border-slate-800 rounded-full pl-1.5 pr-4 py-1.5 hover:border-slate-700 transition">
                       <Avatar src={m.profiles?.avatar_url ?? null} name={m.profiles?.full_name ?? null} size="sm" />
                       <span className="text-xs font-bold text-zinc-300 whitespace-nowrap">
                         {m.profiles?.full_name ?? "成員"}
                       </span>
-                    </div>
+                    </Link>
                   ))}
                 </div>
               </div>

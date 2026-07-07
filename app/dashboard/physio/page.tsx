@@ -23,14 +23,18 @@ import { RichTextEditor } from "@/components/admin/RichTextEditor";
 import { RichBody } from "@/components/content/RichBody";
 import { BIO_CHAR_SUGGESTED_MAX, BIO_CHAR_SUGGESTED_RANGE, stripHtml } from "@/lib/content/body";
 import { ServicePublishBadge } from "@/components/services/ServicePublishBadge";
+import { ServicePhotoManager } from "@/components/services/ServicePhotoManager";
 import { QualificationPicker } from "@/components/qualifications/QualificationPicker";
 import { PHYSIO_QUALIFICATIONS, filterPhysioQualificationTags } from "@/lib/qualifications";
+import { profileLink } from "@/lib/profile-links";
+import { useProfileReturnTo } from "@/lib/use-profile-return-to";
 
 // ─── Physio Enquiries Inbox ───────────────────────────────────────────────────
 function PhysioEnquiriesInbox({ physioId }: { physioId: string }) {
   const [leads, setLeads] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const supabase = createSupabaseBrowserClient();
+  const returnTo = useProfileReturnTo();
 
   useEffect(() => {
     const fetch = async () => {
@@ -79,12 +83,12 @@ function PhysioEnquiriesInbox({ physioId }: { physioId: string }) {
           {leads.map(lead => (
             <div key={lead.id} className="p-4 rounded-2xl bg-slate-950 border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:border-slate-700 transition">
               <div className="flex items-start gap-3.5 min-w-0">
-                <Link href={`/p/${lead.patient?.id || lead.patient_id}`} className="shrink-0">
+                <Link href={profileLink(lead.patient?.id || lead.patient_id, returnTo)} className="shrink-0">
                   <div className="w-11 h-11 rounded-full bg-slate-800 bg-cover bg-center border border-slate-700" style={lead.patient?.avatar_url ? { backgroundImage: `url(${lead.patient.avatar_url})` } : undefined} />
                 </Link>
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <Link href={`/p/${lead.patient?.id || lead.patient_id}`} className="font-bold text-sm text-white hover:text-emerald-400 transition">{lead.patient?.full_name || "未知運動員"}</Link>
+                    <Link href={profileLink(lead.patient?.id || lead.patient_id, returnTo)} className="font-bold text-sm text-white hover:text-emerald-400 transition">{lead.patient?.full_name || "未知運動員"}</Link>
                     <span className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold">預約：{lead.service?.title || "診療項目"}</span>
                   </div>
                   <p className="text-xs text-zinc-300 mt-2 bg-slate-900/90 p-3 rounded-xl border border-slate-800 leading-relaxed">💬 「{lead.message}」</p>
@@ -112,6 +116,7 @@ function PhysioEnquiriesInbox({ physioId }: { physioId: string }) {
 function PhysioServicesManager({ physioId }: { physioId: string }) {
   const supabase = createSupabaseBrowserClient();
   const searchParams = useSearchParams();
+  const returnTo = useProfileReturnTo();
   const deepLinkServiceId = searchParams.get("service");
   const openedDeepLinkRef = useRef<string | null>(null);
   const [services, setServices] = useState<any[]>([]);
@@ -226,7 +231,7 @@ function PhysioServicesManager({ physioId }: { physioId: string }) {
   }, [selectedService, supabase]);
 
   const handleCreateNewService = async () => {
-    const payload = { physio_id: physioId, title: "", service_type: "運動復健", service_types: [] as string[], session_rate: 0, districts: [], subdistricts: [], description: "", photos: [], is_active: false, service_centre: "", full_address: "" };
+    const payload = { physio_id: physioId, title: "", service_type: "運動復健", service_types: [] as string[], session_rate: 0, districts: [], subdistricts: [], description: "", photos: [], draft_photos: [], is_active: false, service_centre: "", full_address: "" };
     const { data, error } = await supabase.from("physio_services").insert(payload).select().single();
     if (error) { alert("新增失敗: " + error.message); return; }
     if (data) { setServices([data, ...services]); setSelectedService(data); setEditForm({ ...data, districts: [], subdistricts: [] }); setIsEditingInfo(true); setDetailTab("info"); }
@@ -284,25 +289,51 @@ function PhysioServicesManager({ physioId }: { physioId: string }) {
   const handleUploadPhoto = async (files: FileList | null) => {
     if (!files || files.length === 0 || !selectedService) return;
     setUploadingMedia(true);
-    const updatedPhotos = [...(selectedService.photos || [])];
+    const updatedDrafts = [...(selectedService.draft_photos || [])];
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       const filePath = `${physioId}/physio/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.]/g, "")}`;
       const { error } = await supabase.storage.from("highlights").upload(filePath, file);
-      if (!error) { const { data } = supabase.storage.from("highlights").getPublicUrl(filePath); updatedPhotos.push(data.publicUrl); }
+      if (!error) {
+        const { data } = supabase.storage.from("highlights").getPublicUrl(filePath);
+        updatedDrafts.push(data.publicUrl);
+      }
     }
-    await supabase.from("physio_services").update({ photos: updatedPhotos }).eq("id", selectedService.id);
-    const updated = { ...selectedService, photos: updatedPhotos };
-    setSelectedService(updated); setServices(services.map(s => s.id === updated.id ? updated : s));
+    await supabase.from("physio_services").update({ draft_photos: updatedDrafts }).eq("id", selectedService.id);
+    const updated = { ...selectedService, draft_photos: updatedDrafts };
+    setSelectedService(updated);
+    setServices(services.map((s) => (s.id === updated.id ? updated : s)));
     setUploadingMedia(false);
   };
 
-  const handleRemovePhoto = async (idx: number) => {
+  const handlePublishPhoto = async (url: string) => {
     if (!selectedService) return;
-    const updatedPhotos = selectedService.photos.filter((_: any, i: number) => i !== idx);
-    await supabase.from("physio_services").update({ photos: updatedPhotos }).eq("id", selectedService.id);
-    const updated = { ...selectedService, photos: updatedPhotos };
-    setSelectedService(updated); setServices(services.map(s => s.id === updated.id ? updated : s));
+    const draftPhotos = (selectedService.draft_photos || []).filter((p: string) => p !== url);
+    const publishedPhotos = [...(selectedService.photos || []), url];
+    await supabase
+      .from("physio_services")
+      .update({ photos: publishedPhotos, draft_photos: draftPhotos })
+      .eq("id", selectedService.id);
+    const updated = { ...selectedService, photos: publishedPhotos, draft_photos: draftPhotos };
+    setSelectedService(updated);
+    setServices(services.map((s) => (s.id === updated.id ? updated : s)));
+  };
+
+  const handleDeletePhoto = async (url: string, status: "draft" | "published") => {
+    if (!selectedService) return;
+    if (status === "draft") {
+      const draftPhotos = (selectedService.draft_photos || []).filter((p: string) => p !== url);
+      await supabase.from("physio_services").update({ draft_photos: draftPhotos }).eq("id", selectedService.id);
+      const updated = { ...selectedService, draft_photos: draftPhotos };
+      setSelectedService(updated);
+      setServices(services.map((s) => (s.id === updated.id ? updated : s)));
+      return;
+    }
+    const publishedPhotos = (selectedService.photos || []).filter((p: string) => p !== url);
+    await supabase.from("physio_services").update({ photos: publishedPhotos }).eq("id", selectedService.id);
+    const updated = { ...selectedService, photos: publishedPhotos };
+    setSelectedService(updated);
+    setServices(services.map((s) => (s.id === updated.id ? updated : s)));
   };
 
   return (
@@ -384,7 +415,7 @@ function PhysioServicesManager({ physioId }: { physioId: string }) {
               <button key={tab} onClick={() => setDetailTab(tab)} className={`pb-2.5 text-sm font-black transition whitespace-nowrap border-b-2 cursor-pointer ${detailTab === tab ? "border-emerald-500 text-white" : "border-transparent text-zinc-500 hover:text-zinc-300"}`}>
                 {tab === "info"    && "📋 項目資訊與編輯"}
                 {tab === "reviews" && `💬 運動員評價 (${serviceReviews.length})`}
-                {tab === "media"   && `🖼️ 診所相簿 (${selectedService.photos?.length || 0})`}
+                {tab === "media"   && `🖼️ 診所相簿 (${(selectedService.photos?.length || 0) + (selectedService.draft_photos?.length || 0)})`}
                 {tab === "leads"   && `📬 預約名單 (${serviceLeads.length})`}
               </button>
             ))}
@@ -503,11 +534,13 @@ function PhysioServicesManager({ physioId }: { physioId: string }) {
                 : serviceReviews.length === 0 ? <div className="py-10 text-center bg-slate-900/40 rounded-2xl border border-dashed border-slate-800 text-zinc-500 text-xs font-bold">此診療項目目前尚未收到評價。</div>
                 : serviceReviews.map(rev => (
                   <div key={rev.id} className="bg-slate-900/60 border border-slate-800 p-4 rounded-2xl flex items-start justify-between gap-4">
-                    <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-full bg-slate-800 bg-cover bg-center shrink-0 border border-slate-700" style={rev.patient?.avatar_url ? { backgroundImage: `url(${rev.patient.avatar_url})` } : undefined} />
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-sm text-white">{rev.patient?.full_name || "運動員"}</span>
+                    <div className="flex items-start gap-3 min-w-0">
+                      <Link href={profileLink(rev.patient?.id || rev.patient_id, returnTo)} className="shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-slate-800 bg-cover bg-center shrink-0 border border-slate-700" style={rev.patient?.avatar_url ? { backgroundImage: `url(${rev.patient.avatar_url})` } : undefined} />
+                      </Link>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Link href={profileLink(rev.patient?.id || rev.patient_id, returnTo)} className="font-bold text-sm text-white hover:text-emerald-400 transition">{rev.patient?.full_name || "運動員"}</Link>
                           <span className="text-xs text-emerald-400 font-black">{"★".repeat(rev.rating)}</span>
                         </div>
                         <p className="text-xs text-zinc-300 mt-1">{rev.comment}</p>
@@ -521,26 +554,16 @@ function PhysioServicesManager({ physioId }: { physioId: string }) {
           )}
 
           {detailTab === "media" && (
-            <div className="space-y-4 pt-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-zinc-400 font-bold">上傳診所或診療環境照片，有助提升運動員信任度！</span>
-                <label className="bg-emerald-700 hover:bg-emerald-600 text-white px-4 py-2 rounded-xl text-xs font-black cursor-pointer flex items-center gap-1.5 transition">
-                  {uploadingMedia ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <UploadCloud className="w-3.5 h-3.5" />}
-                  {uploadingMedia ? "上傳中..." : "＋ 選擇相片上傳"}
-                  <input type="file" accept="image/*" multiple onChange={e => handleUploadPhoto(e.target.files)} className="hidden" />
-                </label>
-              </div>
-              {selectedService.photos?.length > 0 ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-2">
-                  {selectedService.photos.map((url: string, idx: number) => (
-                    <div key={idx} className="relative aspect-video rounded-2xl overflow-hidden bg-slate-900 border border-slate-800 group">
-                      <Image src={url} alt="Physio showcase" fill className="object-cover" />
-                      <button type="button" onClick={() => handleRemovePhoto(idx)} className="absolute inset-0 bg-red-950/80 text-white font-black text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition cursor-pointer">刪除此相片</button>
-                    </div>
-                  ))}
-                </div>
-              ) : <div className="py-12 text-center bg-slate-900/40 rounded-2xl border border-dashed border-slate-800 text-zinc-500 text-xs font-bold">此項目尚無相片，請點擊上方按鈕開始上傳。</div>}
-            </div>
+            <ServicePhotoManager
+              photos={selectedService.photos || []}
+              draftPhotos={selectedService.draft_photos || []}
+              uploading={uploadingMedia}
+              accent="emerald"
+              emptyLabel="此項目尚無相片，請點擊上方按鈕開始上傳。"
+              onUpload={handleUploadPhoto}
+              onPublish={handlePublishPhoto}
+              onDelete={handleDeletePhoto}
+            />
           )}
 
           {detailTab === "leads" && (

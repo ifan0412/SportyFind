@@ -228,7 +228,7 @@ export default function CoachesPage() {
                       </Link>
 
                       {qualificationTags.length > 0 && (
-                        <QualificationBadges tags={qualificationTags} accent="amber" size="xs" max={3} />
+                        <QualificationBadges tags={qualificationTags} accent="amber" size="xs" max={3} align="left" />
                       )}
 
                       <div className="flex flex-wrap items-center gap-2">

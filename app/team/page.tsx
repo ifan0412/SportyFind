@@ -249,7 +249,6 @@ function TeamPageContent() {
             <div className="py-20 text-center text-zinc-500 font-mono text-sm">搜尋各方戰力中...</div>
           ) : isInitialState ? (
             <div className="py-12 md:py-5 text-center animate-fadeIn">
-              <div className="w-20 h-20 bg-slate-900 border border-slate-800 rounded-full flex items-center justify-center text-3xl mx-auto mb-6">🎯</div>
               <h2 className="text-2xl md:text-3xl font-black text-white mb-3">你要尋找哪個項目的團隊？</h2>
               <p className="text-zinc-400 mb-10 max-w-md mx-auto">選擇你想參與或約戰的體育項目</p>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-3xl mx-auto">

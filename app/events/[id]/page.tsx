@@ -9,11 +9,13 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import EventLobbyBoard from "@/components/EventLobbyBoard";
+import { profileLink } from "@/lib/profile-links";
 
 export default function EventDetailPage() {
   const params = useParams();
   const router = useRouter();
   const eventId = params.id as string;
+  const returnTo = `/events/${eventId}`;
 
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
@@ -772,10 +774,12 @@ export default function EventDetailPage() {
                       >
                         <div className="flex items-center gap-3 min-w-0">
                           {reg.profiles ? (
-                            <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center font-black text-xs shrink-0 overflow-hidden"
-                                 style={{ backgroundImage: reg.profiles.avatar_url ? `url(${reg.profiles.avatar_url})` : 'none', backgroundSize: 'cover' }}>
-                              {!reg.profiles.avatar_url && (reg.profiles.full_name?.[0] || "?")}
-                            </div>
+                            <Link href={profileLink(reg.profiles.id || reg.user_id, returnTo)} className="shrink-0">
+                              <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center font-black text-xs shrink-0 overflow-hidden"
+                                   style={{ backgroundImage: reg.profiles.avatar_url ? `url(${reg.profiles.avatar_url})` : 'none', backgroundSize: 'cover' }}>
+                                {!reg.profiles.avatar_url && (reg.profiles.full_name?.[0] || "?")}
+                              </div>
+                            </Link>
                           ) : (
                             <div className="w-10 h-10 rounded-full bg-amber-600/20 text-amber-400 flex items-center justify-center shrink-0">
                               <Shield className="w-5 h-5" />
@@ -784,7 +788,13 @@ export default function EventDetailPage() {
 
                           <div className="min-w-0">
                             <div className="font-bold text-sm text-white truncate flex items-center gap-2">
-                              {reg.alias || reg.profiles?.full_name || reg.team?.name_zh || reg.team?.name_en || "未知球員"}
+                              {reg.profiles ? (
+                                <Link href={profileLink(reg.profiles.id || reg.user_id, returnTo)} className="hover:text-blue-400 transition truncate">
+                                  {reg.alias || reg.profiles?.full_name || reg.team?.name_zh || reg.team?.name_en || "未知球員"}
+                                </Link>
+                              ) : (
+                                reg.alias || reg.profiles?.full_name || reg.team?.name_zh || reg.team?.name_en || "未知球員"
+                              )}
                               {reg.companion_count > 0 && (
                                 <span className="text-xs text-blue-400 bg-blue-950 px-2 py-0.5 rounded-md">+{reg.companion_count} 攜伴</span>
                               )}
@@ -849,7 +859,7 @@ export default function EventDetailPage() {
 
         {/* 活動討論大廳 */}
         {canViewLobby && (
-          <EventLobbyBoard eventId={eventId} currentUser={currentUser} isOrganizer={isOrganizer} />
+          <EventLobbyBoard eventId={eventId} currentUser={currentUser} isOrganizer={isOrganizer} returnTo={returnTo} />
         )}
 
       </div>

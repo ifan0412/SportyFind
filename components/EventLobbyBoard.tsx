@@ -3,11 +3,14 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { MessageSquare, Send, Trash2, Loader2 } from "lucide-react";
+import Link from "next/link";
+import { profileLink } from "@/lib/profile-links";
 
 interface EventLobbyBoardProps {
   eventId: string;
   currentUser: any;
   isOrganizer?: boolean;
+  returnTo?: string;
 }
 
 const TAG_OPTIONS = [
@@ -16,7 +19,7 @@ const TAG_OPTIONS = [
   { id: "equipment", label: "🏸 球具裝備", color: "bg-amber-950 text-amber-300 border-amber-500/30" },
 ];
 
-export default function EventLobbyBoard({ eventId, currentUser, isOrganizer }: EventLobbyBoardProps) {
+export default function EventLobbyBoard({ eventId, currentUser, isOrganizer, returnTo }: EventLobbyBoardProps) {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
   const [comments, setComments] = useState<any[]>([]);
@@ -181,18 +184,35 @@ export default function EventLobbyBoard({ eventId, currentUser, isOrganizer }: E
             return (
               <div key={comment.id} className="pt-3 first:pt-0 flex items-start justify-between gap-4">
                 <div className="flex items-start gap-3 min-w-0">
-                  <div
-                    className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-xs font-black shrink-0 overflow-hidden mt-0.5"
-                    style={{ backgroundImage: comment.user?.avatar_url ? `url(${comment.user.avatar_url})` : "none", backgroundSize: "cover" }}
-                  >
-                    {!comment.user?.avatar_url && (comment.user?.full_name?.[0] || "?")}
-                  </div>
+                  {comment.user_id ? (
+                    <Link href={profileLink(comment.user_id, returnTo)} className="shrink-0">
+                      <div
+                        className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-xs font-black shrink-0 overflow-hidden mt-0.5"
+                        style={{ backgroundImage: comment.user?.avatar_url ? `url(${comment.user.avatar_url})` : "none", backgroundSize: "cover" }}
+                      >
+                        {!comment.user?.avatar_url && (comment.user?.full_name?.[0] || "?")}
+                      </div>
+                    </Link>
+                  ) : (
+                    <div
+                      className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-xs font-black shrink-0 overflow-hidden mt-0.5"
+                      style={{ backgroundImage: comment.user?.avatar_url ? `url(${comment.user.avatar_url})` : "none", backgroundSize: "cover" }}
+                    >
+                      {!comment.user?.avatar_url && (comment.user?.full_name?.[0] || "?")}
+                    </div>
+                  )}
 
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-bold text-white truncate">
-                        {comment.user?.full_name || "匿名球友"}
-                      </span>
+                      {comment.user_id ? (
+                        <Link href={profileLink(comment.user_id, returnTo)} className="text-xs font-bold text-white truncate hover:text-blue-400 transition">
+                          {comment.user?.full_name || "匿名球友"}
+                        </Link>
+                      ) : (
+                        <span className="text-xs font-bold text-white truncate">
+                          {comment.user?.full_name || "匿名球友"}
+                        </span>
+                      )}
                       <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${tagInfo.color}`}>
                         {tagInfo.label}
                       </span>

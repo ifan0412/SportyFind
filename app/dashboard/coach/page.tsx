@@ -26,14 +26,18 @@ import { SportCategoryPicker } from "@/components/sports/SportCategoryPicker";
 import type { SportCategoryId } from "@/lib/sports-categories";
 import { stripHtml } from "@/lib/content/body";
 import { ServicePublishBadge } from "@/components/services/ServicePublishBadge";
+import { ServicePhotoManager } from "@/components/services/ServicePhotoManager";
 import { QualificationPicker } from "@/components/qualifications/QualificationPicker";
 import { COACH_QUALIFICATIONS, normalizeQualificationTags, filterCoachQualificationTags } from "@/lib/qualifications";
+import { profileLink } from "@/lib/profile-links";
+import { useProfileReturnTo } from "@/lib/use-profile-return-to";
 
 // ─── Enquiries Inbox ──────────────────────────────────────────────────────────
 function CoachEnquiriesInbox({ coachId }: { coachId: string }) {
   const [leads, setLeads] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const supabase = createSupabaseBrowserClient();
+  const returnTo = useProfileReturnTo();
 
   useEffect(() => {
     const fetch = async () => {
@@ -89,12 +93,12 @@ function CoachEnquiriesInbox({ coachId }: { coachId: string }) {
           {leads.map(lead => (
             <div key={lead.id} className="p-4 rounded-2xl bg-slate-950 border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:border-slate-700 transition">
               <div className="flex items-start gap-3.5 min-w-0">
-                <Link href={`/p/${lead.student?.id || lead.student_id}`} className="shrink-0">
+                <Link href={profileLink(lead.student?.id || lead.student_id, returnTo)} className="shrink-0">
                   <div className="w-11 h-11 rounded-full bg-slate-800 bg-cover bg-center border border-slate-700" style={lead.student?.avatar_url ? { backgroundImage: `url(${lead.student.avatar_url})` } : undefined} />
                 </Link>
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <Link href={`/p/${lead.student?.id || lead.student_id}`} className="font-bold text-sm text-white hover:text-amber-400 transition">{lead.student?.full_name || "未知運動員"}</Link>
+                    <Link href={profileLink(lead.student?.id || lead.student_id, returnTo)} className="font-bold text-sm text-white hover:text-amber-400 transition">{lead.student?.full_name || "未知運動員"}</Link>
                     <span className="text-[10px] px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20 font-bold">諮詢：{lead.service?.title || "專項課程"}</span>
                   </div>
                   <p className="text-xs text-zinc-300 mt-2 bg-slate-900/90 p-3 rounded-xl border border-slate-800 leading-relaxed">💬 「{lead.message}」</p>
@@ -125,6 +129,7 @@ function CoachEnquiriesInbox({ coachId }: { coachId: string }) {
 function CoachServicesManager({ coachId }: { coachId: string }) {
   const supabase = createSupabaseBrowserClient();
   const searchParams = useSearchParams();
+  const returnTo = useProfileReturnTo();
   const deepLinkServiceId = searchParams.get("service");
   const openedDeepLinkRef = useRef<string | null>(null);
   const [services, setServices] = useState<any[]>([]);
@@ -284,6 +289,7 @@ function CoachServicesManager({ coachId }: { coachId: string }) {
       subdistricts: [],
       description: "",
       photos: [],
+      draft_photos: [],
       is_active: false,
       teaching_experience_years: null,
     };
@@ -363,25 +369,51 @@ function CoachServicesManager({ coachId }: { coachId: string }) {
   const handleUploadPhoto = async (files: FileList | null) => {
     if (!files || files.length === 0 || !selectedService) return;
     setUploadingMedia(true);
-    const updatedPhotos = [...(selectedService.photos || [])];
+    const updatedDrafts = [...(selectedService.draft_photos || [])];
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       const filePath = `${coachId}/services/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.]/g, "")}`;
       const { error } = await supabase.storage.from("highlights").upload(filePath, file);
-      if (!error) { const { data } = supabase.storage.from("highlights").getPublicUrl(filePath); updatedPhotos.push(data.publicUrl); }
+      if (!error) {
+        const { data } = supabase.storage.from("highlights").getPublicUrl(filePath);
+        updatedDrafts.push(data.publicUrl);
+      }
     }
-    await supabase.from("coach_services").update({ photos: updatedPhotos }).eq("id", selectedService.id);
-    const updated = { ...selectedService, photos: updatedPhotos };
-    setSelectedService(updated); setServices(services.map(s => s.id === updated.id ? updated : s));
+    await supabase.from("coach_services").update({ draft_photos: updatedDrafts }).eq("id", selectedService.id);
+    const updated = { ...selectedService, draft_photos: updatedDrafts };
+    setSelectedService(updated);
+    setServices(services.map((s) => (s.id === updated.id ? updated : s)));
     setUploadingMedia(false);
   };
 
-  const handleRemovePhoto = async (idx: number) => {
+  const handlePublishPhoto = async (url: string) => {
     if (!selectedService) return;
-    const updatedPhotos = selectedService.photos.filter((_: any, i: number) => i !== idx);
-    await supabase.from("coach_services").update({ photos: updatedPhotos }).eq("id", selectedService.id);
-    const updated = { ...selectedService, photos: updatedPhotos };
-    setSelectedService(updated); setServices(services.map(s => s.id === updated.id ? updated : s));
+    const draftPhotos = (selectedService.draft_photos || []).filter((p: string) => p !== url);
+    const publishedPhotos = [...(selectedService.photos || []), url];
+    await supabase
+      .from("coach_services")
+      .update({ photos: publishedPhotos, draft_photos: draftPhotos })
+      .eq("id", selectedService.id);
+    const updated = { ...selectedService, photos: publishedPhotos, draft_photos: draftPhotos };
+    setSelectedService(updated);
+    setServices(services.map((s) => (s.id === updated.id ? updated : s)));
+  };
+
+  const handleDeletePhoto = async (url: string, status: "draft" | "published") => {
+    if (!selectedService) return;
+    if (status === "draft") {
+      const draftPhotos = (selectedService.draft_photos || []).filter((p: string) => p !== url);
+      await supabase.from("coach_services").update({ draft_photos: draftPhotos }).eq("id", selectedService.id);
+      const updated = { ...selectedService, draft_photos: draftPhotos };
+      setSelectedService(updated);
+      setServices(services.map((s) => (s.id === updated.id ? updated : s)));
+      return;
+    }
+    const publishedPhotos = (selectedService.photos || []).filter((p: string) => p !== url);
+    await supabase.from("coach_services").update({ photos: publishedPhotos }).eq("id", selectedService.id);
+    const updated = { ...selectedService, photos: publishedPhotos };
+    setSelectedService(updated);
+    setServices(services.map((s) => (s.id === updated.id ? updated : s)));
   };
 
   return (
@@ -464,7 +496,7 @@ function CoachServicesManager({ coachId }: { coachId: string }) {
   {([
     { id: "info", label: "資訊" },
     { id: "reviews", label: `評價 (${courseReviews.length})` },
-    { id: "media", label: `相簿 (${selectedService.photos?.length || 0})` },
+    { id: "media", label: `相簿 (${(selectedService.photos?.length || 0) + (selectedService.draft_photos?.length || 0)})` },
     { id: "leads", label: `諮詢 (${courseLeads.length})` },
   ] as const).map(t => (
     <button
@@ -596,11 +628,13 @@ function CoachServicesManager({ coachId }: { coachId: string }) {
                 : courseReviews.length === 0 ? <div className="py-10 text-center bg-slate-900/40 rounded-2xl border border-dashed border-slate-800 text-zinc-500 text-xs font-bold">本課程目前尚未收到學員評價。</div>
                 : courseReviews.map(rev => (
                   <div key={rev.id} className="bg-slate-900/60 border border-slate-800 p-4 rounded-2xl flex items-start justify-between gap-4">
-                    <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-full bg-slate-800 bg-cover bg-center shrink-0 border border-slate-700" style={rev.student?.avatar_url ? { backgroundImage: `url(${rev.student.avatar_url})` } : undefined} />
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-sm text-white">{rev.student?.full_name || "學員"}</span>
+                    <div className="flex items-start gap-3 min-w-0">
+                      <Link href={profileLink(rev.student?.id || rev.student_id, returnTo)} className="shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-slate-800 bg-cover bg-center shrink-0 border border-slate-700" style={rev.student?.avatar_url ? { backgroundImage: `url(${rev.student.avatar_url})` } : undefined} />
+                      </Link>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Link href={profileLink(rev.student?.id || rev.student_id, returnTo)} className="font-bold text-sm text-white hover:text-amber-400 transition">{rev.student?.full_name || "學員"}</Link>
                           <span className="text-xs text-amber-400 font-black">{"★".repeat(rev.rating)}</span>
                         </div>
                         <p className="text-xs text-zinc-300 mt-1">{rev.comment}</p>
@@ -614,26 +648,16 @@ function CoachServicesManager({ coachId }: { coachId: string }) {
           )}
 
           {detailTab === "media" && (
-            <div className="space-y-4 pt-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-zinc-400 font-bold">上傳精彩的實況照，有助於大幅提高學員諮詢意願！</span>
-                <label className="bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 rounded-xl text-xs font-black cursor-pointer flex items-center gap-1.5 transition">
-                  {uploadingMedia ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <UploadCloud className="w-3.5 h-3.5" />}
-                  {uploadingMedia ? "上傳中..." : "＋ 選擇相片上傳"}
-                  <input type="file" accept="image/*" multiple onChange={e => handleUploadPhoto(e.target.files)} className="hidden" />
-                </label>
-              </div>
-              {selectedService.photos?.length > 0 ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-2">
-                  {selectedService.photos.map((url: string, idx: number) => (
-                    <div key={idx} className="relative aspect-video rounded-2xl overflow-hidden bg-slate-900 border border-slate-800 group">
-                      <Image src={url} alt="Showcase" fill className="object-cover" />
-                      <button type="button" onClick={() => handleRemovePhoto(idx)} className="absolute inset-0 bg-red-950/80 text-white font-black text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition cursor-pointer">刪除此相片</button>
-                    </div>
-                  ))}
-                </div>
-              ) : <div className="py-12 text-center bg-slate-900/40 rounded-2xl border border-dashed border-slate-800 text-zinc-500 text-xs font-bold">本課程尚無相片，請點擊上方按鈕開始上傳。</div>}
-            </div>
+            <ServicePhotoManager
+              photos={selectedService.photos || []}
+              draftPhotos={selectedService.draft_photos || []}
+              uploading={uploadingMedia}
+              accent="amber"
+              emptyLabel="本課程尚無相片，請點擊上方按鈕開始上傳。"
+              onUpload={handleUploadPhoto}
+              onPublish={handlePublishPhoto}
+              onDelete={handleDeletePhoto}
+            />
           )}
 
           {detailTab === "leads" && (
@@ -643,11 +667,11 @@ function CoachServicesManager({ coachId }: { coachId: string }) {
                 : courseLeads.map(lead => (
                   <div key={lead.id} className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div className="flex items-start gap-3 min-w-0">
-                      <Link href={`/p/${lead.student?.id || lead.student_id}`} className="shrink-0">
+                      <Link href={profileLink(lead.student?.id || lead.student_id, returnTo)} className="shrink-0">
                         <div className="w-9 h-9 rounded-full bg-slate-800 bg-cover bg-center shrink-0 border border-slate-700" style={lead.student?.avatar_url ? { backgroundImage: `url(${lead.student.avatar_url})` } : undefined} />
                       </Link>
                       <div className="min-w-0">
-                        <Link href={`/p/${lead.student?.id || lead.student_id}`} className="font-bold text-sm text-white hover:text-amber-400 transition">{lead.student?.full_name || "學員"}</Link>
+                        <Link href={profileLink(lead.student?.id || lead.student_id, returnTo)} className="font-bold text-sm text-white hover:text-amber-400 transition">{lead.student?.full_name || "學員"}</Link>
                         <p className="text-xs text-zinc-300 mt-1 bg-slate-950 p-2.5 rounded-lg border border-slate-800">💬 {lead.message}</p>
                         <span className="text-[10px] text-zinc-500 mt-1 block">{new Date(lead.created_at).toLocaleString("zh-HK", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
                       </div>

@@ -17,6 +17,8 @@ import { getSportSchema } from "@/constants/sportsSchema";
 import { getSportCategory, normalizeSportCategory, type SportCategoryId } from "@/lib/sports-categories";
 import { normalizePhysioProfileTags } from "@/lib/physio-service-types";
 import { SportCategoryPicker } from "@/components/sports/SportCategoryPicker";
+import { SportPositionPicker } from "@/components/sports/SportPositionPicker";
+import { normalizeSportMetadataForSave, sportFormDataFromMetadata, sportFormHasEmptyFields } from "@/lib/sport-positions";
 import { HKDistrictPicker } from "@/components/location/HKDistrictPicker";
 import {
   formatDistrictList,
@@ -196,7 +198,7 @@ function ProfilePageContent() {
 
   const [isSportModalOpen, setIsSportModalOpen] = useState(false);
   const [selectedSportSlug, setSelectedSportSlug] = useState<SportCategoryId | "">("");
-  const [sportDynamicData, setSportDynamicData] = useState<{ [key: string]: string }>({});
+  const [sportDynamicData, setSportDynamicData] = useState<Record<string, string | string[]>>({});
   const [editingUserSportId, setEditingUserSportId] = useState<string | null>(null);
 
   const [isMediaModalOpen, setIsMediaModalOpen] = useState(false);
@@ -484,8 +486,9 @@ function ProfilePageContent() {
 
   const handleOpenSportModal = useCallback((us?: UserSport) => {
     if (us) {
-      setSelectedSportSlug(normalizeSportCategory(us.sports?.name) || "");
-      setSportDynamicData(us.metadata || {});
+      const slug = normalizeSportCategory(us.sports?.name) || "";
+      setSelectedSportSlug(slug);
+      setSportDynamicData(sportFormDataFromMetadata(us.metadata as Record<string, unknown>, slug));
       setEditingUserSportId(us.id);
     } else {
       setSelectedSportSlug("");
@@ -503,9 +506,16 @@ function ProfilePageContent() {
       alert("此運動項目尚未在資料庫中設定，請聯絡管理員或執行最新 migration。");
       return;
     }
-    if (editingUserSportId) await supabase.from("user_sports").update({ sport_id: sportId, metadata: sportDynamicData }).eq("id", editingUserSportId);
-    else await supabase.from("user_sports").insert({ user_id: user.id, sport_id: sportId, metadata: sportDynamicData });
-    await loadProfileData(user.id); setIsSportModalOpen(false); router.refresh();
+    const metadata = normalizeSportMetadataForSave(sportDynamicData, selectedSportSlug);
+    const incomplete = sportFormHasEmptyFields(sportDynamicData, selectedSportSlug);
+    if (editingUserSportId) await supabase.from("user_sports").update({ sport_id: sportId, metadata }).eq("id", editingUserSportId);
+    else await supabase.from("user_sports").insert({ user_id: user.id, sport_id: sportId, metadata });
+    await loadProfileData(user.id);
+    setIsSportModalOpen(false);
+    router.refresh();
+    if (incomplete) {
+      alert("已儲存！建議填寫完整技術資料（年資、位置等），可大幅提升在人脈搜尋中的曝光率。");
+    }
   };
 
   const handleRemoveSport = async (us: UserSport) => {
@@ -813,6 +823,9 @@ function ProfilePageContent() {
           <div className="bg-slate-950 border border-slate-800 w-full max-w-sm rounded-3xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-black text-white mb-6">{editingUserSportId ? "編輯技術特長" : "添入技術特長"}</h3>
             <form onSubmit={handleSaveSport} className="space-y-5 text-sm">
+              <p className="text-xs text-blue-300/90 bg-blue-500/10 border border-blue-500/20 rounded-xl px-3.5 py-2.5 leading-relaxed">
+                💡 僅運動項目為必填。其餘欄位選填，但填寫越完整，在人脈搜尋與配對中的曝光率越高。
+              </p>
               <div>
                 <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-2">選擇運動項目</label>
                 <SportCategoryPicker
@@ -822,8 +835,33 @@ function ProfilePageContent() {
               </div>
               {selectedSportSlug && getSportSchema(selectedSportSlug).map(field => (
                 <div key={field.key} className="animate-fadeIn">
-                  <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-2">{field.label} {field.unit && `(${field.unit})`}</label>
-                  {field.type === "select" ? <select value={sportDynamicData[field.key] || ""} onChange={e => setSportDynamicData({ ...sportDynamicData, [field.key]: e.target.value })} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white font-bold outline-none" required><option value="">-- 請選擇 --</option>{field.options?.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select> : <input type={field.type} value={sportDynamicData[field.key] || ""} onChange={e => setSportDynamicData({ ...sportDynamicData, [field.key]: e.target.value })} placeholder={field.placeholder} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white font-bold outline-none" required />}
+                  <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-2">
+                    {field.label}{field.unit && ` (${field.unit})`} (選填)
+                  </label>
+                  {field.type === "select" && field.multi ? (
+                    <SportPositionPicker
+                      options={field.options || []}
+                      value={Array.isArray(sportDynamicData[field.key]) ? sportDynamicData[field.key] as string[] : []}
+                      onChange={(positions) => setSportDynamicData({ ...sportDynamicData, [field.key]: positions })}
+                    />
+                  ) : field.type === "select" ? (
+                    <select
+                      value={(sportDynamicData[field.key] as string) || ""}
+                      onChange={e => setSportDynamicData({ ...sportDynamicData, [field.key]: e.target.value })}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white font-bold outline-none"
+                    >
+                      <option value="">-- 請選擇 --</option>
+                      {field.options?.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                    </select>
+                  ) : (
+                    <input
+                      type={field.type}
+                      value={(sportDynamicData[field.key] as string) || ""}
+                      onChange={e => setSportDynamicData({ ...sportDynamicData, [field.key]: e.target.value })}
+                      placeholder={field.placeholder}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white font-bold outline-none"
+                    />
+                  )}
                 </div>
               ))}
               <div className="flex gap-3 pt-2"><button type="button" onClick={() => setIsSportModalOpen(false)} className="flex-1 bg-slate-900 text-zinc-400 font-bold py-3 rounded-xl">取消</button><button type="submit" disabled={!selectedSportSlug} className="flex-1 bg-slate-50 text-black font-black py-3 rounded-xl">{editingUserSportId ? "儲存" : "加入"}</button></div>

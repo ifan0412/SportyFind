@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { profileLink } from "@/lib/profile-links";
 
 const REGION_OPTIONS = [
   { value: "全港",  label: "🌐 全港 All HK" },
@@ -16,6 +17,7 @@ export default function TeamAdminDashboard() {
   const params = useParams();
   const router = useRouter();
   const id = params?.id as string;
+  const returnTo = `/team/${id}/admin`;
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
   const [activeTab, setActiveTab] = useState<"roster" | "settings">("roster");
@@ -325,12 +327,12 @@ export default function TeamAdminDashboard() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {pendingMembers.map((m) => (
                     <div key={m.user_id} className="flex items-center justify-between bg-slate-900/80 border border-slate-800 p-4 rounded-2xl shadow-lg">
-                      <div className="flex items-center gap-3 min-w-0">
+                      <Link href={profileLink(m.user_id, returnTo)} className="flex items-center gap-3 min-w-0 hover:opacity-90 transition">
                         <div className="w-10 h-10 rounded-xl bg-slate-800 flex-shrink-0 bg-cover bg-center border border-slate-700" style={{ backgroundImage: m.profiles?.avatar_url ? `url(${m.profiles.avatar_url})` : "none" }}>
                           {!m.profiles?.avatar_url && (m.profiles?.full_name?.[0] || "U")}
                         </div>
                         <span className="font-black text-white text-sm truncate">{m.profiles?.full_name || "新成員"}</span>
-                      </div>
+                      </Link>
                       <div className="flex gap-2 shrink-0 ml-4">
                         <button onClick={() => handleApprove(m.user_id)} className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-3.5 py-2 rounded-xl transition">批准</button>
                         <button onClick={() => handleRejectOrRemove(m.user_id)} className="bg-slate-800 hover:bg-red-600 text-zinc-400 hover:text-white font-bold text-xs px-3.5 py-2 rounded-xl transition">婉拒</button>
@@ -346,7 +348,7 @@ export default function TeamAdminDashboard() {
               <div className="space-y-2">
                 {activeMembers.map((m) => (
                   <div key={m.user_id} className="flex items-center justify-between bg-slate-950/60 border border-slate-800/80 p-3.5 rounded-2xl hover:border-slate-700 transition">
-                    <div className="flex items-center gap-3 min-w-0">
+                    <Link href={profileLink(m.user_id, returnTo)} className="flex items-center gap-3 min-w-0 hover:opacity-90 transition">
                       <div className="w-9 h-9 rounded-xl bg-slate-800 flex-shrink-0 bg-cover bg-center border border-slate-700" style={{ backgroundImage: m.profiles?.avatar_url ? `url(${m.profiles.avatar_url})` : "none" }}>
                         {!m.profiles?.avatar_url && (m.profiles?.full_name?.[0] || "U")}
                       </div>
@@ -354,7 +356,7 @@ export default function TeamAdminDashboard() {
                         {m.profiles?.full_name || "群組運動員"}
                         {m.user_id === currentUserId && <span className="ml-2 text-[9px] bg-slate-800 border border-slate-700 text-zinc-400 px-2 py-0.5 rounded-full font-normal">您自己</span>}
                       </span>
-                    </div>
+                    </Link>
                     
                     <div className="flex items-center gap-2">
                       <select
