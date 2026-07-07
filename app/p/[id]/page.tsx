@@ -14,7 +14,8 @@ import {
 } from "@/lib/hk-locations";
 import { RichBody } from "@/components/content/RichBody";
 import { SportCategoryBadge } from "@/components/sports/SportCategoryBadge";
-import { stripHtml } from "@/lib/content/body";
+import { stripHtml, truncatePlainBio } from "@/lib/content/body";
+import { reopenOrSendFriendRequest } from "@/lib/friendships";
 import { ServicePublishBadge } from "@/components/services/ServicePublishBadge";
 import { PhysioServiceTypeBadges } from "@/components/physio/PhysioServiceTypePicker";
 import { normalizePhysioServiceTypes, physioCardServiceTags } from "@/lib/physio-service-types";
@@ -42,6 +43,7 @@ interface Profile {
   player_whatsapp?: string | null;
   player_phone_friends_only?: boolean | null;
   player_whatsapp_friends_only?: boolean | null;
+  player_email_friends_only?: boolean | null;
   coach_districts?: string[] | null; coach_subdistricts?: string[] | null; coach_teaching_experience_years?: number | null;
   coach_qualification_tags?: string[] | null; coach_qualification_custom?: string | null;
   districts?: string[] | null; subdistricts?: string[] | null;
@@ -228,28 +230,15 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
     if (!currentUserId) return;
     setFriendLoading(true);
     try {
-      const { data: existing } = await supabase
-        .from("friendships")
-        .select("id, status")
-        .or(`and(sender_id.eq.${currentUserId},receiver_id.eq.${id}),and(sender_id.eq.${id},receiver_id.eq.${currentUserId})`)
-        .maybeSingle();
-
-      if (existing?.id) {
-        const { error } = await supabase
-          .from("friendships")
-          .update({ sender_id: currentUserId, receiver_id: id, status: "pending" })
-          .eq("id", existing.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from("friendships").insert({ sender_id: currentUserId, receiver_id: id, status: "pending" });
-        if (error) throw error;
-      }
+      const { friendshipId: newId, error } = await reopenOrSendFriendRequest(supabase, currentUserId, id);
+      if (error) throw error;
+      if (newId) setFriendshipId(newId);
       await refetchFriendshipStatus(currentUserId);
-      window.dispatchEvent(new CustomEvent("sync-friendship")); 
+      window.dispatchEvent(new CustomEvent("sync-friendship"));
       router.refresh();
     } catch (err: any) {
-      if (err.code === '23505') await refetchFriendshipStatus(currentUserId); 
-      else alert(`發送失敗: ${err.message || "發生未知錯誤"}`);
+      if (err?.code === "23505") await refetchFriendshipStatus(currentUserId);
+      else alert(`發送失敗: ${err?.message || "發生未知錯誤"}`);
     } finally { setFriendLoading(false); }
   };
 
@@ -333,6 +322,7 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
 
   const avatarSrc = profile.avatar_url || "";
   const canViewFriendOnlyContact = currentUserId === id || friendshipStatus === "accepted";
+  const showPlayerEmail = !!profile.contact_email && (!profile.player_email_friends_only || canViewFriendOnlyContact);
   const showPlayerPhone = !!profile.contact_phone && (!profile.player_phone_friends_only || canViewFriendOnlyContact);
   const showPlayerWhatsapp = !!profile.player_whatsapp && (!profile.player_whatsapp_friends_only || canViewFriendOnlyContact);
   const hasPublicPlayer = profile.is_player !== false;
@@ -376,7 +366,7 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
               </div>
               
               <p className="text-sm text-zinc-300 leading-relaxed text-left bg-slate-900/30 p-4 rounded-2xl border border-slate-800/50 mb-6">
-                {profile.bio || "這位運動員很低調，還沒有留下詳細的自介。"}
+                {truncatePlainBio(profile.bio || "") || "這位運動員很低調，還沒有留下詳細的自介。"}
               </p>
               <div className="mt-4 flex items-center justify-center gap-2 text-xs text-zinc-500 font-medium">
                 <span>📍 {formatDistrictList(normalizeDistrictIds(profile.districts, profile.location), 2) || profile.location || "地點未公開"}</span>
@@ -384,9 +374,9 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
 
               <FriendButton />
 
-              {((hasPublicCoach || hasPublicPhysio) && currentUserId !== id) && (
+              {currentUserId && currentUserId !== id && (
                 <button
-                  onClick={() => router.push(`/inbox?to=${id}&role=${activeRole === "physio" ? "physio" : "coach"}`)}
+                  onClick={() => router.push(`/inbox?to=${id}&role=${activeRole}`)}
                   className="w-full mt-2.5 py-3 px-6 rounded-full text-sm font-black bg-blue-600 hover:bg-blue-500 text-white transition-all duration-300 shadow-[0_0_15px_rgba(37,99,235,0.3)] cursor-pointer flex items-center justify-center gap-2"
                 >
                   <MessageSquare className="w-4 h-4" /> 站內訊息
@@ -422,11 +412,11 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
                     />
                   </div>
 
-                  {(profile.contact_email || showPlayerPhone || showPlayerWhatsapp) && (
+                  {(showPlayerEmail || showPlayerPhone || showPlayerWhatsapp) && (
                     <div className="bg-slate-900/40 p-4 rounded-2xl border border-slate-800/80">
                       <div className="text-xs font-black text-blue-400 mb-3">運動員聯絡資訊</div>
                       <div className="flex flex-wrap gap-2">
-                        {profile.contact_email && (
+                        {showPlayerEmail && (
                           <a href={`mailto:${profile.contact_email}`} className="bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800 text-zinc-200 font-bold text-xs hover:bg-slate-800 transition">
                             ✉️ {profile.contact_email}
                           </a>
@@ -442,7 +432,7 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
                           </a>
                         )}
                       </div>
-                      {!canViewFriendOnlyContact && ((profile.player_phone_friends_only && profile.contact_phone) || (profile.player_whatsapp_friends_only && profile.player_whatsapp)) && (
+                      {!canViewFriendOnlyContact && ((profile.player_email_friends_only && profile.contact_email) || (profile.player_phone_friends_only && profile.contact_phone) || (profile.player_whatsapp_friends_only && profile.player_whatsapp)) && (
                         <p className="text-[11px] text-zinc-500 mt-2">部份聯絡方式只開放給好友查看。</p>
                       )}
                     </div>

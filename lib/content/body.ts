@@ -24,3 +24,12 @@ export function plainTextLength(html: string): number {
 /** Suggested bio length guidance shown in placeholders */
 export const BIO_CHAR_SUGGESTED_RANGE = "150–250";
 export const BIO_CHAR_SUGGESTED_MAX = 250;
+
+/** Max plain-text length for the profile card one-line bio (edit profile, /network cards) */
+export const PROFILE_CARD_BIO_MAX = 72;
+
+export function truncatePlainBio(text: string, max = PROFILE_CARD_BIO_MAX): string {
+  const plain = stripHtml(text);
+  if (plain.length <= max) return plain;
+  return `${plain.slice(0, max - 1)}…`;
+}

@@ -8,12 +8,12 @@ import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
 import Underline from "@tiptap/extension-underline";
 import TextAlign from "@tiptap/extension-text-align";
-import { FontSize, TextStyle } from "@tiptap/extension-text-style";
+import { TextStyle } from "@tiptap/extension-text-style";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { plainTextLength } from "@/lib/content/body";
 import { normalizeRichHtml, richHtmlEquivalent } from "@/lib/content/rich-html";
 import { PreserveEmptyParagraph } from "@/lib/tiptap/preserve-paragraph";
-import { FONT_SIZE_OPTIONS } from "@/lib/tiptap/font-size";
+import { FONT_SIZE_OPTIONS, FontSize } from "@/lib/tiptap/font-size";
 import {
   AlignCenter,
   AlignLeft,
@@ -293,13 +293,12 @@ export function RichTextEditor({
         <select
           title="字體大小"
           value={currentFontSize}
-          onMouseDown={(e) => e.preventDefault()}
           onChange={(e) => {
             const size = e.target.value;
             if (size === "1rem") editor.chain().focus().unsetFontSize().run();
             else editor.chain().focus().setFontSize(size).run();
           }}
-          className="h-8 px-2 rounded-lg bg-slate-950 border border-slate-800 text-xs text-zinc-300 focus:outline-none focus:border-blue-500"
+          className="h-8 px-2 rounded-lg bg-slate-950 border border-slate-800 text-xs text-zinc-300 focus:outline-none focus:border-blue-500 touch-manipulation"
         >
           {FONT_SIZE_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>

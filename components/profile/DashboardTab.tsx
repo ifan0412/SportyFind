@@ -1,6 +1,7 @@
 "use client";
 
 import { RichTextEditor } from "@/components/admin/RichTextEditor";
+import { BIO_CHAR_SUGGESTED_MAX, BIO_CHAR_SUGGESTED_RANGE } from "@/lib/content/body";
 
 interface DashboardTabProps {
   editForm: any;
@@ -19,9 +20,11 @@ export function DashboardTab({ editForm, isSaving, onFieldChange, onSave }: Dash
         <RichTextEditor
           value={editForm.athlete_bio || ""}
           onChange={(html) => onFieldChange("athlete_bio", html)}
-          placeholder="介紹你的運動背景、專項風格與目標..."
+          placeholder={`建議 ${BIO_CHAR_SUGGESTED_RANGE} 字，介紹你的運動背景、專項風格與目標…`}
           variant="compact"
           minHeight="180px"
+          showCharCount
+          suggestedLength={BIO_CHAR_SUGGESTED_MAX}
         />
       </div>
 
@@ -29,6 +32,9 @@ export function DashboardTab({ editForm, isSaving, onFieldChange, onSave }: Dash
         <h3 className="text-sm font-black text-blue-400 uppercase tracking-wider flex items-center gap-2">
           <span>📬</span> 運動員聯絡資訊
         </h3>
+        <p className="text-[11px] text-zinc-500 -mt-1">
+          電話、Email 及 WhatsApp 預設不公開；勾選「公開顯示」後所有人均可查看。地區資訊仍會在名片上顯示。
+        </p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <label className="text-[10px] text-zinc-500 font-bold uppercase pl-1 block">Email</label>
@@ -39,6 +45,15 @@ export function DashboardTab({ editForm, isSaving, onFieldChange, onSave }: Dash
               placeholder="your@email.com"
               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-blue-500 transition outline-none"
             />
+            <label className="flex items-center gap-2 cursor-pointer mt-2">
+              <input
+                type="checkbox"
+                checked={!editForm.player_email_friends_only}
+                onChange={(e) => onFieldChange("player_email_friends_only", !e.target.checked)}
+                className="rounded bg-slate-900 border-slate-700"
+              />
+              <span className="text-xs text-zinc-300">公開顯示（所有人可見）</span>
+            </label>
           </div>
           <div className="space-y-1.5">
             <label className="text-[10px] text-zinc-500 font-bold uppercase pl-1 block">電話</label>
@@ -51,11 +66,11 @@ export function DashboardTab({ editForm, isSaving, onFieldChange, onSave }: Dash
             <label className="flex items-center gap-2 cursor-pointer mt-2">
               <input
                 type="checkbox"
-                checked={!!editForm.player_phone_friends_only}
-                onChange={(e) => onFieldChange("player_phone_friends_only", e.target.checked)}
+                checked={!editForm.player_phone_friends_only}
+                onChange={(e) => onFieldChange("player_phone_friends_only", !e.target.checked)}
                 className="rounded bg-slate-900 border-slate-700"
               />
-              <span className="text-xs text-zinc-300">僅好友可見</span>
+              <span className="text-xs text-zinc-300">公開顯示（所有人可見）</span>
             </label>
           </div>
         </div>
@@ -70,11 +85,11 @@ export function DashboardTab({ editForm, isSaving, onFieldChange, onSave }: Dash
           <label className="flex items-center gap-2 cursor-pointer mt-2">
             <input
               type="checkbox"
-              checked={!!editForm.player_whatsapp_friends_only}
-              onChange={(e) => onFieldChange("player_whatsapp_friends_only", e.target.checked)}
+              checked={!editForm.player_whatsapp_friends_only}
+              onChange={(e) => onFieldChange("player_whatsapp_friends_only", !e.target.checked)}
               className="rounded bg-slate-900 border-slate-700"
             />
-            <span className="text-xs text-zinc-300">僅好友可見</span>
+            <span className="text-xs text-zinc-300">公開顯示（所有人可見）</span>
           </label>
         </div>
       </div>

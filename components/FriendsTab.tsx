@@ -250,14 +250,15 @@ export function FriendsTab({ currentUserId }: FriendsTabProps) {
     if (isProcessing(req.id)) return;
     startProcessing(req.id);
     try {
-      const [deleteF, deleteN] = await Promise.all([
-        supabase.from("friendships").delete().eq("id", req.id),
+      const [updateF, deleteN] = await Promise.all([
+        supabase.from("friendships").update({ status: "rejected" }).eq("id", req.id),
         supabase.from("notifications").delete().eq("friendship_id", req.id).eq("type", "friend_request"),
       ]);
-      if (deleteF.error) throw deleteF.error;
+      if (updateF.error) throw updateF.error;
       if (deleteN.error) throw deleteN.error;
 
       setPendingRequests((prev) => prev.filter((r) => r.id !== req.id));
+      window.dispatchEvent(new CustomEvent("sync-friendship"));
     } catch (err) {
       console.error("handleReject:", err);
     } finally {

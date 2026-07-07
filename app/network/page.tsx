@@ -13,6 +13,7 @@ import {
 } from "@/lib/sport-positions";
 import { profileLink } from "@/lib/profile-links";
 import { useProfileReturnTo } from "@/lib/use-profile-return-to";
+import { truncatePlainBio } from "@/lib/content/body";
 
 interface ProfileRow {
   id: string;
@@ -280,7 +281,9 @@ function NetworkPageContent() {
                     )}
 
                     {p.location && <div className="inline-flex items-center gap-1 text-[11px] text-zinc-400 bg-slate-950/60 px-3 py-1 rounded-full border border-slate-800/80 mb-3"><span>📍</span> <span className="truncate max-w-[160px]">{p.location}</span></div>}
-                    <p className="text-xs text-zinc-300 line-clamp-2 min-h-[2.5rem] leading-relaxed px-2 my-1">{p.bio || "這位運動員很低調，尚未填寫自介。"}</p>
+                    <p className="text-xs text-zinc-300 line-clamp-1 min-h-[1.25rem] leading-relaxed px-2 my-1">
+                      {truncatePlainBio(p.bio || "") || "這位運動員很低調，尚未填寫自介。"}
+                    </p>
                   </div>
 
                   <div className="space-y-4 pt-4 mt-2 border-t border-slate-800/80">

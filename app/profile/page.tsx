@@ -16,7 +16,7 @@ import { ProfileRolePreview, type AthleteSubTab, type ProfileRole } from "@/comp
 import { getSportSchema } from "@/constants/sportsSchema";
 import { getSportCategory, normalizeSportCategory, type SportCategoryId } from "@/lib/sports-categories";
 import { normalizePhysioProfileTags } from "@/lib/physio-service-types";
-import { stripHtml } from "@/lib/content/body";
+import { stripHtml, PROFILE_CARD_BIO_MAX } from "@/lib/content/body";
 import { SportCategoryPicker } from "@/components/sports/SportCategoryPicker";
 import { SportPositionPicker } from "@/components/sports/SportPositionPicker";
 import { normalizeSportMetadataForSave, sportFormDataFromMetadata, sportFormHasEmptyFields } from "@/lib/sport-positions";
@@ -55,6 +55,7 @@ interface Profile {
   player_whatsapp: string | null;
   player_phone_friends_only: boolean | null;
   player_whatsapp_friends_only: boolean | null;
+  player_email_friends_only: boolean | null;
   address: string | null;
   city_region: string | null;
   coach_teaching_experience_years?: number | null;
@@ -123,8 +124,9 @@ const DEFAULT_FORM = {
   contact_email: "",
   contact_phone: "",
   player_whatsapp: "",
-  player_phone_friends_only: false,
-  player_whatsapp_friends_only: false,
+  player_phone_friends_only: true,
+  player_whatsapp_friends_only: true,
+  player_email_friends_only: true,
   address: "",
   city_region: "",
   coach_service_centre: "",
@@ -296,7 +298,7 @@ function ProfilePageContent() {
           location: prof.location ?? "",
           country: prof.country ?? "",
           region: prof.region ?? "",
-          bio: prof.bio ?? "",
+          bio: stripHtml(prof.bio ?? ""),
           athlete_bio: prof.athlete_bio ?? "",
           avatar_url: prof.avatar_url ?? "",
           status_tag: prof.status_tag ?? "committed",
@@ -310,8 +312,9 @@ function ProfilePageContent() {
           contact_email: prof.contact_email ?? "",
           contact_phone: prof.contact_phone ?? "",
           player_whatsapp: prof.player_whatsapp ?? "",
-          player_phone_friends_only: prof.player_phone_friends_only ?? false,
-          player_whatsapp_friends_only: prof.player_whatsapp_friends_only ?? false,
+          player_phone_friends_only: prof.player_phone_friends_only ?? true,
+          player_whatsapp_friends_only: prof.player_whatsapp_friends_only ?? true,
+          player_email_friends_only: prof.player_email_friends_only ?? true,
           address: prof.address ?? "",
           city_region: prof.city_region ?? "",
           coach_service_centre: prof.coach_service_centre ?? "",
@@ -435,7 +438,7 @@ function ProfilePageContent() {
       coach_teaching_experience_years: editForm.coach_teaching_experience_years
         ? Number(editForm.coach_teaching_experience_years)
         : null,
-      bio: editForm.bio,
+      bio: (editForm.bio || "").replace(/<[^>]+>/g, "").slice(0, PROFILE_CARD_BIO_MAX) || null,
       athlete_bio: editForm.athlete_bio || null,
       avatar_url: finalAvatarUrl,
       status_tag: editForm.status_tag,
@@ -446,8 +449,9 @@ function ProfilePageContent() {
       contact_email: editForm.contact_email || null,
       contact_phone: editForm.contact_phone || null,
       player_whatsapp: editForm.player_whatsapp || null,
-      player_phone_friends_only: editForm.player_phone_friends_only ?? false,
-      player_whatsapp_friends_only: editForm.player_whatsapp_friends_only ?? false,
+      player_phone_friends_only: editForm.player_phone_friends_only ?? true,
+      player_whatsapp_friends_only: editForm.player_whatsapp_friends_only ?? true,
+      player_email_friends_only: editForm.player_email_friends_only ?? true,
       address: editForm.address || null,
       coach_service_centre: editForm.coach_service_centre || null,
       city_region: formatDistrictList(Array.isArray(editForm.coach_districts) ? editForm.coach_districts : [], 3) || editForm.city_region || null,
@@ -601,6 +605,19 @@ function ProfilePageContent() {
                   </div>
                   <div className="space-y-1"><label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">Unique Handle</label><input className={`w-full bg-slate-950/50 border rounded-xl p-3 text-white text-sm ${handleStatus === "taken" ? "border-red-500" : "border-slate-800"}`} value={editForm.handle} onChange={e => setEditForm({ ...editForm, handle: e.target.value.replace(/[^a-zA-Z0-9_]/g, "") })} placeholder="ID 帳號" /></div>
                   <div className="space-y-1"><label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">Headline</label><input className="w-full bg-slate-950/50 border border-slate-800 rounded-xl p-3 text-white text-sm" value={editForm.headline} onChange={e => setEditForm({ ...editForm, headline: e.target.value })} placeholder="例如: 網球底線玩家" /></div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">名片自介 Bio</label>
+                    <input
+                      className="w-full bg-slate-950/50 border border-slate-800 rounded-xl p-3 text-white text-sm"
+                      value={editForm.bio || ""}
+                      maxLength={PROFILE_CARD_BIO_MAX}
+                      onChange={(e) => setEditForm({ ...editForm, bio: e.target.value })}
+                      placeholder="一句話介紹自己，顯示於球員卡片"
+                    />
+                    <p className="text-[10px] text-zinc-500 text-right pr-1">
+                      {(editForm.bio || "").length}/{PROFILE_CARD_BIO_MAX}
+                    </p>
+                  </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1"><label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">身高 (cm)</label><input type="number" className="w-full bg-slate-950/50 border border-slate-800 rounded-xl p-3 text-white text-sm" value={editForm.height_cm} onChange={e => setEditForm({ ...editForm, height_cm: e.target.value })} placeholder="例: 178" /></div>
                     <div className="space-y-1"><label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">體重 (kg)</label><input type="number" className="w-full bg-slate-950/50 border border-slate-800 rounded-xl p-3 text-white text-sm" value={editForm.weight_kg} onChange={e => setEditForm({ ...editForm, weight_kg: e.target.value })} placeholder="例: 70" /></div>

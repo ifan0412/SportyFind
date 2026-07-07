@@ -9,6 +9,7 @@ import {
   CHAT_BUBBLE_ROW_THEM,
   CHAT_BUBBLE_THEM,
 } from "@/components/chat/styles";
+import { reopenOrSendFriendRequest } from "@/lib/friendships";
 
 interface Message {
   id: string;
@@ -28,6 +29,7 @@ interface ChatBoxProps {
   targetName?: string;
   friendshipStatus?: string; // "accepted" | "pending" | "rejected" | "none"
   isSender?: boolean;
+  onRejected?: () => void;
 }
 
 const PAGE_SIZE = 50;
@@ -39,6 +41,7 @@ export function ChatBox({
   targetName,
   friendshipStatus: initialStatus = "none",
   isSender: initialIsSender = false,
+  onRejected,
 }: ChatBoxProps) {
   // ── Stable supabase client (never recreated on re-render) ──
   const supabase = useRef(createSupabaseBrowserClient()).current;
@@ -57,6 +60,8 @@ export function ChatBox({
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const messagesLengthRef = useRef(0);
+  const onRejectedRef = useRef(onRejected);
+  onRejectedRef.current = onRejected;
 
   const scrollToBottom = useCallback((delay = 50) => {
     setTimeout(() => {
@@ -119,6 +124,9 @@ export function ChatBox({
           setFriendshipId(latest.id);
           setStatus(latest.status);
           setIsSenderState(latest.sender_id === currentUserId);
+          if (latest.status === "rejected") {
+            onRejectedRef.current?.();
+          }
         } else {
           setFriendshipId(null);
           setStatus("none");
@@ -292,18 +300,21 @@ export function ChatBox({
     if (!friendshipId) return;
     await supabase.from("friendships").update({ status: "rejected" }).eq("id", friendshipId);
     setStatus("rejected");
+    window.dispatchEvent(new CustomEvent("sync-friendship"));
+    onRejected?.();
   };
 
   const handleReopenRequest = async () => {
-    if (!friendshipId) return;
-    await supabase
-      .from("friendships")
-      .update({
-        sender_id: currentUserId,
-        receiver_id: targetUserId,
-        status: "pending",
-      })
-      .eq("id", friendshipId);
+    const { friendshipId: newId, error } = await reopenOrSendFriendRequest(
+      supabase,
+      currentUserId,
+      targetUserId
+    );
+    if (error) {
+      console.error("[ChatBox] reopen request error:", error.message);
+      return;
+    }
+    if (newId) setFriendshipId(newId);
     setStatus("pending");
     setIsSenderState(true);
   };
@@ -313,58 +324,7 @@ export function ChatBox({
     async (msgText: string, retryTempId?: string) => {
       const tempId = retryTempId ?? `temp-${Date.now()}`;
 
-      // A. Handle First Message Inquiry Creation / Re-open
-      if (status === "none" || status === "rejected") {
-        if (status === "rejected" && friendshipId) {
-          const { error: reopenErr } = await supabase
-            .from("friendships")
-            .update({
-              sender_id: currentUserId,
-              receiver_id: targetUserId,
-              status: "pending",
-            })
-            .eq("id", friendshipId);
-          if (reopenErr) {
-            console.error("[ChatBox] reopen inquiry error:", reopenErr.message);
-            return;
-          }
-        }
-
-        if (status === "none") {
-          const { data: newFriendRow, error: friendErr } = await supabase
-            .from("friendships")
-            .insert({
-              sender_id: currentUserId,
-              receiver_id: targetUserId,
-              status: "pending",
-            })
-            .select("id")
-            .single();
-
-          if (friendErr && friendErr.code !== "23505") {
-            console.error("[ChatBox] First inquiry error:", friendErr.message);
-            return;
-          }
-
-          if (newFriendRow) {
-            setFriendshipId(newFriendRow.id);
-          }
-        }
-        setStatus("pending");
-        setIsSenderState(true);
-      }
-
-      // B. Handle Reply Auto-Accept (Receiver replying to pending request)
-      if (status === "pending" && !isSenderState && friendshipId) {
-        await supabase
-          .from("friendships")
-          .update({ status: "accepted" })
-          .eq("id", friendshipId);
-
-        setStatus("accepted");
-      }
-
-      // Optimistic UI Append
+      // Optimistic UI append first for instant feedback
       if (!retryTempId) {
         const tempMsg: Message = {
           id: tempId,
@@ -378,13 +338,44 @@ export function ChatBox({
         };
         setMessages((prev) => [...prev, tempMsg]);
         messagesLengthRef.current += 1;
-        scrollToBottom(10);
+        scrollToBottom(0);
       } else {
         setMessages((prev) =>
           prev.map((m) =>
             m.id === retryTempId ? { ...m, isSending: true, isError: false } : m
           )
         );
+      }
+
+      // A. Handle First Message Inquiry Creation / Re-open
+      if (status === "none" || status === "rejected") {
+        const { friendshipId: newId, error: friendErr } = await reopenOrSendFriendRequest(
+          supabase,
+          currentUserId,
+          targetUserId
+        );
+        if (friendErr) {
+          console.error("[ChatBox] First inquiry error:", friendErr.message);
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === tempId ? { ...m, isSending: false, isError: true } : m
+            )
+          );
+          return;
+        }
+        if (newId) setFriendshipId(newId);
+        setStatus("pending");
+        setIsSenderState(true);
+      }
+
+      // B. Handle Reply Auto-Accept (Receiver replying to pending request)
+      if (status === "pending" && !isSenderState && friendshipId) {
+        await supabase
+          .from("friendships")
+          .update({ status: "accepted" })
+          .eq("id", friendshipId);
+
+        setStatus("accepted");
       }
 
       const { data: insertedMsg, error } = await supabase
@@ -408,6 +399,7 @@ export function ChatBox({
         setMessages((prev) =>
           prev.map((m) => (m.id === tempId ? insertedMsg : m))
         );
+        window.dispatchEvent(new CustomEvent("chat-message-sync"));
       }
     },
     [currentUserId, targetUserId, supabase, scrollToBottom, status, isSenderState, friendshipId]

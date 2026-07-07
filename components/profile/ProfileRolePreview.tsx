@@ -45,6 +45,7 @@ interface ProfileRolePreviewProps {
     player_whatsapp?: string | null;
     player_phone_friends_only?: boolean | null;
     player_whatsapp_friends_only?: boolean | null;
+    player_email_friends_only?: boolean | null;
     city_region?: string | null;
     coach_districts?: string[] | null;
     address?: string | null;
@@ -214,11 +215,17 @@ export function ProfileRolePreview({
                 {profile.contact_email && (
                   <span className="bg-blue-950/40 text-blue-300 border border-blue-500/30 px-3 py-1.5 rounded-xl">
                     ✉️ {profile.contact_email}
+                    {profile.player_email_friends_only !== false && (
+                      <span className="text-[9px] text-zinc-500 ml-1">（非公開）</span>
+                    )}
                   </span>
                 )}
                 {profile.contact_phone && (
                   <span className="bg-emerald-950/40 text-emerald-300 border border-emerald-500/30 px-3 py-1.5 rounded-xl">
                     📞 {profile.contact_phone}
+                    {profile.player_phone_friends_only !== false && (
+                      <span className="text-[9px] text-zinc-500 ml-1">（非公開）</span>
+                    )}
                   </span>
                 )}
                 {profile.player_whatsapp && (
@@ -229,6 +236,9 @@ export function ProfileRolePreview({
                     className="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-3 py-1.5 rounded-xl transition inline-flex items-center gap-1.5"
                   >
                     💬 WhatsApp
+                    {profile.player_whatsapp_friends_only !== false && (
+                      <span className="text-[9px] text-white/70 ml-0.5">（非公開）</span>
+                    )}
                   </a>
                 )}
               </div>
