@@ -29,6 +29,8 @@ import {
   normalizeSubdistrictIds,
 } from "@/lib/hk-locations";
 import { mapHighlightGalleryFiles } from "@/lib/highlights-gallery";
+import { type ProfileGender, PROFILE_GENDER_OPTIONS } from "@/lib/gender";
+import { GenderAvatarBadge } from "@/components/profile/GenderBadge";
 
 interface Profile {
   id: string;
@@ -82,6 +84,7 @@ interface Profile {
   physio_instagram_url: string | null;
   physio_facebook_url: string | null;
   physio_threads_url: string | null;
+  gender?: ProfileGender | null;
 }
 
 interface Sport { id: string; name: string; }
@@ -158,6 +161,7 @@ const DEFAULT_FORM = {
   coach_districts: [] as string[],
   coach_subdistricts: [] as string[],
   coach_teaching_experience_years: "" as number | string,
+  gender: "" as ProfileGender | "",
   physio_districts: [] as string[],
   physio_subdistricts: [] as string[],
 };
@@ -166,7 +170,7 @@ const StatusBadge = ({ tag }: { tag: string | null }) => {
   if (tag === "hidden" || tag === "draft") return <div className="inline-flex items-center gap-1.5 bg-slate-800 text-zinc-500 text-[10px] px-2.5 py-1 rounded-full font-black border border-slate-700">🔒 未發布 (隱藏中)</div>;
   if (tag === "recruiting") return <div className="inline-flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] px-2.5 py-1 rounded-full font-black tracking-widest"><div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> 招生/招募中</div>;
   if (tag === "seeking_team") return <div className="inline-flex items-center gap-1.5 bg-blue-500/10 border border-blue-500/20 text-blue-400 text-[10px] px-2.5 py-1 rounded-full font-black tracking-widest"><div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" /> 尋找隊伍</div>;
-  if (tag === "open_to_match") return <div className="inline-flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] px-2.5 py-1 rounded-full font-black tracking-widest"><div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" /> 開放約戰</div>;
+  if (tag === "open_to_match") return <div className="inline-flex items-center gap-1.5 bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] px-2.5 py-1 rounded-full font-black tracking-widest"><div className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" /> 開放約戰</div>;
   if (tag === "available") return <div className="inline-flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] px-2.5 py-1 rounded-full font-black tracking-widest"><div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> 開放預約</div>;
   if (tag === "busy" || tag === "full") return <div className="inline-flex items-center gap-1.5 bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] px-2.5 py-1 rounded-full font-black tracking-widest"><div className="w-1.5 h-1.5 rounded-full bg-red-400" /> 滿員/滿診</div>;
   return <div className="inline-flex items-center gap-1.5 bg-slate-800/50 border border-slate-700/50 text-zinc-400 text-[10px] px-2.5 py-1 rounded-full font-black tracking-widest"><div className="w-1.5 h-1.5 rounded-full bg-slate-500" /> 穩定狀態</div>;
@@ -340,6 +344,7 @@ function ProfilePageContent() {
           coach_districts: normalizeDistrictIds(prof.coach_districts, prof.city_region),
           coach_subdistricts: normalizeSubdistrictIds(prof.coach_subdistricts),
           coach_teaching_experience_years: prof.coach_teaching_experience_years ?? "",
+          gender: (prof.gender === "male" || prof.gender === "female" ? prof.gender : "") as ProfileGender | "",
           physio_districts: normalizeDistrictIds(prof.physio_districts, prof.physio_city_region),
           physio_subdistricts: normalizeSubdistrictIds(prof.physio_subdistricts),
         });
@@ -477,6 +482,7 @@ function ProfilePageContent() {
       height_cm: editForm.height_cm ? Number(editForm.height_cm) : null,
       weight_kg: editForm.weight_kg ? Number(editForm.weight_kg) : null,
       show_physical_stats: editForm.show_physical_stats ?? true,
+      gender: editForm.gender || null,
       contact_email: editForm.contact_email || null,
       contact_phone: editForm.contact_phone || null,
       player_whatsapp: editForm.player_whatsapp || null,
@@ -624,6 +630,7 @@ function ProfilePageContent() {
                 <div className="w-full h-full rounded-full bg-slate-800 border-2 border-slate-700/50 shadow-xl overflow-hidden bg-cover bg-center" style={{ backgroundImage: avatarSrc ? `url(${avatarSrc})` : "none" }}>{!avatarSrc && (profile?.first_name?.[0] || profile?.full_name?.[0] || "PRO")}</div>
                 {isEditing && <button onClick={() => avatarInputRef.current?.click()} className="absolute inset-0 bg-slate-950/60 rounded-full flex flex-col items-center justify-center text-white text-xs font-bold border border-dashed border-slate-400">📸 換照片</button>}
                 <input type="file" ref={avatarInputRef} onChange={onAvatarFileChange} accept="image/*" className="hidden" />
+                <GenderAvatarBadge gender={isEditing ? editForm.gender : profile?.gender} size="sm" />
                 <div className="absolute -bottom-3 -right-6 z-20"><StatusBadge tag={isEditing ? editForm.status_tag : profile?.status_tag ?? null} /></div>
               </div>
 
@@ -647,6 +654,19 @@ function ProfilePageContent() {
                     <p className="text-[10px] text-zinc-500 text-right pr-1">
                       {(editForm.bio || "").length}/{PROFILE_CARD_BIO_MAX}
                     </p>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">性別 <span className="normal-case font-normal text-zinc-600">(顯示於報名與成員名單)</span></label>
+                    <select
+                      className="w-full bg-slate-950/50 border border-slate-800 rounded-xl p-3 text-white text-sm"
+                      value={editForm.gender}
+                      onChange={e => setEditForm({ ...editForm, gender: e.target.value as ProfileGender })}
+                    >
+                      <option value="">請選擇</option>
+                      {PROFILE_GENDER_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1"><label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">身高 (cm)</label><input type="number" className="w-full bg-slate-950/50 border border-slate-800 rounded-xl p-3 text-white text-sm" value={editForm.height_cm} onChange={e => setEditForm({ ...editForm, height_cm: e.target.value })} placeholder="例: 178" /></div>

@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { Users, Clock, Send, UserX, Check, X } from "lucide-react";
+import { GenderAvatarBadge } from "@/components/profile/GenderBadge";
 
 // ── Supabase response shapes ───────────────────────────────────────────────
 interface ProfileJoin {
@@ -12,6 +13,7 @@ interface ProfileJoin {
   avatar_url: string | null;
   headline: string | null;
   location: string | null;
+  gender?: string | null;
 }
 
 interface FriendshipRow {
@@ -40,6 +42,7 @@ interface FriendProfile {
   avatar_url: string | null;
   headline: string | null;
   location: string | null;
+  gender?: string | null;
 }
 
 interface Friendship {
@@ -65,19 +68,22 @@ type SubTab = "friends" | "pending" | "sent";
 // ── Avatar ─────────────────────────────────────────────────────────────────
 function Avatar({ profile }: { profile: FriendProfile }) {
   return (
-    <div
-      className="w-12 h-12 rounded-full bg-slate-800 flex-shrink-0 flex items-center justify-center overflow-hidden"
-      style={{
-        backgroundImage:    profile.avatar_url ? `url(${profile.avatar_url})` : "none",
-        backgroundSize:     "cover",
-        backgroundPosition: "center",
-      }}
-    >
-      {!profile.avatar_url && (
-        <span className="text-sm font-black text-zinc-500">
-          {profile.full_name?.[0] ?? "?"}
-        </span>
-      )}
+    <div className="relative w-12 h-12 flex-shrink-0">
+      <div
+        className="w-full h-full rounded-full bg-slate-800 flex items-center justify-center overflow-hidden"
+        style={{
+          backgroundImage:    profile.avatar_url ? `url(${profile.avatar_url})` : "none",
+          backgroundSize:     "cover",
+          backgroundPosition: "center",
+        }}
+      >
+        {!profile.avatar_url && (
+          <span className="text-sm font-black text-zinc-500">
+            {profile.full_name?.[0] ?? "?"}
+          </span>
+        )}
+      </div>
+      <GenderAvatarBadge gender={profile.gender} />
     </div>
   );
 }
@@ -144,8 +150,8 @@ export function FriendsTab({ currentUserId }: FriendsTabProps) {
         .from("friendships")
         .select(`
           id, created_at,
-          sender:sender_id     (id, full_name, avatar_url, headline, location),
-          receiver:receiver_id (id, full_name, avatar_url, headline, location)
+          sender:sender_id     (id, full_name, avatar_url, headline, location, gender),
+          receiver:receiver_id (id, full_name, avatar_url, headline, location, gender)
         `)
         .eq("status", "accepted")
         .or(`sender_id.eq.${currentUserId},receiver_id.eq.${currentUserId}`),
@@ -154,7 +160,7 @@ export function FriendsTab({ currentUserId }: FriendsTabProps) {
         .from("friendships")
         .select(`
           id, created_at,
-          sender:sender_id (id, full_name, avatar_url, headline, location)
+          sender:sender_id (id, full_name, avatar_url, headline, location, gender)
         `)
         .eq("status", "pending")
         .eq("receiver_id", currentUserId),
@@ -163,7 +169,7 @@ export function FriendsTab({ currentUserId }: FriendsTabProps) {
         .from("friendships")
         .select(`
           id, created_at,
-          receiver:receiver_id (id, full_name, avatar_url, headline, location)
+          receiver:receiver_id (id, full_name, avatar_url, headline, location, gender)
         `)
         .eq("status", "pending")
         .eq("sender_id", currentUserId),

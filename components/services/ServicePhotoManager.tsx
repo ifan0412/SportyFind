@@ -14,7 +14,7 @@ interface ServicePhotoManagerProps {
   photos: string[];
   draftPhotos: string[];
   uploading?: boolean;
-  accent?: "amber" | "emerald";
+  accent?: "orange" | "green" | "amber" | "emerald";
   emptyLabel?: string;
   onUpload: (files: FileList | null) => void | Promise<void>;
   onPublish: (url: string) => void | Promise<void>;
@@ -35,14 +35,15 @@ export function ServicePhotoManager({
   const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
 
   const entries = normalizeServicePhotos(photos, draftPhotos);
+  const resolvedAccent = accent === "amber" ? "orange" : accent === "emerald" ? "green" : accent;
   const uploadBtn =
-    accent === "amber"
-      ? "bg-amber-600 hover:bg-amber-500"
-      : "bg-emerald-700 hover:bg-emerald-600";
+    resolvedAccent === "orange"
+      ? "bg-orange-600 hover:bg-orange-500"
+      : "bg-green-700 hover:bg-green-600";
   const publishBtn =
-    accent === "amber"
-      ? "bg-amber-600/90 hover:bg-amber-500"
-      : "bg-emerald-600/90 hover:bg-emerald-500";
+    resolvedAccent === "orange"
+      ? "bg-orange-600/90 hover:bg-orange-500"
+      : "bg-green-600/90 hover:bg-green-500";
 
   const handleDelete = (entry: ServicePhotoEntry) => {
     const label = entry.status === "draft" ? "確定要刪除此草稿相片嗎？" : "確定要刪除此已發佈相片嗎？此動作無法復原。";

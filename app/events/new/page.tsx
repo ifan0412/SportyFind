@@ -11,6 +11,7 @@ import Link from "next/link";
 import { SPORT_CATEGORIES } from "@/lib/sports-categories";
 import { HKDistrictPicker } from "@/components/location/HKDistrictPicker";
 import { normalizeDistrictIds, normalizeSubdistrictIds } from "@/lib/hk-locations";
+import { type GenderRequirement, GENDER_REQUIREMENT_OPTIONS } from "@/lib/gender";
 
 interface TeamOption {
   id: string;
@@ -223,7 +224,7 @@ function TimeScroller({ label, value, onChange }: { label: string; value: string
                   setIsOpen(false);
                 }}
                 className={`w-full py-2 rounded-lg text-xs font-bold transition text-center cursor-pointer ${
-                  period === p ? "bg-amber-600 text-white" : "hover:bg-slate-800 text-zinc-400 hover:text-white"
+                  period === p ? "bg-red-600 text-white" : "hover:bg-slate-800 text-zinc-400 hover:text-white"
                 }`}
               >
                 {p}
@@ -252,6 +253,7 @@ export default function CreateEventPage() {
   const [sportCategory, setSportCategory] = useState("volleyball");
   const [registrationType, setRegistrationType] = useState<"individual" | "team">("individual");
   const [individualJoinMode, setIndividualJoinMode] = useState<"fcfs" | "approval">("fcfs");
+  const [genderRequirement, setGenderRequirement] = useState<GenderRequirement>("both");
   const [organizerTeamId, setOrganizerTeamId] = useState<string>("");
   const [locationName, setLocationName] = useState("");
   const [locationAddress, setLocationAddress] = useState("");
@@ -369,6 +371,7 @@ export default function CreateEventPage() {
         fee: fee ? parseFloat(fee) : 0,
         late_cancellation_hours: parseInt(lateHours || "24", 10),
         approval_mode: registrationType === "individual" ? individualJoinMode : null,
+        gender_requirement: genderRequirement,
         status: "published",
       };
 
@@ -416,13 +419,13 @@ export default function CreateEventPage() {
           href="/events"
           className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors mb-6 font-bold cursor-pointer"
         >
-          <ArrowLeft className="w-4 h-4" /> 返回約戰大廳
+          <ArrowLeft className="w-4 h-4" /> 返回約戰賽事
         </Link>
 
         <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl">
           <div className="border-b border-slate-800 pb-6 mb-6">
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight flex items-center gap-3">
-              <Trophy className="w-8 h-8 text-amber-500" /> 發起運動賽事或聚會
+              <Trophy className="w-8 h-8 text-red-500" /> 發起運動賽事或聚會
             </h1>
             <p className="text-xs sm:text-sm text-zinc-400 mt-1">
               設定報名規則、人數限制以及紅旗退賽預警，系統會自動依據運動類別嚴格隔離球隊。
@@ -465,12 +468,12 @@ export default function CreateEventPage() {
                   onClick={() => setRegistrationType("team")}
                   className={`p-4 rounded-xl border text-left transition-all cursor-pointer ${
                     registrationType === "team"
-                      ? "bg-amber-600/20 border-amber-500 text-white shadow-lg"
+                      ? "bg-purple-600/20 border-purple-500 text-white shadow-lg"
                       : "bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700"
                   }`}
                 >
                   <div className="font-black text-sm mb-1 flex items-center gap-2">
-                    <Shield className="w-4 h-4 text-amber-400" /> 球隊約戰 / 邀請盃賽
+                    <Shield className="w-4 h-4 text-purple-400" /> 球隊約戰 / 邀請盃賽
                   </div>
                   <p className="text-[11px] leading-relaxed text-zinc-400">
                     以「整支球隊」為報名單位。採主辦方審核制，被接受的隊伍始得參賽，不允許個人散客報名。
@@ -515,6 +518,20 @@ export default function CreateEventPage() {
                   </div>
                 </div>
               )}
+            </div>
+
+            <div>
+              <label className="block text-xs font-black text-zinc-300 mb-2">報名性別要求</label>
+              <select
+                value={genderRequirement}
+                onChange={(e) => setGenderRequirement(e.target.value as GenderRequirement)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white font-bold focus:outline-none focus:border-blue-500 transition cursor-pointer"
+              >
+                {GENDER_REQUIREMENT_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+              <p className="text-[10px] text-zinc-500 mt-1.5">不符合性別要求的用戶將無法報名或申請參加。</p>
             </div>
 
             {/* 2. 運動項目與性質 */}
@@ -621,7 +638,7 @@ export default function CreateEventPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-black text-zinc-300 mb-2 flex items-center gap-1.5">
-                  <MapPin className="w-3.5 h-3.5 text-amber-400" /> 場地名稱 *
+                  <MapPin className="w-3.5 h-3.5 text-red-400" /> 場地名稱 *
                 </label>
                 <input
                   type="text"
@@ -712,7 +729,7 @@ export default function CreateEventPage() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="px-8 py-3 rounded-xl bg-amber-600 hover:bg-amber-500 disabled:bg-slate-800 text-white font-black text-sm transition shadow-lg active:scale-95 flex items-center gap-2 cursor-pointer"
+                className="px-8 py-3 rounded-xl bg-red-600 hover:bg-red-500 disabled:bg-slate-800 text-white font-black text-sm transition shadow-lg active:scale-95 flex items-center gap-2 cursor-pointer"
               >
                 {isSubmitting ? (
                   <>

@@ -222,7 +222,7 @@ export default function CoachServiceDetailPage({ params }: { params: Promise<{ i
           {isMyOwnCourse && (
             <Link
               href={`/dashboard/coach?subtab=services&service=${serviceId}`}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-sm font-black transition shadow-[0_0_15px_rgba(217,119,6,0.25)] cursor-pointer"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-sm font-black transition shadow-[0_0_15px_rgba(234,88,12,0.25)] cursor-pointer"
             >
               <Settings className="w-4 h-4" />
               管理此課程 →
@@ -234,11 +234,11 @@ export default function CoachServiceDetailPage({ params }: { params: Promise<{ i
         <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl relative">
           <div className="flex flex-wrap items-center justify-between gap-4 mb-5">
             {service.sport_category ? (
-              <SportCategoryBadge category={service.sport_category} variant="amber" size="lg" />
+              <SportCategoryBadge category={service.sport_category} variant="orange" size="lg" />
             ) : (
               <span />
             )}
-            <span className="text-xs font-bold text-amber-400 bg-amber-950/50 border border-amber-500/30 px-3 py-1 rounded-full flex items-center gap-1.5">
+            <span className="text-xs font-bold text-orange-400 bg-orange-950/50 border border-orange-500/30 px-3 py-1 rounded-full flex items-center gap-1.5">
               🔥 已有 {enquiryCount} 人發送諮詢單
             </span>
           </div>
@@ -250,14 +250,14 @@ export default function CoachServiceDetailPage({ params }: { params: Promise<{ i
             className="inline-flex items-center gap-4 mb-6 group cursor-pointer rounded-2xl px-2 py-2 -mx-2 hover:bg-slate-800/50 transition"
           >
             <div
-              className="w-14 h-14 rounded-full bg-slate-800 bg-cover bg-center shrink-0 flex items-center justify-center ring-2 ring-slate-700 group-hover:ring-amber-500/40 transition"
+              className="w-14 h-14 rounded-full bg-slate-800 bg-cover bg-center shrink-0 flex items-center justify-center ring-2 ring-slate-700 group-hover:ring-orange-500/40 transition"
               style={service.coach?.avatar_url ? { backgroundImage: `url(${service.coach.avatar_url})` } : undefined}
             >
               {!service.coach?.avatar_url && <UserIcon className="w-6 h-6 text-zinc-500" />}
             </div>
             <div>
               <div className="text-xs text-zinc-500 font-bold">授課教練</div>
-              <div className="text-base sm:text-lg font-black text-white group-hover:text-amber-400 transition">
+              <div className="text-base sm:text-lg font-black text-white group-hover:text-orange-400 transition">
                 {service.coach?.full_name || "專業教練"}
               </div>
             </div>
@@ -265,7 +265,7 @@ export default function CoachServiceDetailPage({ params }: { params: Promise<{ i
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-2xl bg-slate-950/60 border border-slate-800/80 mb-6 text-sm">
             <div className="flex items-center gap-3">
-              <MapPin className="w-5 h-5 text-amber-400 shrink-0" />
+              <MapPin className="w-5 h-5 text-orange-400 shrink-0" />
               <div>
                 <div className="text-xs text-zinc-500 font-bold">授課地區</div>
                 <div className="font-extrabold text-white">
@@ -304,7 +304,7 @@ export default function CoachServiceDetailPage({ params }: { params: Promise<{ i
 
           <div className="pt-6 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2">
-              <Star className="w-5 h-5 text-amber-400 fill-amber-400" />
+              <Star className="w-5 h-5 text-orange-400 fill-orange-400" />
               <span className="text-lg font-black">{avgRating}</span>
               <span className="text-xs text-zinc-400">({reviews.length} 則評價)</span>
             </div>
@@ -316,7 +316,7 @@ export default function CoachServiceDetailPage({ params }: { params: Promise<{ i
                 className={`w-full sm:w-auto px-8 py-3.5 rounded-xl font-black text-sm transition shadow-lg flex items-center justify-center gap-2 cursor-pointer active:scale-95 ${
                   hasEnquired
                     ? "bg-slate-800 text-zinc-300 border border-slate-700"
-                    : "bg-amber-600 hover:bg-amber-500 text-white"
+                    : "bg-orange-600 hover:bg-orange-500 text-white"
                 }`}
               >
                 {hasEnquired ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : <MessageSquare className="w-4 h-4" />}
@@ -332,7 +332,7 @@ export default function CoachServiceDetailPage({ params }: { params: Promise<{ i
             onClick={() => setBottomTab("reviews")}
             type="button"
             className={`pb-3 text-base font-black transition flex items-center gap-2 cursor-pointer border-b-2 ${
-              bottomTab === "reviews" ? "border-amber-500 text-white -mb-px" : "border-transparent text-zinc-500 hover:text-zinc-300"
+              bottomTab === "reviews" ? "border-orange-500 text-white -mb-px" : "border-transparent text-zinc-500 hover:text-zinc-300"
             }`}
           >
             <MessageSquare className="w-4 h-4" /> 學員評價與討論 ({reviews.length})
@@ -341,7 +341,7 @@ export default function CoachServiceDetailPage({ params }: { params: Promise<{ i
             onClick={() => setBottomTab("gallery")}
             type="button"
             className={`pb-3 text-base font-black transition flex items-center gap-2 cursor-pointer border-b-2 ${
-              bottomTab === "gallery" ? "border-amber-500 text-white -mb-px" : "border-transparent text-zinc-500 hover:text-zinc-300"
+              bottomTab === "gallery" ? "border-orange-500 text-white -mb-px" : "border-transparent text-zinc-500 hover:text-zinc-300"
             }`}
           >
             <ImageIcon className="w-4 h-4" /> 課程實況相簿 ({service.photos?.length || 0})
@@ -353,12 +353,12 @@ export default function CoachServiceDetailPage({ params }: { params: Promise<{ i
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6 animate-fadeIn">
             <h3 className="text-lg font-black flex items-center justify-between">
               <span>學員真實評價區 ({reviews.length})</span>
-              <span className="text-xs text-amber-400 font-bold">綜合評價 {avgRating} / 5.0 ⭐</span>
+              <span className="text-xs text-orange-400 font-bold">綜合評價 {avgRating} / 5.0 ⭐</span>
             </h3>
 
             {isMyOwnCourse ? (
               <div className="p-5 rounded-2xl bg-slate-950/60 border border-slate-800 flex items-center gap-3 text-zinc-400 text-xs font-bold">
-                <AlertCircle className="w-5 h-5 text-amber-400 shrink-0" />
+                <AlertCircle className="w-5 h-5 text-orange-400 shrink-0" />
                 <span>您是本課程的授課教練，系統已隱藏評價撰寫功能（無法對自己的課程撰寫評價）。</span>
               </div>
             ) : !currentUser ? (
@@ -372,7 +372,7 @@ export default function CoachServiceDetailPage({ params }: { params: Promise<{ i
                   <span className="text-xs font-bold text-zinc-400">留下您的真實上課評價</span>
                   <div className="flex items-center gap-1">
                     {[1, 2, 3, 4, 5].map(s => (
-                      <button key={s} type="button" onClick={() => setRatingVal(s)} className={`text-lg transition cursor-pointer ${ratingVal >= s ? "text-amber-400" : "text-zinc-600"}`}>★</button>
+                      <button key={s} type="button" onClick={() => setRatingVal(s)} className={`text-lg transition cursor-pointer ${ratingVal >= s ? "text-orange-400" : "text-zinc-600"}`}>★</button>
                     ))}
                   </div>
                 </div>
@@ -382,10 +382,10 @@ export default function CoachServiceDetailPage({ params }: { params: Promise<{ i
                   placeholder="分享上課心得、教練的指導專業度給其他運動員吧！"
                   value={commentVal}
                   onChange={(e) => setCommentVal(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-amber-500 transition resize-none"
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-orange-500 transition resize-none"
                 />
                 <div className="flex justify-end">
-                  <button type="submit" disabled={isSubmittingReview} className="px-6 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 disabled:bg-slate-800 text-white font-black text-xs transition cursor-pointer flex items-center gap-1.5">
+                  <button type="submit" disabled={isSubmittingReview} className="px-6 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 disabled:bg-slate-800 text-white font-black text-xs transition cursor-pointer flex items-center gap-1.5">
                     {isSubmittingReview && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                     {isSubmittingReview ? "發送評價中..." : "發佈評價"}
                   </button>
@@ -408,13 +408,13 @@ export default function CoachServiceDetailPage({ params }: { params: Promise<{ i
                           />
                         </Link>
                         <div className="min-w-0">
-                          <Link href={profileLink(rev.student?.id || rev.student_id, returnTo)} className="text-xs font-bold text-white hover:text-amber-400 transition block truncate">
+                          <Link href={profileLink(rev.student?.id || rev.student_id, returnTo)} className="text-xs font-bold text-white hover:text-orange-400 transition block truncate">
                             {rev.student?.full_name || "運動學員"}
                           </Link>
                           <div className="text-[10px] text-zinc-500">{new Date(rev.created_at).toLocaleDateString()}</div>
                         </div>
                       </div>
-                      <span className="text-xs text-amber-400 font-bold bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/20">
+                      <span className="text-xs text-orange-400 font-bold bg-orange-500/10 px-2.5 py-1 rounded-full border border-orange-500/20">
                         {"★".repeat(rev.rating)}
                       </span>
                     </div>
@@ -459,11 +459,11 @@ export default function CoachServiceDetailPage({ params }: { params: Promise<{ i
                 placeholder="例：教練好！目前想加強接發球技術，請問週末有空檔嗎？"
                 value={inquireMsg}
                 onChange={(e) => setInquireMsg(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-amber-500"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-orange-500"
               />
               <div className="flex justify-end gap-3">
                 <button type="button" onClick={() => setIsInquireOpen(false)} className="px-5 py-2.5 rounded-xl bg-slate-800 text-zinc-300 font-bold text-xs cursor-pointer">取消</button>
-                <button type="submit" disabled={isSubmittingInquiry} className="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-black text-xs transition cursor-pointer flex items-center gap-1.5">
+                <button type="submit" disabled={isSubmittingInquiry} className="px-5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-black text-xs transition cursor-pointer flex items-center gap-1.5">
                   {isSubmittingInquiry ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
                   確認送出諮詢
                 </button>

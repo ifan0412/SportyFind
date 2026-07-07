@@ -11,7 +11,7 @@ interface QualificationPickerProps {
   onTagsChange: (tags: string[]) => void;
   customValue: string;
   onCustomChange: (value: string) => void;
-  accent?: "amber" | "emerald";
+  accent?: "orange" | "green" | "amber" | "emerald";
   customPlaceholder?: string;
 }
 
@@ -21,13 +21,14 @@ export function QualificationPicker({
   onTagsChange,
   customValue,
   onCustomChange,
-  accent = "amber",
+  accent = "orange",
   customPlaceholder = "例如：香港大學運動科學系畢業、NSCA-CSCS…",
 }: QualificationPickerProps) {
+  const resolvedAccent = accent === "amber" ? "orange" : accent === "emerald" ? "green" : accent;
   const selectedStyle =
-    accent === "emerald"
-      ? "bg-emerald-600/20 border-emerald-500 text-emerald-300"
-      : "bg-amber-600/20 border-amber-500 text-amber-300";
+    resolvedAccent === "green"
+      ? "bg-green-600/20 border-green-500 text-green-300"
+      : "bg-orange-600/20 border-orange-500 text-orange-300";
 
   const toggle = (tag: string) => {
     if (selectedTags.includes(tag)) {

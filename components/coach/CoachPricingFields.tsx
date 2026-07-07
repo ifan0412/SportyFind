@@ -12,18 +12,22 @@ interface CoachPricingFieldsProps {
   onPricingModeChange: (mode: ServicePricingMode) => void;
   onPriceChange: (value: number | "") => void;
   showTip?: boolean;
-  accent?: "amber" | "emerald";
+  accent?: "orange" | "green" | "amber" | "emerald";
   audience?: "student" | "patient";
 }
 
 const ACCENT_SELECTED = {
-  amber: "bg-amber-600/20 border-amber-500 text-amber-300",
-  emerald: "bg-emerald-600/20 border-emerald-500 text-emerald-300",
+  orange: "bg-orange-600/20 border-orange-500 text-orange-300",
+  green: "bg-green-600/20 border-green-500 text-green-300",
+  amber: "bg-orange-600/20 border-orange-500 text-orange-300",
+  emerald: "bg-green-600/20 border-green-500 text-green-300",
 } as const;
 
 const ACCENT_TIP = {
-  amber: "border-amber-500/25 bg-amber-950/20 text-amber-200/90",
-  emerald: "border-emerald-500/25 bg-emerald-950/20 text-emerald-200/90",
+  orange: "border-orange-500/25 bg-orange-950/20 text-orange-200/90",
+  green: "border-green-500/25 bg-green-950/20 text-green-200/90",
+  amber: "border-orange-500/25 bg-orange-950/20 text-orange-200/90",
+  emerald: "border-green-500/25 bg-green-950/20 text-green-200/90",
 } as const;
 
 export function CoachPricingFields({
@@ -32,12 +36,13 @@ export function CoachPricingFields({
   onPricingModeChange,
   onPriceChange,
   showTip = true,
-  accent = "amber",
+  accent = "orange",
   audience = "student",
 }: CoachPricingFieldsProps) {
   const mode = normalizeServicePricingMode(pricingMode);
   const unitMeta = SERVICE_PRICING_MODES.find((m) => m.id === mode)!;
   const audienceLabel = audience === "patient" ? "患者" : "學員";
+  const resolvedAccent = accent === "amber" ? "orange" : accent === "emerald" ? "green" : accent;
 
   return (
     <div className="space-y-3">
@@ -53,7 +58,7 @@ export function CoachPricingFields({
               onClick={() => onPricingModeChange(opt.id)}
               className={`px-3 py-2.5 rounded-xl border text-xs font-black transition cursor-pointer ${
                 mode === opt.id
-                  ? ACCENT_SELECTED[accent]
+                  ? ACCENT_SELECTED[resolvedAccent]
                   : "bg-slate-900 border-slate-800 text-zinc-400 hover:border-slate-600"
               }`}
             >
@@ -76,7 +81,9 @@ export function CoachPricingFields({
               onPriceChange(e.target.value === "" ? "" : Number(e.target.value))
             }
             placeholder={mode === "session" ? "例如：800" : "例如：500"}
-            className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-sm text-emerald-400 font-black placeholder:text-zinc-600"
+            className={`w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-sm font-black placeholder:text-zinc-600 ${
+              resolvedAccent === "green" ? "text-green-400" : "text-orange-400"
+            }`}
           />
         </div>
       ) : (
@@ -87,7 +94,7 @@ export function CoachPricingFields({
 
       {showTip && (
         <div
-          className={`rounded-xl border px-3 py-2.5 text-[11px] leading-relaxed font-medium ${ACCENT_TIP[accent]}`}
+          className={`rounded-xl border px-3 py-2.5 text-[11px] leading-relaxed font-medium ${ACCENT_TIP[resolvedAccent]}`}
         >
           💡 列出明確價格通常能提升{audienceLabel}發送諮詢的意願；若項目內容差異大，可選「私訊詢價」。
         </div>

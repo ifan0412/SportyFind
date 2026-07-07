@@ -9,8 +9,18 @@ import { RichTextEditor } from "@/components/admin/RichTextEditor";
 import { TeamMetadataFieldsForm } from "@/components/team/TeamMetadataFieldsForm";
 import { TeamMediaManager } from "@/components/team/TeamMediaManager";
 import { regionsToLocationString, cleanTeamMetadata } from "@/lib/team-metadata-fields";
+import {
+  type GenderRequirement,
+  GENDER_REQUIREMENT_OPTIONS,
+  GENDER_REQUIREMENT_LABELS,
+  formatIncompatibleTeamMembersMessage,
+  getIncompatibleTeamMembersForRequirement,
+  isGenderRequirementTightened,
+  normalizeGenderRequirement,
+} from "@/lib/gender";
 import type { SportCategory } from "@/types/team";
 import { BIO_CHAR_SUGGESTED_MAX, BIO_CHAR_SUGGESTED_RANGE, plainTextLength } from "@/lib/content/body";
+import { GenderAvatarBadge } from "@/components/profile/GenderBadge";
 
 type AdminTab = "roster" | "details" | "media" | "settings";
 
@@ -38,6 +48,7 @@ export default function TeamAdminDashboard() {
   const [editNameEn, setEditNameEn] = useState("");
   const [editNameZh, setEditNameZh] = useState("");
   const [editStatus, setEditStatus] = useState("");
+  const [editGenderRequirement, setEditGenderRequirement] = useState<GenderRequirement>("both");
   const [editBio, setEditBio] = useState("");
   const [editPhone, setEditPhone] = useState("");
   const [editEmail, setEditEmail] = useState("");
@@ -59,7 +70,7 @@ export default function TeamAdminDashboard() {
 
       const [teamRes, memRes] = await Promise.all([
         supabase.from("teams").select("*").eq("id", id).single(),
-        supabase.from("team_members").select("user_id, role, joined_at, profiles(id, full_name, avatar_url)").eq("team_id", id),
+        supabase.from("team_members").select("user_id, role, joined_at, profiles(id, full_name, avatar_url, gender)").eq("team_id", id),
       ]);
 
       if (!teamRes.data) { setIsAuthorized(false); return; }
@@ -77,6 +88,7 @@ export default function TeamAdminDashboard() {
       setEditNameEn(teamRes.data.name_en || "");
       setEditNameZh(teamRes.data.name_zh || "");
       setEditStatus(teamRes.data.recruitment_status || "open");
+      setEditGenderRequirement(teamRes.data.gender_requirement || "both");
       setEditBio(teamRes.data.bio || "");
       setEditPhone(teamRes.data.social_links?.phone || "");
       setEditEmail(teamRes.data.social_links?.email || "");
@@ -200,6 +212,16 @@ export default function TeamAdminDashboard() {
 
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const savedRequirement = normalizeGenderRequirement(team?.gender_requirement);
+    if (isGenderRequirementTightened(savedRequirement, editGenderRequirement)) {
+      const incompatible = getIncompatibleTeamMembersForRequirement(members, editGenderRequirement);
+      if (incompatible.length > 0) {
+        alert(formatIncompatibleTeamMembersMessage(incompatible, editGenderRequirement));
+        return;
+      }
+    }
+
     setIsSavingSettings(true);
     try {
       const updatedSocial = {
@@ -219,6 +241,7 @@ export default function TeamAdminDashboard() {
           name_en: editNameEn.trim(),
           name_zh: editNameZh.trim() || null,
           recruitment_status: editStatus,
+          gender_requirement: editGenderRequirement,
           bio: bioPlainLen > 0 ? editBio : null,
           social_links: updatedSocial,
         })
@@ -291,7 +314,13 @@ export default function TeamAdminDashboard() {
 
   const pendingMembers = members.filter((m) => m.role === "pending");
   const activeMembers = members.filter((m) => m.role !== "pending");
-  const inputCls = "w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-500 transition";
+  const savedGenderRequirement = normalizeGenderRequirement(team?.gender_requirement);
+  const isTighteningGenderRule = isGenderRequirementTightened(savedGenderRequirement, editGenderRequirement);
+  const incompatibleGenderMembers = isTighteningGenderRule
+    ? getIncompatibleTeamMembersForRequirement(members, editGenderRequirement)
+    : [];
+  const genderSaveBlocked = incompatibleGenderMembers.length > 0;
+  const inputCls = "w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-purple-500 transition";
   const labelCls = "block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 pl-1";
 
   return (
@@ -299,26 +328,26 @@ export default function TeamAdminDashboard() {
       <div className="w-full max-w-4xl md:max-w-5xl mx-auto px-4 sm:px-6 py-8 md:py-12">
         
         <div className="flex items-center justify-between mb-8">
-          <Link href={`/team/${id}`} className="text-sm font-black text-amber-500 hover:text-amber-400 transition relative z-30">
+          <Link href={`/team/${id}`} className="text-sm font-black text-purple-500 hover:text-purple-400 transition relative z-30">
             ← 前往團隊公開頁面查看預覽
           </Link>
-          <span className="bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-black px-3 py-1 rounded-full uppercase tracking-widest">後台中央管理層</span>
+          <span className="bg-purple-500/10 border border-purple-500/20 text-purple-400 text-xs font-black px-3 py-1 rounded-full uppercase tracking-widest">後台中央管理層</span>
         </div>
 
         <h1 className="text-2xl md:text-3xl font-black text-white mb-2">{team.name_en} 核心主控台</h1>
         <p className="text-zinc-500 text-sm mb-8">全面掌管群組成員狀態、招募名單審核及團隊視覺資產變更。</p>
 
         <div className="flex flex-wrap gap-2 border-b border-slate-800 mb-8 pb-4">
-          <button onClick={() => setActiveTab("roster")} className={`px-4 py-2.5 rounded-xl font-black text-sm transition ${activeTab === "roster" ? "bg-amber-600 text-white shadow-[0_0_15px_rgba(217,119,6,0.3)]" : "bg-slate-900 text-zinc-400 hover:text-white"}`}>
+          <button onClick={() => setActiveTab("roster")} className={`px-4 py-2.5 rounded-xl font-black text-sm transition ${activeTab === "roster" ? "bg-purple-600 text-white shadow-[0_0_15px_rgba(168,85,247,0.3)]" : "bg-slate-900 text-zinc-400 hover:text-white"}`}>
             👥 成員 ({pendingMembers.length > 0 ? `${pendingMembers.length} 待審` : activeMembers.length})
           </button>
-          <button onClick={() => setActiveTab("details")} className={`px-4 py-2.5 rounded-xl font-black text-sm transition ${activeTab === "details" ? "bg-amber-600 text-white shadow-[0_0_15px_rgba(217,119,6,0.3)]" : "bg-slate-900 text-zinc-400 hover:text-white"}`}>
+          <button onClick={() => setActiveTab("details")} className={`px-4 py-2.5 rounded-xl font-black text-sm transition ${activeTab === "details" ? "bg-purple-600 text-white shadow-[0_0_15px_rgba(168,85,247,0.3)]" : "bg-slate-900 text-zinc-400 hover:text-white"}`}>
             📋 群組詳情
           </button>
-          <button onClick={() => setActiveTab("media")} className={`px-4 py-2.5 rounded-xl font-black text-sm transition ${activeTab === "media" ? "bg-amber-600 text-white shadow-[0_0_15px_rgba(217,119,6,0.3)]" : "bg-slate-900 text-zinc-400 hover:text-white"}`}>
+          <button onClick={() => setActiveTab("media")} className={`px-4 py-2.5 rounded-xl font-black text-sm transition ${activeTab === "media" ? "bg-purple-600 text-white shadow-[0_0_15px_rgba(168,85,247,0.3)]" : "bg-slate-900 text-zinc-400 hover:text-white"}`}>
             🖼️ 媒體
           </button>
-          <button onClick={() => setActiveTab("settings")} className={`px-4 py-2.5 rounded-xl font-black text-sm transition ${activeTab === "settings" ? "bg-amber-600 text-white shadow-[0_0_15px_rgba(217,119,6,0.3)]" : "bg-slate-900 text-zinc-400 hover:text-white"}`}>
+          <button onClick={() => setActiveTab("settings")} className={`px-4 py-2.5 rounded-xl font-black text-sm transition ${activeTab === "settings" ? "bg-purple-600 text-white shadow-[0_0_15px_rgba(168,85,247,0.3)]" : "bg-slate-900 text-zinc-400 hover:text-white"}`}>
             ⚙️ 設定
           </button>
         </div>
@@ -326,16 +355,17 @@ export default function TeamAdminDashboard() {
         {activeTab === "roster" && (
           <div className="space-y-8">
             {pendingMembers.length > 0 && (
-              <div className="bg-amber-500/5 border border-amber-500/20 rounded-3xl p-6 space-y-4">
-                <h2 className="text-xs font-black text-amber-400 uppercase tracking-widest flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" /> 收到加入群組的申請 ({pendingMembers.length})
+              <div className="bg-purple-500/5 border border-purple-500/20 rounded-3xl p-6 space-y-4">
+                <h2 className="text-xs font-black text-purple-400 uppercase tracking-widest flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" /> 收到加入群組的申請 ({pendingMembers.length})
                 </h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {pendingMembers.map((m) => (
                     <div key={m.user_id} className="flex items-center justify-between bg-slate-900/80 border border-slate-800 p-4 rounded-2xl shadow-lg">
                       <Link href={profileLink(m.user_id, returnTo)} className="flex items-center gap-3 min-w-0 hover:opacity-90 transition">
-                        <div className="w-10 h-10 rounded-xl bg-slate-800 flex-shrink-0 bg-cover bg-center border border-slate-700" style={{ backgroundImage: m.profiles?.avatar_url ? `url(${m.profiles.avatar_url})` : "none" }}>
+                        <div className="relative w-10 h-10 rounded-xl bg-slate-800 flex-shrink-0 bg-cover bg-center border border-slate-700 flex items-center justify-center overflow-hidden" style={{ backgroundImage: m.profiles?.avatar_url ? `url(${m.profiles.avatar_url})` : "none" }}>
                           {!m.profiles?.avatar_url && (m.profiles?.full_name?.[0] || "U")}
+                          <GenderAvatarBadge gender={m.profiles?.gender} size="xs" />
                         </div>
                         <span className="font-black text-white text-sm truncate">{m.profiles?.full_name || "新成員"}</span>
                       </Link>
@@ -355,8 +385,9 @@ export default function TeamAdminDashboard() {
                 {activeMembers.map((m) => (
                   <div key={m.user_id} className="flex items-center justify-between bg-slate-950/60 border border-slate-800/80 p-3.5 rounded-2xl hover:border-slate-700 transition">
                     <Link href={profileLink(m.user_id, returnTo)} className="flex items-center gap-3 min-w-0 hover:opacity-90 transition">
-                      <div className="w-9 h-9 rounded-xl bg-slate-800 flex-shrink-0 bg-cover bg-center border border-slate-700" style={{ backgroundImage: m.profiles?.avatar_url ? `url(${m.profiles.avatar_url})` : "none" }}>
+                      <div className="relative w-9 h-9 rounded-xl bg-slate-800 flex-shrink-0 bg-cover bg-center border border-slate-700 flex items-center justify-center overflow-hidden" style={{ backgroundImage: m.profiles?.avatar_url ? `url(${m.profiles.avatar_url})` : "none" }}>
                         {!m.profiles?.avatar_url && (m.profiles?.full_name?.[0] || "U")}
+                        <GenderAvatarBadge gender={m.profiles?.gender} size="xs" />
                       </div>
                       <span className="text-sm font-black text-white truncate">
                         {m.profiles?.full_name || "群組運動員"}
@@ -368,7 +399,7 @@ export default function TeamAdminDashboard() {
                       <select
                         value={m.role}
                         onChange={(e) => handleRoleChange(m.user_id, e.target.value)}
-                        className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs font-bold text-amber-400 focus:outline-none"
+                        className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs font-bold text-purple-400 focus:outline-none"
                       >
                         <option value="admin">主要管理員 Admin</option>
                         <option value="coach">專業教練 Coach</option>
@@ -397,7 +428,7 @@ export default function TeamAdminDashboard() {
               onEstYearChange={setEditEstYear}
               onMetadataChange={setEditSportMetadata}
             />
-            <button type="submit" disabled={isSavingDetails} className="w-full bg-amber-600 hover:bg-amber-500 disabled:bg-slate-800 text-white font-black py-3.5 rounded-xl transition">
+            <button type="submit" disabled={isSavingDetails} className="w-full bg-purple-600 hover:bg-purple-500 disabled:bg-slate-800 text-white font-black py-3.5 rounded-xl transition">
               {isSavingDetails ? "儲存中..." : "💾 儲存群組詳情與規格"}
             </button>
           </form>
@@ -441,7 +472,7 @@ export default function TeamAdminDashboard() {
               </div>
 
               <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-4 space-y-4">
-                <p className="text-[10px] font-bold text-amber-400 uppercase tracking-wider pl-1">社群連結（選填）</p>
+                <p className="text-[10px] font-bold text-purple-400 uppercase tracking-wider pl-1">社群連結（選填）</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className={labelCls}>Instagram</label>
@@ -468,6 +499,41 @@ export default function TeamAdminDashboard() {
               </div>
 
               <div>
+                <label className={labelCls}>加入性別要求</label>
+                <select className={inputCls} value={editGenderRequirement} onChange={(e) => setEditGenderRequirement(e.target.value as GenderRequirement)}>
+                  {GENDER_REQUIREMENT_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-zinc-600 mt-1.5 pl-1">
+                  收緊規則時，名單上所有成員（含教練／管理員）皆須符合；教練若同時為運動員，亦適用此規則。
+                </p>
+                {genderSaveBlocked && (
+                  <div className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-2">
+                    <p className="text-xs font-black text-amber-300">
+                      無法儲存此性別要求：目前有 {incompatibleGenderMembers.length} 位成員不符合「{GENDER_REQUIREMENT_LABELS[editGenderRequirement]}」
+                    </p>
+                    <ul className="text-xs text-amber-200/90 space-y-1">
+                      {incompatibleGenderMembers.map((m) => (
+                        <li key={m.userId}>
+                          • {m.fullName}
+                          {m.role === "pending" ? "（待審）" : m.role === "coach" ? "（教練）" : m.role === "admin" ? "（管理員）" : ""}
+                          {m.reason === "gender_unset" ? " — 尚未設定性別" : ""}
+                        </li>
+                      ))}
+                    </ul>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab("roster")}
+                      className="text-[11px] font-bold text-amber-400 hover:text-amber-300 underline underline-offset-2"
+                    >
+                      前往成員分頁移除 →
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div>
                 <label className={labelCls}>修改群組與戰隊介紹 Bio</label>
                 <RichTextEditor
                   value={editBio}
@@ -480,8 +546,12 @@ export default function TeamAdminDashboard() {
                 />
               </div>
 
-              <button type="submit" disabled={isSavingSettings} className="w-full bg-amber-600 hover:bg-amber-500 disabled:bg-slate-800 text-white font-black py-3.5 rounded-xl transition shadow-[0_0_15px_rgba(217,119,6,0.3)]">
-                {isSavingSettings ? "儲存中..." : "💾 儲存群組設定"}
+              <button
+                type="submit"
+                disabled={isSavingSettings || genderSaveBlocked}
+                className="w-full bg-purple-600 hover:bg-purple-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-black py-3.5 rounded-xl transition shadow-[0_0_15px_rgba(168,85,247,0.3)]"
+              >
+                {isSavingSettings ? "儲存中..." : genderSaveBlocked ? "請先移除不符合的成員" : "💾 儲存群組設定"}
               </button>
             </form>
 

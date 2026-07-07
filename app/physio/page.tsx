@@ -35,7 +35,7 @@ interface PhysioProfile {
 }
 
 function PhysioStatusBadge({ tag }: { tag: string | null }) {
-  if (tag === "available") return <div className="inline-flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] px-2 py-0.5 rounded-full font-black tracking-widest whitespace-nowrap"><div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> 開放預約</div>;
+  if (tag === "available") return <div className="inline-flex items-center gap-1.5 bg-green-500/10 border border-green-500/20 text-green-400 text-[10px] px-2 py-0.5 rounded-full font-black tracking-widest whitespace-nowrap"><div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" /> 開放預約</div>;
   if (tag === "busy" || tag === "full") return <div className="inline-flex items-center gap-1.5 bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] px-2 py-0.5 rounded-full font-black tracking-widest whitespace-nowrap"><div className="w-1.5 h-1.5 rounded-full bg-red-400" /> 滿診中</div>;
   return null;
 }
@@ -143,23 +143,23 @@ export default function PhysioPage() {
   });
 
   return (
-    <div className="bg-slate-950 min-h-screen text-zinc-200 font-sans selection:bg-emerald-500/30 pb-24 relative">
+    <div className="bg-slate-950 min-h-screen text-zinc-200 font-sans selection:bg-green-500/30 pb-24 relative">
       <div className={`${LISTING_PAGE_MAX_WIDTH} mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10`}>
-        <BackButton label="返回上一頁" />
+        <BackButton label="返回首頁" href="/" />
 
         <ListingPageHeader section="physio" />
 
         <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-800 p-4 md:p-5 rounded-3xl mb-8 shadow-lg flex flex-col md:flex-row gap-4 items-center">
           <div className="relative w-full md:flex-1">
             <span className="absolute left-3 top-3 text-zinc-500">🔍</span>
-            <input type="text" placeholder="搜尋專家名稱、診所..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-xl py-3 pl-10 pr-4 text-sm text-white focus:outline-none focus:border-emerald-500 transition" />
+            <input type="text" placeholder="搜尋專家名稱、診所..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-xl py-3 pl-10 pr-4 text-sm text-white focus:outline-none focus:border-green-500 transition" />
           </div>
 
-          <button type="button" onClick={() => setIsLocationModalOpen(true)} className={`w-full md:w-auto flex items-center justify-between gap-3 px-5 py-3 rounded-xl border text-sm font-bold transition flex-shrink-0 ${selectedDistricts.length > 0 ? "bg-emerald-600/10 border-emerald-500 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.2)]" : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"}`}>
+          <button type="button" onClick={() => setIsLocationModalOpen(true)} className={`w-full md:w-auto flex items-center justify-between gap-3 px-5 py-3 rounded-xl border text-sm font-bold transition flex-shrink-0 ${selectedDistricts.length > 0 ? "bg-green-600/10 border-green-500 text-green-400 shadow-[0_0_10px_rgba(34,197,94,0.2)]" : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"}`}>
             <span>地區 {selectedDistricts.length > 0 ? `(${selectedDistricts.length})` : "(全區)"}</span><span className="text-[10px]">▼</span>
           </button>
 
-          <button type="button" onClick={() => setIsServiceTypeModalOpen(true)} className={`w-full md:w-auto flex items-center justify-between gap-3 px-5 py-3 rounded-xl border text-sm font-bold transition flex-shrink-0 ${selectedServiceTypes.length > 0 ? "bg-emerald-600/10 border-emerald-500 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.2)]" : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"}`}>
+          <button type="button" onClick={() => setIsServiceTypeModalOpen(true)} className={`w-full md:w-auto flex items-center justify-between gap-3 px-5 py-3 rounded-xl border text-sm font-bold transition flex-shrink-0 ${selectedServiceTypes.length > 0 ? "bg-green-600/10 border-green-500 text-green-400 shadow-[0_0_10px_rgba(34,197,94,0.2)]" : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"}`}>
             <span>診療類別 {selectedServiceTypes.length > 0 ? `(${selectedServiceTypes.length})` : "(全部)"}</span><span className="text-[10px]">▼</span>
           </button>
         </div>
@@ -180,7 +180,7 @@ export default function PhysioPage() {
                 return (
                   <div
                     key={p.id}
-                    className="bg-slate-900/60 border border-slate-800 hover:border-emerald-500/40 rounded-3xl p-5 flex flex-col justify-between transition duration-300 group hover:-translate-y-1 shadow-md hover:shadow-xl"
+                    className="bg-slate-900/60 border border-slate-800 hover:border-green-500/40 rounded-3xl p-5 flex flex-col justify-between transition duration-300 group hover:-translate-y-1 shadow-md hover:shadow-xl"
                   >
                     <div className="space-y-3">
                       <Link href={`/p/${p.id}?tab=physio`} className="flex items-center gap-3 group/physio">
@@ -197,7 +197,7 @@ export default function PhysioPage() {
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="text-[10px] text-zinc-500 uppercase font-bold leading-none mb-0.5">物理治療師</div>
-                          <div className="text-lg font-black text-white group-hover/physio:text-emerald-400 transition truncate leading-tight">
+                          <div className="text-lg font-black text-white group-hover/physio:text-green-400 transition truncate leading-tight">
                             {p.full_name || "專家名稱未設"}
                           </div>
                           <div className="text-xs text-zinc-400 font-medium truncate">{p.clinic_name || "獨立接案"}</div>
@@ -206,7 +206,7 @@ export default function PhysioPage() {
 
                       <div className="flex flex-wrap items-center gap-1.5">
                         {p.physio_experience_years && (
-                          <span className="text-[10px] font-black px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 whitespace-nowrap">
+                          <span className="text-[10px] font-black px-2.5 py-1 rounded-full bg-green-500/10 text-green-400 border border-green-500/20 whitespace-nowrap">
                             {p.physio_experience_years} 年經驗
                           </span>
                         )}
@@ -214,13 +214,13 @@ export default function PhysioPage() {
                           <PhysioServiceTypeBadges types={serviceTypes} size="xs" max={3} />
                         )}
                         {qualificationTags.length > 0 && (
-                          <QualificationBadges tags={qualificationTags} accent="emerald" size="xs" max={2} />
+                          <QualificationBadges tags={qualificationTags} accent="green" size="xs" max={2} />
                         )}
                       </div>
 
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="inline-flex items-center gap-1 text-[10px] font-bold text-zinc-300 bg-slate-950/60 px-2.5 py-1 rounded-full border border-slate-800">
-                          <MapPin className="w-3 h-3 text-emerald-400 shrink-0" />
+                          <MapPin className="w-3 h-3 text-green-400 shrink-0" />
                           {districtLabel}
                         </span>
                       </div>
@@ -229,7 +229,7 @@ export default function PhysioPage() {
                     <div className="pt-4 mt-3 border-t border-slate-800/80">
                       <Link
                         href={`/p/${p.id}?tab=physio`}
-                        className="block w-full bg-slate-800 hover:bg-emerald-600 text-white text-sm font-black py-2.5 rounded-xl transition duration-300 text-center"
+                        className="block w-full bg-slate-800 hover:bg-green-600 text-white text-sm font-black py-2.5 rounded-xl transition duration-300 text-center"
                       >
                         查看專頁
                       </Link>

@@ -130,24 +130,24 @@ export default function EventsLobbyPage() {
   };
 
   return (
-    <div className="bg-slate-950 min-h-screen text-zinc-200 font-sans selection:bg-blue-500/30 pb-24 relative">
+    <div className="bg-slate-950 min-h-screen text-zinc-200 font-sans selection:bg-red-500/30 pb-24 relative">
       <div className={`${LISTING_PAGE_MAX_WIDTH} mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10`}>
-        <BackButton label="返回上一頁" />
+        <BackButton label="返回首頁" href="/" />
 
-        <div className="mb-6 md:mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-4 text-center md:text-left mt-2">
-          <ListingPageHeader section="events" className="mb-0 mt-0 flex-1" />
-          <div className="flex items-center justify-center sm:justify-end gap-2 shrink-0">
+        <div className="mb-6 md:mb-8 flex flex-col lg:flex-row lg:items-start justify-between gap-1 lg:gap-4">
+          <ListingPageHeader section="events" className="mb-0 flex-1 min-w-0" />
+          <div className="flex flex-row flex-wrap items-center justify-start gap-2 shrink-0 w-full lg:w-auto lg:justify-end lg:pt-1">
             <Link
               href="/events/my"
-              className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs font-bold text-zinc-300 transition cursor-pointer"
+              className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs font-bold text-zinc-300 transition cursor-pointer text-center whitespace-nowrap"
             >
               📋 我的賽事
             </Link>
             <Link
               href="/events/new"
-              className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs transition shadow-lg flex items-center gap-1.5 cursor-pointer"
+              className="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-black text-xs transition shadow-lg flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
             >
-              <Plus className="w-4 h-4" /> 發起新約戰
+              <Plus className="w-4 h-4 shrink-0" /> 發起新約戰
             </Link>
           </div>
         </div>
@@ -286,7 +286,7 @@ export default function EventsLobbyPage() {
                       <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black border ${
                         ev.registration_type === "individual"
                           ? "bg-purple-950/40 text-purple-300 border-purple-500/30"
-                          : "bg-amber-950/40 text-amber-300 border-amber-500/30"
+                          : "bg-red-950/40 text-red-300 border-red-500/30"
                       }`}>
                         {ev.registration_type === "individual" ? "👤 個人" : "🛡️ 團隊"}
                       </span>
@@ -302,7 +302,7 @@ export default function EventsLobbyPage() {
                         <span className="font-bold text-zinc-200 truncate">{formatDateTime(ev.start_time)}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <MapPin className="w-4 h-4 text-amber-400 shrink-0" />
+                        <MapPin className="w-4 h-4 text-red-400 shrink-0" />
                         <span className="truncate">
                           {formatDistrictList(normalizeDistrictIds(ev.districts, null), 2) || ev.location_name}
                         </span>
@@ -317,7 +317,7 @@ export default function EventsLobbyPage() {
                         style={organizerAvatarUrl ? { backgroundImage: `url(${organizerAvatarUrl})` } : undefined}
                       >
                         {!organizerAvatarUrl && (
-                          isTeamOrganizer ? <Shield className="w-3 h-3 text-amber-400" /> : <UserIcon className="w-3 h-3 text-blue-400" />
+                          isTeamOrganizer ? <Shield className="w-3 h-3 text-red-400" /> : <UserIcon className="w-3 h-3 text-blue-400" />
                         )}
                       </div>
                       <span className="text-xs text-zinc-400 truncate">

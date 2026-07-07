@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { PasswordRequirements } from "@/components/PasswordRequirements";
 import { getPasswordValidationError } from "@/lib/password";
+import { type ProfileGender, PROFILE_GENDER_OPTIONS } from "@/lib/gender";
 
 export default function AuthPage() {
   const [email, setEmail] = useState("");
@@ -25,6 +26,7 @@ export default function AuthPage() {
   const [isCoach, setIsCoach] = useState(false);
   const [isPhysio, setIsPhysio] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [gender, setGender] = useState<ProfileGender | "">("");
 
   const supabase = createSupabaseBrowserClient();
   const router = useRouter();
@@ -90,6 +92,11 @@ export default function AuthPage() {
         setIsLoading(false);
         return;
       }
+      if (!gender) {
+        toast.error("請選擇性別。");
+        setIsLoading(false);
+        return;
+      }
 
       const passwordError = getPasswordValidationError(password);
       if (passwordError) {
@@ -111,6 +118,7 @@ export default function AuthPage() {
             is_coach: isCoach,
             is_physio: isPhysio,
             roles_confirmed: true,
+            gender,
           },
         },
       });
@@ -245,7 +253,25 @@ export default function AuthPage() {
                     className="w-full p-3 bg-pro-slate-800 border border-pro-slate-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm transition placeholder:text-slate-600 disabled:opacity-50"
                   />
                 </div>
-              </div>              
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-400 mb-1.5 uppercase tracking-widest">
+                  性別 <span className="normal-case font-normal text-zinc-600">(顯示於報名與成員名單)</span>
+                </label>
+                <select
+                  value={gender}
+                  onChange={(e) => setGender(e.target.value as ProfileGender)}
+                  disabled={isLoading}
+                  required={isSignUp}
+                  className="w-full p-3 bg-pro-slate-800 border border-pro-slate-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm transition disabled:opacity-50"
+                >
+                  <option value="">請選擇</option>
+                  {PROFILE_GENDER_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
 
               {/* Account ID (Handle) */}
               <div>
@@ -383,6 +409,7 @@ export default function AuthPage() {
             setIsSignUp(!isSignUp);
             setHandleStatus("idle");
             setAcceptedTerms(false);
+            setGender("");
           }}
           disabled={isLoading}
           className="mt-6 w-full text-center text-sm text-slate-400 hover:text-white underline transition disabled:opacity-50"

@@ -187,13 +187,13 @@ export default function PhysioServiceDetailPage({ params }: { params: Promise<{ 
 
   if (isLoading) return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center text-zinc-500 font-mono">
-      <Loader2 className="w-6 h-6 animate-spin mr-2 text-emerald-500" /> 載入診療項目中...
+      <Loader2 className="w-6 h-6 animate-spin mr-2 text-green-500" /> 載入診療項目中...
     </div>
   );
   if (!service) return (
     <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white p-4">
       <h2 className="text-xl font-bold mb-4">找不到此診療項目</h2>
-      <button onClick={() => router.back()} className="text-emerald-400 underline text-sm cursor-pointer">返回上一頁</button>
+      <button onClick={() => router.back()} className="text-green-400 underline text-sm cursor-pointer">返回上一頁</button>
     </div>
   );
 
@@ -210,7 +210,7 @@ export default function PhysioServiceDetailPage({ params }: { params: Promise<{ 
           {isMyOwnService && (
             <Link
               href={`/dashboard/physio?subtab=services&service=${serviceId}`}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-black transition shadow-[0_0_15px_rgba(16,185,129,0.25)] cursor-pointer"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-green-600 hover:bg-green-500 text-white text-sm font-black transition shadow-[0_0_15px_rgba(34,197,94,0.25)] cursor-pointer"
             >
               <Settings className="w-4 h-4" />
               管理此項目 →
@@ -221,7 +221,7 @@ export default function PhysioServiceDetailPage({ params }: { params: Promise<{ 
         <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl relative">
           <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
             <PhysioServiceTypeBadges types={normalizePhysioServiceTypes(service.service_types, service.service_type)} size="sm" />
-            <span className="text-xs font-bold text-emerald-400 bg-emerald-950/50 border border-emerald-500/30 px-3 py-1 rounded-full flex items-center gap-1.5">
+            <span className="text-xs font-bold text-green-400 bg-green-950/50 border border-green-500/30 px-3 py-1 rounded-full flex items-center gap-1.5">
               🔥 已有 {enquiryCount} 人發送諮詢單
             </span>
           </div>
@@ -234,18 +234,18 @@ export default function PhysioServiceDetailPage({ params }: { params: Promise<{ 
             </div>
             <div>
               <div className="text-xs text-zinc-400">治療師</div>
-              <div className="text-sm font-bold text-white group-hover:text-emerald-400 transition">{service.physio?.full_name || "物理治療師"}</div>
+              <div className="text-sm font-bold text-white group-hover:text-green-400 transition">{service.physio?.full_name || "物理治療師"}</div>
             </div>
           </Link>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-2xl bg-slate-950/60 border border-slate-800/80 mb-6 text-sm">
             <div className="flex items-center gap-3 sm:col-span-2">
-              <MapPin className="w-5 h-5 text-emerald-400 shrink-0" />
+              <MapPin className="w-5 h-5 text-green-400 shrink-0" />
               <div>
                 {service.service_centre && (
                   <>
                     <div className="text-xs text-zinc-500 font-bold">服務中心</div>
-                    <div className="font-extrabold text-emerald-300 mb-1">{service.service_centre}</div>
+                    <div className="font-extrabold text-green-300 mb-1">{service.service_centre}</div>
                   </>
                 )}
                 <div className="text-xs text-zinc-500 font-bold">{service.full_address ? "完整地址" : "診療地區"}</div>
@@ -265,10 +265,10 @@ export default function PhysioServiceDetailPage({ params }: { params: Promise<{ 
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <DollarSign className="w-5 h-5 text-emerald-400 shrink-0" />
+              <DollarSign className="w-5 h-5 text-green-400 shrink-0" />
               <div>
                 <div className="text-xs text-zinc-500 font-bold">項目收費</div>
-                <div className={`font-extrabold text-base ${priceDisplay.isDm ? "text-zinc-300" : "text-emerald-400"}`}>
+                <div className={`font-extrabold text-base ${priceDisplay.isDm ? "text-zinc-300" : "text-green-400"}`}>
                   {priceDisplay.main}
                   {priceDisplay.unit && (
                     <span className="text-xs text-zinc-400 font-normal ml-1">{priceDisplay.unit}</span>
@@ -287,7 +287,7 @@ export default function PhysioServiceDetailPage({ params }: { params: Promise<{ 
 
           <div className="pt-6 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2">
-              <Star className="w-5 h-5 text-emerald-400 fill-emerald-400" />
+              <Star className="w-5 h-5 text-green-400 fill-green-400" />
               <span className="text-lg font-black">{avgRating}</span>
               <span className="text-xs text-zinc-400">({reviews.length} 則評價)</span>
             </div>
@@ -299,10 +299,10 @@ export default function PhysioServiceDetailPage({ params }: { params: Promise<{ 
                 className={`w-full sm:w-auto px-8 py-3.5 rounded-xl font-black text-sm transition shadow-lg flex items-center justify-center gap-2 cursor-pointer active:scale-95 ${
                   hasEnquired
                     ? "bg-slate-800 text-zinc-300 border border-slate-700"
-                    : "bg-emerald-600 hover:bg-emerald-500 text-white"
+                    : "bg-green-600 hover:bg-green-500 text-white"
                 }`}
               >
-                {hasEnquired ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : <MessageSquare className="w-4 h-4" />}
+                {hasEnquired ? <CheckCircle2 className="w-4 h-4 text-green-400" /> : <MessageSquare className="w-4 h-4" />}
                 {hasEnquired ? "再次發送諮詢" : "立即預約 / 發送諮詢單"}
               </button>
             )}
@@ -314,7 +314,7 @@ export default function PhysioServiceDetailPage({ params }: { params: Promise<{ 
             onClick={() => setBottomTab("reviews")}
             type="button"
             className={`pb-3 text-base font-black transition flex items-center gap-2 cursor-pointer border-b-2 ${
-              bottomTab === "reviews" ? "border-emerald-500 text-white -mb-px" : "border-transparent text-zinc-500 hover:text-zinc-300"
+              bottomTab === "reviews" ? "border-green-500 text-white -mb-px" : "border-transparent text-zinc-500 hover:text-zinc-300"
             }`}
           >
             <MessageSquare className="w-4 h-4" /> 評價與討論 ({reviews.length})
@@ -323,7 +323,7 @@ export default function PhysioServiceDetailPage({ params }: { params: Promise<{ 
             onClick={() => setBottomTab("gallery")}
             type="button"
             className={`pb-3 text-base font-black transition flex items-center gap-2 cursor-pointer border-b-2 ${
-              bottomTab === "gallery" ? "border-emerald-500 text-white -mb-px" : "border-transparent text-zinc-500 hover:text-zinc-300"
+              bottomTab === "gallery" ? "border-green-500 text-white -mb-px" : "border-transparent text-zinc-500 hover:text-zinc-300"
             }`}
           >
             <ImageIcon className="w-4 h-4" /> 診所相簿 ({service.photos?.length || 0})
@@ -334,18 +334,18 @@ export default function PhysioServiceDetailPage({ params }: { params: Promise<{ 
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6 animate-fadeIn">
             <h3 className="text-lg font-black flex items-center justify-between">
               <span>真實評價區 ({reviews.length})</span>
-              <span className="text-xs text-emerald-400 font-bold">綜合評價 {avgRating} / 5.0 ⭐</span>
+              <span className="text-xs text-green-400 font-bold">綜合評價 {avgRating} / 5.0 ⭐</span>
             </h3>
 
             {isMyOwnService ? (
               <div className="p-5 rounded-2xl bg-slate-950/60 border border-slate-800 flex items-center gap-3 text-zinc-400 text-xs font-bold">
-                <AlertCircle className="w-5 h-5 text-emerald-400 shrink-0" />
+                <AlertCircle className="w-5 h-5 text-green-400 shrink-0" />
                 <span>您是本項目的治療師，系統已隱藏評價撰寫功能。</span>
               </div>
             ) : !currentUser ? (
               <div className="p-5 rounded-2xl bg-slate-950/60 border border-slate-800 flex items-center justify-between text-xs font-bold">
                 <span className="text-zinc-400">登入會員後即可撰寫評價分享心得！</span>
-                <Link href="/auth" className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl transition">前往登入</Link>
+                <Link href="/auth" className="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-xl transition">前往登入</Link>
               </div>
             ) : (
               <form onSubmit={handleAddReview} className="p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-4">
@@ -353,7 +353,7 @@ export default function PhysioServiceDetailPage({ params }: { params: Promise<{ 
                   <span className="text-xs font-bold text-zinc-400">留下您的真實評價</span>
                   <div className="flex items-center gap-1">
                     {[1, 2, 3, 4, 5].map(s => (
-                      <button key={s} type="button" onClick={() => setRatingVal(s)} className={`text-lg transition cursor-pointer ${ratingVal >= s ? "text-emerald-400" : "text-zinc-600"}`}>★</button>
+                      <button key={s} type="button" onClick={() => setRatingVal(s)} className={`text-lg transition cursor-pointer ${ratingVal >= s ? "text-green-400" : "text-zinc-600"}`}>★</button>
                     ))}
                   </div>
                 </div>
@@ -363,10 +363,10 @@ export default function PhysioServiceDetailPage({ params }: { params: Promise<{ 
                   placeholder="分享治療體驗、專業度與恢復成效！"
                   value={commentVal}
                   onChange={(e) => setCommentVal(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-emerald-500 transition resize-none"
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-green-500 transition resize-none"
                 />
                 <div className="flex justify-end">
-                  <button type="submit" disabled={isSubmittingReview} className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 text-white font-black text-xs transition cursor-pointer flex items-center gap-1.5">
+                  <button type="submit" disabled={isSubmittingReview} className="px-6 py-2.5 rounded-xl bg-green-600 hover:bg-green-500 disabled:bg-slate-800 text-white font-black text-xs transition cursor-pointer flex items-center gap-1.5">
                     {isSubmittingReview && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                     {isSubmittingReview ? "發送中..." : "發佈評價"}
                   </button>
@@ -389,13 +389,13 @@ export default function PhysioServiceDetailPage({ params }: { params: Promise<{ 
                           />
                         </Link>
                         <div className="min-w-0">
-                          <Link href={profileLink(rev.patient?.id || rev.patient_id, returnTo)} className="text-xs font-bold text-white hover:text-emerald-400 transition block truncate">
+                          <Link href={profileLink(rev.patient?.id || rev.patient_id, returnTo)} className="text-xs font-bold text-white hover:text-green-400 transition block truncate">
                             {rev.patient?.full_name || "運動員"}
                           </Link>
                           <div className="text-[10px] text-zinc-500">{new Date(rev.created_at).toLocaleDateString()}</div>
                         </div>
                       </div>
-                      <span className="text-xs text-emerald-400 font-bold bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
+                      <span className="text-xs text-green-400 font-bold bg-green-500/10 px-2.5 py-1 rounded-full border border-green-500/20">
                         {"★".repeat(rev.rating)}
                       </span>
                     </div>
@@ -438,11 +438,11 @@ export default function PhysioServiceDetailPage({ params }: { params: Promise<{ 
                 placeholder="例：治療師好！最近膝蓋不適，想預約運動傷患評估，請問本週有空檔嗎？"
                 value={inquireMsg}
                 onChange={(e) => setInquireMsg(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-emerald-500"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-green-500"
               />
               <div className="flex justify-end gap-3">
                 <button type="button" onClick={() => setIsInquireOpen(false)} className="px-5 py-2.5 rounded-xl bg-slate-800 text-zinc-300 font-bold text-xs cursor-pointer">取消</button>
-                <button type="submit" disabled={isSubmittingInquiry} className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs transition cursor-pointer flex items-center gap-1.5">
+                <button type="submit" disabled={isSubmittingInquiry} className="px-5 py-2.5 rounded-xl bg-green-600 hover:bg-green-500 text-white font-black text-xs transition cursor-pointer flex items-center gap-1.5">
                   {isSubmittingInquiry ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
                   確認送出諮詢
                 </button>

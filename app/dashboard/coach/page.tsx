@@ -82,13 +82,13 @@ function CoachEnquiriesInbox({ coachId }: { coachId: string }) {
     <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-6">
       <div className="border-b border-slate-800 pb-4 flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-black text-white flex items-center gap-2"><Inbox className="w-5 h-5 text-amber-400" /> 潛在學生諮詢單名單</h3>
+          <h3 className="text-lg font-black text-white flex items-center gap-2"><Inbox className="w-5 h-5 text-orange-400" /> 潛在學生諮詢單名單</h3>
           <p className="text-xs text-zinc-500 mt-1">學員點擊「預約諮詢」後，所有諮詢單統一匯聚於此。</p>
         </div>
-        <span className="px-3 py-1 rounded-full text-xs font-black bg-amber-500/10 text-amber-400 border border-amber-500/20">共 {leads.length} 筆</span>
+        <span className="px-3 py-1 rounded-full text-xs font-black bg-orange-500/10 text-orange-400 border border-orange-500/20">共 {leads.length} 筆</span>
       </div>
       {loading ? (
-        <div className="py-12 text-center text-zinc-500 text-xs flex items-center justify-center gap-2"><Loader2 className="w-4 h-4 animate-spin text-amber-500" /> 載入詢問單中...</div>
+        <div className="py-12 text-center text-zinc-500 text-xs flex items-center justify-center gap-2"><Loader2 className="w-4 h-4 animate-spin text-orange-500" /> 載入詢問單中...</div>
       ) : leads.length === 0 ? (
         <div className="py-14 text-center bg-slate-950/50 rounded-2xl border border-dashed border-slate-800 text-zinc-500 text-xs font-bold">
           <p className="text-sm text-zinc-400 mb-1">目前尚無新進的學員諮詢單。</p>
@@ -104,8 +104,8 @@ function CoachEnquiriesInbox({ coachId }: { coachId: string }) {
                 </Link>
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <Link href={profileLink(lead.student?.id || lead.student_id, returnTo)} className="font-bold text-sm text-white hover:text-amber-400 transition">{lead.student?.full_name || "未知運動員"}</Link>
-                    <span className="text-[10px] px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20 font-bold">諮詢：{lead.service?.title || "專項課程"}</span>
+                    <Link href={profileLink(lead.student?.id || lead.student_id, returnTo)} className="font-bold text-sm text-white hover:text-orange-400 transition">{lead.student?.full_name || "未知運動員"}</Link>
+                    <span className="text-[10px] px-2 py-0.5 rounded-md bg-orange-500/10 text-orange-400 border border-orange-500/20 font-bold">諮詢：{lead.service?.title || "專項課程"}</span>
                   </div>
                   <p className="text-xs text-zinc-300 mt-2 bg-slate-900/90 p-3 rounded-xl border border-slate-800 leading-relaxed">💬 「{lead.message}」</p>
                   <span className="text-[10px] text-zinc-500 mt-1.5 block">送出時間：{new Date(lead.created_at).toLocaleString("zh-HK", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
@@ -451,7 +451,7 @@ function CoachServicesManager({ coachId }: { coachId: string }) {
     <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
         <div>
-          <h3 className="text-lg font-black text-white flex items-center gap-2"><BookOpen className="w-5 h-5 text-amber-400" /> 獨立課程與教學專案管理</h3>
+          <h3 className="text-lg font-black text-white flex items-center gap-2"><BookOpen className="w-5 h-5 text-orange-400" /> 獨立課程與教學專案管理</h3>
           <p className="text-xs text-zinc-400 mt-1">建立的課程將展示於教練名師榜大廳與個人檔案，供學員預約洽詢。</p>
         </div>
         <button onClick={handleCreateNewService} type="button" className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-black px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-1.5 shrink-0 cursor-pointer active:scale-95">
@@ -470,7 +470,7 @@ function CoachServicesManager({ coachId }: { coachId: string }) {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {services.map(srv => (
-              <div key={srv.id} onClick={() => handleOpenDetail(srv)} className="relative bg-slate-900/90 border border-slate-800 hover:border-amber-500/50 rounded-3xl p-6 flex flex-col justify-between transition duration-300 group hover:-translate-y-1 shadow-md hover:shadow-2xl cursor-pointer overflow-hidden">
+              <div key={srv.id} onClick={() => handleOpenDetail(srv)} className="relative bg-slate-900/90 border border-slate-800 hover:border-orange-500/50 rounded-3xl p-6 flex flex-col justify-between transition duration-300 group hover:-translate-y-1 shadow-md hover:shadow-2xl cursor-pointer overflow-hidden">
                 {pendingServiceIds.has(srv.id) && <span className="absolute top-4 right-4 w-3 h-3 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)] z-10 animate-pulse" />}
                 <div className="absolute top-4 left-4 z-10 flex items-center gap-1.5">
                   <button type="button" onClick={(e) => { e.stopPropagation(); handleMoveService(srv.id, "up"); }} className="px-2 py-1 rounded-lg bg-slate-950/90 border border-slate-700 text-zinc-300 text-[10px] font-black">↑</button>
@@ -479,7 +479,7 @@ function CoachServicesManager({ coachId }: { coachId: string }) {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <SportCategoryBadge category={srv.sport_category} variant="amber" size="xs" />
+                      <SportCategoryBadge category={srv.sport_category} variant="orange" size="xs" />
                       <ServicePublishBadge isActive={!!srv.is_active} />
                     </div>
                     {(() => {
@@ -495,11 +495,11 @@ function CoachServicesManager({ coachId }: { coachId: string }) {
                     })()}
                   </div>
                   <div>
-                    <h4 className="text-lg font-black text-white group-hover:text-amber-400 transition line-clamp-1">{srv.title}</h4>
+                    <h4 className="text-lg font-black text-white group-hover:text-orange-400 transition line-clamp-1">{srv.title}</h4>
                     <p className="text-xs text-zinc-400 mt-1.5 line-clamp-2 h-8 leading-snug">{stripHtml(srv.description || "") || "尚無詳細大綱介紹。"}</p>
                   </div>
                   <div className="inline-flex items-center gap-1.5 text-xs font-bold text-zinc-300">
-                    <MapPin className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    <MapPin className="w-3.5 h-3.5 text-orange-400 shrink-0" />
                     <span className="truncate">
                       {formatDistrictList(normalizeDistrictIds(srv.districts, srv.location), 2) || "未設定地區"}
                     </span>
@@ -507,7 +507,7 @@ function CoachServicesManager({ coachId }: { coachId: string }) {
                 </div>
                 <div className="pt-4 mt-5 border-t border-slate-800/80 flex items-center justify-between">
                   <span className="text-xs text-zinc-500 font-bold">實況照 ({srv.photos?.length || 0})</span>
-                  <span className="text-xs font-black text-amber-400 group-hover:underline">管理此專案 →</span>
+                  <span className="text-xs font-black text-orange-400 group-hover:underline">管理此專案 →</span>
                 </div>
               </div>
             ))}
@@ -527,7 +527,7 @@ function CoachServicesManager({ coachId }: { coachId: string }) {
 
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <span className="text-[10px] uppercase font-black px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">課程管理後台</span>
+              <span className="text-[10px] uppercase font-black px-2.5 py-0.5 rounded-full bg-orange-500/10 text-orange-400 border border-orange-500/20">課程管理後台</span>
               <h2 className="text-2xl font-black text-white mt-1">{selectedService.title || "未命名課程"}</h2>
             </div>
             {!isEditingInfo && detailTab === "info" && (
@@ -549,7 +549,7 @@ function CoachServicesManager({ coachId }: { coachId: string }) {
       onClick={() => setDetailTab(t.id)}
       className={`flex flex-col items-center justify-center py-2 px-1 rounded-lg text-center transition cursor-pointer ${
         detailTab === t.id
-          ? "bg-amber-600 text-white shadow-md"
+          ? "bg-orange-600 text-white shadow-md"
           : "text-zinc-500 hover:text-white hover:bg-slate-800/50"
       }`}
     >
@@ -576,7 +576,7 @@ function CoachServicesManager({ coachId }: { coachId: string }) {
                 <SportCategoryPicker
                   value={editForm.sport_category || ""}
                   onChange={(id: SportCategoryId) => setEditForm({ ...editForm, sport_category: id })}
-                  accent="amber"
+                  accent="orange"
                 />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -639,7 +639,7 @@ function CoachServicesManager({ coachId }: { coachId: string }) {
                 <button onClick={() => handleSaveCourseInfo(false)} disabled={isSavingInfo} type="button" className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-zinc-200 font-black text-xs transition cursor-pointer">
                   {isSavingInfo ? <Loader2 className="w-3.5 h-3.5 animate-spin inline" /> : null} 儲存草稿
                 </button>
-                <button onClick={() => handleSaveCourseInfo(true)} disabled={isSavingInfo} type="button" className="px-6 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-black text-xs transition flex items-center gap-1.5 cursor-pointer">
+                <button onClick={() => handleSaveCourseInfo(true)} disabled={isSavingInfo} type="button" className="px-6 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-black text-xs transition flex items-center gap-1.5 cursor-pointer">
                   {isSavingInfo ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} 儲存並發佈
                 </button>
               </div>
@@ -647,7 +647,7 @@ function CoachServicesManager({ coachId }: { coachId: string }) {
           ) : (
             <div className="space-y-4 pt-2">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
-                <div><span className="text-xs text-zinc-500 block font-bold mb-1">專項類別</span><SportCategoryBadge category={selectedService.sport_category} variant="amber" /></div>
+                <div><span className="text-xs text-zinc-500 block font-bold mb-1">專項類別</span><SportCategoryBadge category={selectedService.sport_category} variant="orange" /></div>
                 <div>
                   <span className="text-xs text-zinc-500 block font-bold">授課收費</span>
                   {(() => {
@@ -692,8 +692,8 @@ function CoachServicesManager({ coachId }: { coachId: string }) {
                       </Link>
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <Link href={profileLink(rev.student?.id || rev.student_id, returnTo)} className="font-bold text-sm text-white hover:text-amber-400 transition">{rev.student?.full_name || "學員"}</Link>
-                          <span className="text-xs text-amber-400 font-black">{"★".repeat(rev.rating)}</span>
+                          <Link href={profileLink(rev.student?.id || rev.student_id, returnTo)} className="font-bold text-sm text-white hover:text-orange-400 transition">{rev.student?.full_name || "學員"}</Link>
+                          <span className="text-xs text-orange-400 font-black">{"★".repeat(rev.rating)}</span>
                         </div>
                         <p className="text-xs text-zinc-300 mt-1">{rev.comment}</p>
                         <span className="text-[10px] text-zinc-500 mt-1 block">{new Date(rev.created_at).toLocaleDateString()}</span>
@@ -710,7 +710,7 @@ function CoachServicesManager({ coachId }: { coachId: string }) {
               photos={selectedService.photos || []}
               draftPhotos={selectedService.draft_photos || []}
               uploading={uploadingMedia}
-              accent="amber"
+              accent="orange"
               emptyLabel="本課程尚無相片，請點擊上方按鈕開始上傳。"
               onUpload={handleUploadPhoto}
               onPublish={handlePublishPhoto}
@@ -729,7 +729,7 @@ function CoachServicesManager({ coachId }: { coachId: string }) {
                         <div className="w-9 h-9 rounded-full bg-slate-800 bg-cover bg-center shrink-0 border border-slate-700" style={lead.student?.avatar_url ? { backgroundImage: `url(${lead.student.avatar_url})` } : undefined} />
                       </Link>
                       <div className="min-w-0">
-                        <Link href={profileLink(lead.student?.id || lead.student_id, returnTo)} className="font-bold text-sm text-white hover:text-amber-400 transition">{lead.student?.full_name || "學員"}</Link>
+                        <Link href={profileLink(lead.student?.id || lead.student_id, returnTo)} className="font-bold text-sm text-white hover:text-orange-400 transition">{lead.student?.full_name || "學員"}</Link>
                         <p className="text-xs text-zinc-300 mt-1 bg-slate-950 p-2.5 rounded-lg border border-slate-800">💬 {lead.message}</p>
                         <span className="text-[10px] text-zinc-500 mt-1 block">{new Date(lead.created_at).toLocaleString("zh-HK", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
                       </div>
@@ -823,7 +823,7 @@ function CoachSettingsPanel({ profile, onSaved }: { profile: any; onSaved: () =>
           onTagsChange={(tags) => setForm({ ...form, coach_qualification_tags: tags })}
           customValue={form.coach_qualification_custom}
           onCustomChange={(v) => setForm({ ...form, coach_qualification_custom: v })}
-          accent="amber"
+          accent="orange"
           customPlaceholder="例如：NSCA-CSCS、香港體育學院教練課程畢業…"
         />
       </div>
@@ -834,11 +834,11 @@ function CoachSettingsPanel({ profile, onSaved }: { profile: any; onSaved: () =>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
           <div className="space-y-1.5">
             <label className="text-[10px] text-zinc-500 font-bold uppercase block pl-1">公開聯絡信箱</label>
-            <input type="email" value={form.contact_email} onChange={e => setForm({ ...form, contact_email: e.target.value })} placeholder="coach@example.com" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-amber-500 transition outline-none" />
+            <input type="email" value={form.contact_email} onChange={e => setForm({ ...form, contact_email: e.target.value })} placeholder="coach@example.com" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-orange-500 transition outline-none" />
           </div>
           <div className="space-y-1.5">
             <label className="text-[10px] text-zinc-500 font-bold uppercase block pl-1">公開聯絡電話 (選填)</label>
-            <input type="tel" value={form.contact_phone} onChange={e => setForm({ ...form, contact_phone: e.target.value })} placeholder="+852 9876 5432" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-amber-500 transition outline-none" />
+            <input type="tel" value={form.contact_phone} onChange={e => setForm({ ...form, contact_phone: e.target.value })} placeholder="+852 9876 5432" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-orange-500 transition outline-none" />
           </div>
         </div>
         <div className="mb-5">
@@ -860,7 +860,7 @@ function CoachSettingsPanel({ profile, onSaved }: { profile: any; onSaved: () =>
               value={form.coach_service_centre}
               onChange={(e) => setForm({ ...form, coach_service_centre: e.target.value })}
               placeholder="例如：精英運動訓練中心"
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-amber-500 transition outline-none placeholder:text-zinc-600"
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-orange-500 transition outline-none placeholder:text-zinc-600"
             />
           </div>
           <div className="space-y-1.5">
@@ -871,7 +871,7 @@ function CoachSettingsPanel({ profile, onSaved }: { profile: any; onSaved: () =>
               value={form.coach_teaching_experience_years}
               onChange={(e) => setForm({ ...form, coach_teaching_experience_years: e.target.value })}
               placeholder="例如：10"
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-amber-500 transition outline-none placeholder:text-zinc-600"
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-orange-500 transition outline-none placeholder:text-zinc-600"
             />
           </div>
           <div className="space-y-1.5">
@@ -881,12 +881,12 @@ function CoachSettingsPanel({ profile, onSaved }: { profile: any; onSaved: () =>
               value={form.address}
               onChange={(e) => setForm({ ...form, address: e.target.value })}
               placeholder="例如：彌敦道 123 號 4 樓"
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-amber-500 transition outline-none placeholder:text-zinc-600"
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-orange-500 transition outline-none placeholder:text-zinc-600"
             />
           </div>
         </div>
         <label className="flex items-center gap-3.5 p-4 bg-slate-950/60 border border-slate-800 rounded-2xl cursor-pointer hover:bg-slate-900 transition-colors">
-          <input type="checkbox" checked={form.is_address_public} onChange={e => setForm({ ...form, is_address_public: e.target.checked })} className="w-4 h-4 rounded border-slate-700 text-amber-500 bg-slate-950" />
+          <input type="checkbox" checked={form.is_address_public} onChange={e => setForm({ ...form, is_address_public: e.target.checked })} className="w-4 h-4 rounded border-slate-700 text-orange-500 bg-slate-950" />
           <div className="flex flex-col">
             <span className="text-sm font-bold text-slate-200">對外公開詳細地址</span>
             <span className="text-[10px] md:text-xs text-slate-500">關閉後，名片上將只顯示「主要服務地區」，保護您的私人隱私。</span>
@@ -959,7 +959,7 @@ function CoachDashboardContent() {
           <div className="flex items-center gap-4">
             {profile.avatar_url && <div className="w-14 h-14 rounded-2xl bg-cover bg-center border border-slate-700 shrink-0" style={{ backgroundImage: `url(${profile.avatar_url})` }} />}
             <div>
-              <p className="text-[10px] text-amber-400 font-black uppercase tracking-widest mb-0.5">教練專屬後台</p>
+              <p className="text-[10px] text-orange-400 font-black uppercase tracking-widest mb-0.5">教練專屬後台</p>
               <h1 className="text-2xl md:text-3xl font-black text-white">{profile.full_name || profile.first_name}</h1>
               <p className="text-xs text-zinc-500 mt-0.5">@{profile.handle} · 教練管理中心</p>
             </div>
@@ -973,7 +973,7 @@ function CoachDashboardContent() {
             { id: "services", icon: <BookOpen className="w-4 h-4 shrink-0" />, label: "獨立課程管理" },
             { id: "inbox",    icon: <Inbox    className="w-4 h-4 shrink-0" />, label: "潛在學生收件匣" },
           ] as const).map(t => (
-            <button key={t.id} onClick={() => setSubTab(t.id)} className={`py-3 px-4 rounded-xl text-xs md:text-sm font-black flex items-center justify-center gap-2 transition cursor-pointer ${subTab === t.id ? "bg-amber-600 text-white shadow-md" : "text-zinc-400 hover:text-white hover:bg-slate-800/50"}`}>
+            <button key={t.id} onClick={() => setSubTab(t.id)} className={`py-3 px-4 rounded-xl text-xs md:text-sm font-black flex items-center justify-center gap-2 transition cursor-pointer ${subTab === t.id ? "bg-orange-600 text-white shadow-md" : "text-zinc-400 hover:text-white hover:bg-slate-800/50"}`}>
               {t.icon}<span className="truncate">{t.label}</span>
             </button>
           ))}

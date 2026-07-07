@@ -15,15 +15,17 @@ interface CategoryFilterModalProps {
   options: CategoryFilterOption[];
   selected: string[];
   onApply: (selected: string[]) => void;
-  accent?: "blue" | "violet" | "amber";
+  accent?: "blue" | "yellow" | "orange" | "amber";
 }
 
 const chipBase = "rounded-full text-sm font-bold transition border";
 
 const accentMap = {
   blue: { on: "bg-blue-600/15 border-blue-500 text-blue-300", off: "bg-slate-950 border-slate-800 text-zinc-400" },
-  violet: { on: "bg-violet-600/15 border-violet-500 text-violet-300", off: "bg-slate-950 border-slate-800 text-zinc-400" },
-  amber: { on: "bg-amber-600/15 border-amber-500 text-amber-300", off: "bg-slate-950 border-slate-800 text-zinc-400" },
+  yellow: { on: "bg-yellow-600/15 border-yellow-500 text-yellow-300", off: "bg-slate-950 border-slate-800 text-zinc-400" },
+  orange: { on: "bg-orange-600/15 border-orange-500 text-orange-300", off: "bg-slate-950 border-slate-800 text-zinc-400" },
+  amber: { on: "bg-orange-600/15 border-orange-500 text-orange-300", off: "bg-slate-950 border-slate-800 text-zinc-400" },
+  violet: { on: "bg-yellow-600/15 border-yellow-500 text-yellow-300", off: "bg-slate-950 border-slate-800 text-zinc-400" },
 };
 
 export function CategoryFilterModal({

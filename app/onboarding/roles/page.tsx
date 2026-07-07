@@ -4,6 +4,7 @@ import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
+import { type ProfileGender, PROFILE_GENDER_OPTIONS } from "@/lib/gender";
 
 interface RoleOptionProps {
   checked: boolean;
@@ -67,11 +68,16 @@ function RoleOnboardingContent() {
   const [isPlayer, setIsPlayer] = useState(true);
   const [isCoach, setIsCoach] = useState(false);
   const [isPhysio, setIsPhysio] = useState(false);
+  const [gender, setGender] = useState<ProfileGender | "">("");
   const [isSaving, setIsSaving] = useState(false);
 
   const handleContinue = async () => {
     if (!isPlayer && !isCoach && !isPhysio) {
       toast.error("請至少選擇一個身分");
+      return;
+    }
+    if (!gender) {
+      toast.error("請選擇性別");
       return;
     }
 
@@ -93,6 +99,7 @@ function RoleOnboardingContent() {
         is_player: isPlayer,
         is_coach: isCoach,
         is_physio: isPhysio,
+        gender,
         roles_confirmed: true,
       })
       .eq("id", user.id);
@@ -145,6 +152,23 @@ function RoleOnboardingContent() {
             description="公開診所資訊、專業資歷與預約服務。"
             accentClass="border-emerald-500/80"
           />
+        </div>
+
+        <div className="mt-5">
+          <label className="block text-xs font-bold text-slate-400 mb-1.5 uppercase tracking-widest">
+            性別 <span className="normal-case font-normal text-zinc-600">(顯示於報名與成員名單)</span>
+          </label>
+          <select
+            value={gender}
+            onChange={(e) => setGender(e.target.value as ProfileGender)}
+            disabled={isSaving}
+            className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none transition disabled:opacity-50"
+          >
+            <option value="">請選擇</option>
+            {PROFILE_GENDER_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
         </div>
 
         <p className="text-[11px] text-slate-500 mt-5">

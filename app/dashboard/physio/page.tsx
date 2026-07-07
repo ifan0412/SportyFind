@@ -72,13 +72,13 @@ function PhysioEnquiriesInbox({ physioId }: { physioId: string }) {
     <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-6">
       <div className="border-b border-slate-800 pb-4 flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-black text-white flex items-center gap-2"><Inbox className="w-5 h-5 text-emerald-400" /> 運動員預約諮詢收件匣</h3>
+          <h3 className="text-lg font-black text-white flex items-center gap-2"><Inbox className="w-5 h-5 text-green-400" /> 運動員預約諮詢收件匣</h3>
           <p className="text-xs text-zinc-500 mt-1">運動員點擊「預約諮詢」後，所有預約單統一匯聚於此。</p>
         </div>
-        <span className="px-3 py-1 rounded-full text-xs font-black bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">共 {leads.length} 筆</span>
+        <span className="px-3 py-1 rounded-full text-xs font-black bg-green-500/10 text-green-400 border border-green-500/20">共 {leads.length} 筆</span>
       </div>
       {loading ? (
-        <div className="py-12 text-center text-zinc-500 text-xs flex items-center justify-center gap-2"><Loader2 className="w-4 h-4 animate-spin text-emerald-500" /> 載入預約單中...</div>
+        <div className="py-12 text-center text-zinc-500 text-xs flex items-center justify-center gap-2"><Loader2 className="w-4 h-4 animate-spin text-green-500" /> 載入預約單中...</div>
       ) : leads.length === 0 ? (
         <div className="py-14 text-center bg-slate-950/50 rounded-2xl border border-dashed border-slate-800 text-zinc-500 text-xs font-bold">
           <p className="text-sm text-zinc-400 mb-1">目前尚無新進的預約諮詢單。</p>
@@ -94,8 +94,8 @@ function PhysioEnquiriesInbox({ physioId }: { physioId: string }) {
                 </Link>
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <Link href={profileLink(lead.patient?.id || lead.patient_id, returnTo)} className="font-bold text-sm text-white hover:text-emerald-400 transition">{lead.patient?.full_name || "未知運動員"}</Link>
-                    <span className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold">預約：{lead.service?.title || "診療項目"}</span>
+                    <Link href={profileLink(lead.patient?.id || lead.patient_id, returnTo)} className="font-bold text-sm text-white hover:text-green-400 transition">{lead.patient?.full_name || "未知運動員"}</Link>
+                    <span className="text-[10px] px-2 py-0.5 rounded-md bg-green-500/10 text-green-400 border border-green-500/20 font-bold">預約：{lead.service?.title || "診療項目"}</span>
                   </div>
                   <p className="text-xs text-zinc-300 mt-2 bg-slate-900/90 p-3 rounded-xl border border-slate-800 leading-relaxed">💬 「{lead.message}」</p>
                   <span className="text-[10px] text-zinc-500 mt-1.5 block">送出時間：{new Date(lead.created_at).toLocaleString("zh-HK", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
@@ -103,11 +103,11 @@ function PhysioEnquiriesInbox({ physioId }: { physioId: string }) {
               </div>
               <div className="shrink-0 self-end sm:self-center">
                 {lead.status === "contacted" ? (
-                  <button onClick={() => toggleContacted(lead.id, lead.status)} className="px-3.5 py-2 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-emerald-400 hover:bg-slate-800 hover:text-zinc-300 font-bold text-xs transition flex items-center gap-1.5 cursor-pointer">
+                  <button onClick={() => toggleContacted(lead.id, lead.status)} className="px-3.5 py-2 rounded-xl bg-green-950/60 border border-green-500/40 text-green-400 hover:bg-slate-800 hover:text-zinc-300 font-bold text-xs transition flex items-center gap-1.5 cursor-pointer">
                     <CheckCircle2 className="w-4 h-4" /> 已標記聯絡 <RotateCcw className="w-3 h-3 text-zinc-400" />
                   </button>
                 ) : (
-                  <button onClick={() => toggleContacted(lead.id, lead.status)} className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition cursor-pointer shadow-md">標記為已聯絡</button>
+                  <button onClick={() => toggleContacted(lead.id, lead.status)} className="px-4 py-2 rounded-xl bg-green-600 hover:bg-green-500 text-white font-bold text-xs transition cursor-pointer shadow-md">標記為已聯絡</button>
                 )}
               </div>
             </div>
@@ -369,17 +369,17 @@ function PhysioServicesManager({ physioId }: { physioId: string }) {
     <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
         <div>
-          <h3 className="text-lg font-black text-white flex items-center gap-2"><ClipboardList className="w-5 h-5 text-emerald-400" /> 診療項目與服務管理</h3>
+          <h3 className="text-lg font-black text-white flex items-center gap-2"><ClipboardList className="w-5 h-5 text-green-400" /> 診療項目與服務管理</h3>
           <p className="text-xs text-zinc-400 mt-1">建立的診療項目將展示於物理治療師名錄與個人檔案，供運動員預約諮詢。</p>
         </div>
-        <button onClick={handleCreateNewService} type="button" className="bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-black px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-1.5 shrink-0 cursor-pointer active:scale-95">
+        <button onClick={handleCreateNewService} type="button" className="bg-green-700 hover:bg-green-600 text-white text-xs font-black px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-1.5 shrink-0 cursor-pointer active:scale-95">
           <Plus className="w-4 h-4" />新增診療項目
         </button>
       </div>
 
       {!selectedService ? (
         loading ? (
-          <div className="py-12 text-center text-zinc-500 text-xs flex items-center justify-center gap-2"><Loader2 className="w-4 h-4 animate-spin text-emerald-500" /> 載入診療項目中...</div>
+          <div className="py-12 text-center text-zinc-500 text-xs flex items-center justify-center gap-2"><Loader2 className="w-4 h-4 animate-spin text-green-500" /> 載入診療項目中...</div>
         ) : services.length === 0 ? (
           <div className="py-14 text-center bg-slate-950/50 rounded-2xl border border-dashed border-slate-800 text-zinc-500 text-xs font-bold">
             <p className="text-sm text-zinc-400 mb-1">您目前沒有開立任何診療項目。</p>
@@ -388,7 +388,7 @@ function PhysioServicesManager({ physioId }: { physioId: string }) {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {services.map(srv => (
-              <div key={srv.id} onClick={() => handleOpenDetail(srv)} className="relative bg-slate-900/90 border border-slate-800 hover:border-emerald-500/50 rounded-3xl p-6 flex flex-col justify-between transition duration-300 group hover:-translate-y-1 shadow-md hover:shadow-2xl cursor-pointer overflow-hidden">
+              <div key={srv.id} onClick={() => handleOpenDetail(srv)} className="relative bg-slate-900/90 border border-slate-800 hover:border-green-500/50 rounded-3xl p-6 flex flex-col justify-between transition duration-300 group hover:-translate-y-1 shadow-md hover:shadow-2xl cursor-pointer overflow-hidden">
                 {pendingServiceIds.has(srv.id) && <span className="absolute top-4 right-4 w-3 h-3 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)] z-10 animate-pulse" />}
                 <div className="absolute top-4 left-4 z-10 flex items-center gap-1.5">
                   <button type="button" onClick={(e) => { e.stopPropagation(); handleMoveService(srv.id, "up"); }} className="px-2 py-1 rounded-lg bg-slate-950/90 border border-slate-700 text-zinc-300 text-[10px] font-black">↑</button>
@@ -403,7 +403,7 @@ function PhysioServicesManager({ physioId }: { physioId: string }) {
                     {(() => {
                       const p = formatPhysioServicePrice(srv);
                       return (
-                        <span className={`text-base font-black shrink-0 ${p.isDm ? "text-zinc-400" : "text-emerald-400"}`}>
+                        <span className={`text-base font-black shrink-0 ${p.isDm ? "text-zinc-400" : "text-green-400"}`}>
                           {p.main}
                           {p.unit && (
                             <span className="text-xs text-zinc-500 font-normal ml-0.5">{p.unit}</span>
@@ -413,17 +413,17 @@ function PhysioServicesManager({ physioId }: { physioId: string }) {
                     })()}
                   </div>
                   <div>
-                    <h4 className="text-lg font-black text-white group-hover:text-emerald-400 transition line-clamp-1">{srv.title}</h4>
+                    <h4 className="text-lg font-black text-white group-hover:text-green-400 transition line-clamp-1">{srv.title}</h4>
                     <p className="text-xs text-zinc-400 mt-1.5 line-clamp-2 h-8 leading-snug">{stripHtml(srv.description || "") || "尚無詳細說明。"}</p>
                   </div>
                   <div className="inline-flex items-center gap-1.5 text-xs font-bold text-zinc-300">
-                    <MapPin className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <MapPin className="w-3.5 h-3.5 text-green-400 shrink-0" />
                     <span className="truncate">{formatDistrictList(normalizeDistrictIds(srv.districts, srv.location), 2) || "未設定地區"}</span>
                   </div>
                 </div>
                 <div className="pt-4 mt-5 border-t border-slate-800/80 flex items-center justify-between">
                   <span className="text-xs text-zinc-500 font-bold">診療照 ({srv.photos?.length || 0})</span>
-                  <span className="text-xs font-black text-emerald-400 group-hover:underline">管理此項目 →</span>
+                  <span className="text-xs font-black text-green-400 group-hover:underline">管理此項目 →</span>
                 </div>
               </div>
             ))}
@@ -436,14 +436,14 @@ function PhysioServicesManager({ physioId }: { physioId: string }) {
               <ArrowLeft className="w-4 h-4" /> 返回項目列表
             </button>
             <div className="flex items-center gap-3">
-              <Link href={`/physio/services/${selectedService.id}`} target="_blank" className="text-xs font-bold text-emerald-400 hover:underline">↗ 預覽公開頁面</Link>
+              <Link href={`/physio/services/${selectedService.id}`} target="_blank" className="text-xs font-bold text-green-400 hover:underline">↗ 預覽公開頁面</Link>
               <button onClick={() => handleDeleteService(selectedService.id)} className="p-2 rounded-xl bg-slate-900 hover:bg-red-500/20 text-zinc-400 hover:text-red-400 transition cursor-pointer"><Trash2 className="w-4 h-4" /></button>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <span className="text-[10px] uppercase font-black px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">診療項目後台</span>
+              <span className="text-[10px] uppercase font-black px-2.5 py-0.5 rounded-full bg-green-500/10 text-green-400 border border-green-500/20">診療項目後台</span>
               <h2 className="text-2xl font-black text-white mt-1">{selectedService.title || "未命名項目"}</h2>
             </div>
             {!isEditingInfo && detailTab === "info" && (
@@ -455,7 +455,7 @@ function PhysioServicesManager({ physioId }: { physioId: string }) {
 
           <div className="flex border-b border-slate-800 gap-6 overflow-x-auto pb-1">
             {(["info", "reviews", "media", "leads"] as const).map(tab => (
-              <button key={tab} onClick={() => setDetailTab(tab)} className={`pb-2.5 text-sm font-black transition whitespace-nowrap border-b-2 cursor-pointer ${detailTab === tab ? "border-emerald-500 text-white" : "border-transparent text-zinc-500 hover:text-zinc-300"}`}>
+              <button key={tab} onClick={() => setDetailTab(tab)} className={`pb-2.5 text-sm font-black transition whitespace-nowrap border-b-2 cursor-pointer ${detailTab === tab ? "border-green-500 text-white" : "border-transparent text-zinc-500 hover:text-zinc-300"}`}>
                 {tab === "info"    && "📋 項目資訊與編輯"}
                 {tab === "reviews" && `💬 運動員評價 (${serviceReviews.length})`}
                 {tab === "media"   && `🖼️ 診所相簿 (${(selectedService.photos?.length || 0) + (selectedService.draft_photos?.length || 0)})`}
@@ -488,7 +488,7 @@ function PhysioServicesManager({ physioId }: { physioId: string }) {
                 <CoachPricingFields
                   pricingMode={editForm.pricing_mode || "session"}
                   price={editForm.session_rate}
-                  accent="emerald"
+                  accent="green"
                   audience="patient"
                   onPricingModeChange={(mode) =>
                     setEditForm({ ...editForm, pricing_mode: mode })
@@ -550,7 +550,7 @@ function PhysioServicesManager({ physioId }: { physioId: string }) {
                 <button onClick={() => handleSaveServiceInfo(false)} disabled={isSavingInfo} type="button" className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-zinc-200 font-black text-xs transition cursor-pointer">
                   儲存草稿
                 </button>
-                <button onClick={() => handleSaveServiceInfo(true)} disabled={isSavingInfo} type="button" className="px-6 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-black text-xs transition flex items-center gap-1.5 cursor-pointer">
+                <button onClick={() => handleSaveServiceInfo(true)} disabled={isSavingInfo} type="button" className="px-6 py-2.5 rounded-xl bg-green-700 hover:bg-green-600 text-white font-black text-xs transition flex items-center gap-1.5 cursor-pointer">
                   {isSavingInfo ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} 儲存並發佈
                 </button>
               </div>
@@ -565,7 +565,7 @@ function PhysioServicesManager({ physioId }: { physioId: string }) {
                     const p = formatPhysioServicePrice(selectedService);
                     return (
                       <>
-                        <span className={`font-extrabold ${p.isDm ? "text-zinc-300" : "text-emerald-400"}`}>
+                        <span className={`font-extrabold ${p.isDm ? "text-zinc-300" : "text-green-400"}`}>
                           {p.main}
                           {p.unit && <span className="text-zinc-500 font-normal text-xs ml-1">{p.unit}</span>}
                         </span>
@@ -578,7 +578,7 @@ function PhysioServicesManager({ physioId }: { physioId: string }) {
                 </div>
                 <div><span className="text-xs text-zinc-500 block font-bold">診療地區</span><span className="font-extrabold text-white">{formatDistrictList(normalizeDistrictIds(selectedService.districts, selectedService.location), 4) || "未設定"}</span></div>
                 {selectedService.service_centre && (
-                  <div><span className="text-xs text-zinc-500 block font-bold">服務中心</span><span className="font-extrabold text-emerald-300">{selectedService.service_centre}</span></div>
+                  <div><span className="text-xs text-zinc-500 block font-bold">服務中心</span><span className="font-extrabold text-green-300">{selectedService.service_centre}</span></div>
                 )}
                 {selectedService.full_address && (
                   <div className="sm:col-span-2"><span className="text-xs text-zinc-500 block font-bold">完整地址</span><span className="font-extrabold text-white">{selectedService.full_address}</span></div>
@@ -603,8 +603,8 @@ function PhysioServicesManager({ physioId }: { physioId: string }) {
                       </Link>
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <Link href={profileLink(rev.patient?.id || rev.patient_id, returnTo)} className="font-bold text-sm text-white hover:text-emerald-400 transition">{rev.patient?.full_name || "運動員"}</Link>
-                          <span className="text-xs text-emerald-400 font-black">{"★".repeat(rev.rating)}</span>
+                          <Link href={profileLink(rev.patient?.id || rev.patient_id, returnTo)} className="font-bold text-sm text-white hover:text-green-400 transition">{rev.patient?.full_name || "運動員"}</Link>
+                          <span className="text-xs text-green-400 font-black">{"★".repeat(rev.rating)}</span>
                         </div>
                         <p className="text-xs text-zinc-300 mt-1">{rev.comment}</p>
                         <span className="text-[10px] text-zinc-500 mt-1 block">{new Date(rev.created_at).toLocaleDateString()}</span>
@@ -621,7 +621,7 @@ function PhysioServicesManager({ physioId }: { physioId: string }) {
               photos={selectedService.photos || []}
               draftPhotos={selectedService.draft_photos || []}
               uploading={uploadingMedia}
-              accent="emerald"
+              accent="green"
               emptyLabel="此項目尚無相片，請點擊上方按鈕開始上傳。"
               onUpload={handleUploadPhoto}
               onPublish={handlePublishPhoto}
@@ -726,7 +726,7 @@ function PhysioSettingsPanel({ profile, onSaved }: { profile: any; onSaved: () =
           onTagsChange={(tags) => setForm({ ...form, physio_qualification_tags: tags })}
           customValue={form.physio_qualification_custom}
           onCustomChange={(v) => setForm({ ...form, physio_qualification_custom: v })}
-          accent="emerald"
+          accent="green"
           customPlaceholder="例如：香港理工大學物理治療系、APTA 會員…"
         />
       </div>
@@ -737,11 +737,11 @@ function PhysioSettingsPanel({ profile, onSaved }: { profile: any; onSaved: () =
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <div className="space-y-1.5">
             <label className="text-[10px] text-zinc-500 font-bold uppercase block pl-1">診所 / 機構名稱</label>
-            <input type="text" value={form.clinic_name} onChange={e => setForm({ ...form, clinic_name: e.target.value })} placeholder="例如：運動復健中心" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-emerald-500 transition outline-none" />
+            <input type="text" value={form.clinic_name} onChange={e => setForm({ ...form, clinic_name: e.target.value })} placeholder="例如：運動復健中心" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-green-500 transition outline-none" />
           </div>
           <div className="space-y-1.5">
             <label className="text-[10px] text-zinc-500 font-bold uppercase block pl-1">執業年資</label>
-            <input type="text" value={form.physio_experience_years} onChange={e => setForm({ ...form, physio_experience_years: e.target.value })} placeholder="例如：8 年" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-emerald-500 transition outline-none" />
+            <input type="text" value={form.physio_experience_years} onChange={e => setForm({ ...form, physio_experience_years: e.target.value })} placeholder="例如：8 年" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-green-500 transition outline-none" />
           </div>
           <div className="space-y-1.5 md:col-span-2">
             <label className="text-[10px] text-zinc-500 font-bold uppercase block pl-1">專業服務項目（可多選）</label>
@@ -760,11 +760,11 @@ function PhysioSettingsPanel({ profile, onSaved }: { profile: any; onSaved: () =
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
           <div className="space-y-1.5">
             <label className="text-[10px] text-zinc-500 font-bold uppercase block pl-1">公開聯絡信箱</label>
-            <input type="email" value={form.physio_contact_email} onChange={e => setForm({ ...form, physio_contact_email: e.target.value })} placeholder="physio@example.com" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-emerald-500 transition outline-none" />
+            <input type="email" value={form.physio_contact_email} onChange={e => setForm({ ...form, physio_contact_email: e.target.value })} placeholder="physio@example.com" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-green-500 transition outline-none" />
           </div>
           <div className="space-y-1.5">
             <label className="text-[10px] text-zinc-500 font-bold uppercase block pl-1">公開聯絡電話 (選填)</label>
-            <input type="tel" value={form.physio_contact_phone} onChange={e => setForm({ ...form, physio_contact_phone: e.target.value })} placeholder="+852 9876 5432" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-emerald-500 transition outline-none" />
+            <input type="tel" value={form.physio_contact_phone} onChange={e => setForm({ ...form, physio_contact_phone: e.target.value })} placeholder="+852 9876 5432" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-green-500 transition outline-none" />
           </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
@@ -781,11 +781,11 @@ function PhysioSettingsPanel({ profile, onSaved }: { profile: any; onSaved: () =
           </div>
           <div className="space-y-1.5 md:col-span-2">
             <label className="text-[10px] text-zinc-500 font-bold uppercase block pl-1">詳細地址 (診所)</label>
-            <input type="text" value={form.physio_address} onChange={e => setForm({ ...form, physio_address: e.target.value })} placeholder="例如：彌敦道 123 號 4 樓" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-emerald-500 transition outline-none" />
+            <input type="text" value={form.physio_address} onChange={e => setForm({ ...form, physio_address: e.target.value })} placeholder="例如：彌敦道 123 號 4 樓" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-green-500 transition outline-none" />
           </div>
         </div>
         <label className="flex items-center gap-3.5 p-4 bg-slate-950/60 border border-slate-800 rounded-2xl cursor-pointer hover:bg-slate-900 transition-colors">
-          <input type="checkbox" checked={form.physio_is_address_public} onChange={e => setForm({ ...form, physio_is_address_public: e.target.checked })} className="w-4 h-4 rounded border-slate-700 text-emerald-500 bg-slate-950" />
+          <input type="checkbox" checked={form.physio_is_address_public} onChange={e => setForm({ ...form, physio_is_address_public: e.target.checked })} className="w-4 h-4 rounded border-slate-700 text-green-500 bg-slate-950" />
           <div className="flex flex-col">
             <span className="text-sm font-bold text-slate-200">對外公開診所詳細地址</span>
             <span className="text-[10px] md:text-xs text-slate-500">關閉後，名片上將只顯示「主要服務地區」，保護您的私人隱私。</span>
@@ -794,7 +794,7 @@ function PhysioSettingsPanel({ profile, onSaved }: { profile: any; onSaved: () =
       </div>
 
       <div className="flex justify-end pt-2 border-t border-slate-800/80">
-        <button onClick={handleSave} disabled={saving} className="bg-emerald-700 hover:bg-emerald-600 disabled:bg-slate-800 disabled:text-slate-500 text-white text-sm font-black px-8 py-3 rounded-xl transition-all active:scale-95 flex items-center gap-2 cursor-pointer">
+        <button onClick={handleSave} disabled={saving} className="bg-green-700 hover:bg-green-600 disabled:bg-slate-800 disabled:text-slate-500 text-white text-sm font-black px-8 py-3 rounded-xl transition-all active:scale-95 flex items-center gap-2 cursor-pointer">
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
           {saving ? "儲存中..." : "儲存名片設定"}
         </button>
@@ -859,7 +859,7 @@ function PhysioDashboardContent() {
           <div className="flex items-center gap-4">
             {profile.avatar_url && <div className="w-14 h-14 rounded-2xl bg-cover bg-center border border-slate-700 shrink-0" style={{ backgroundImage: `url(${profile.avatar_url})` }} />}
             <div>
-              <p className="text-[10px] text-emerald-400 font-black uppercase tracking-widest mb-0.5">物理治療師專屬後台</p>
+              <p className="text-[10px] text-green-400 font-black uppercase tracking-widest mb-0.5">物理治療師專屬後台</p>
               <h1 className="text-2xl md:text-3xl font-black text-white">{profile.full_name || profile.first_name}</h1>
               <p className="text-xs text-zinc-500 mt-0.5">@{profile.handle} · 治療師管理中心</p>
             </div>
@@ -873,7 +873,7 @@ function PhysioDashboardContent() {
             { id: "services", icon: <ClipboardList className="w-4 h-4 shrink-0" />, label: "診療項目管理" },
             { id: "inbox",    icon: <Inbox         className="w-4 h-4 shrink-0" />, label: "預約諮詢收件匣" },
           ] as const).map(t => (
-            <button key={t.id} onClick={() => setSubTab(t.id)} className={`py-3 px-4 rounded-xl text-xs md:text-sm font-black flex items-center justify-center gap-2 transition cursor-pointer ${subTab === t.id ? "bg-emerald-700 text-white shadow-md" : "text-zinc-400 hover:text-white hover:bg-slate-800/50"}`}>
+            <button key={t.id} onClick={() => setSubTab(t.id)} className={`py-3 px-4 rounded-xl text-xs md:text-sm font-black flex items-center justify-center gap-2 transition cursor-pointer ${subTab === t.id ? "bg-green-700 text-white shadow-md" : "text-zinc-400 hover:text-white hover:bg-slate-800/50"}`}>
               {t.icon}<span className="truncate">{t.label}</span>
             </button>
           ))}

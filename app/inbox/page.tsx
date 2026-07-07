@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { ChatBox } from "@/components/ChatBox";
 import { ConversationPreview } from "@/components/chat/ConversationPreview";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 import {
   applyMessageInsert,
   clearUnreadForPeer,
@@ -29,11 +29,13 @@ function InboxPageContent() {
   const targetId = searchParams.get("to");
 
   const [currentUser, setCurrentUser] = useState<{ id: string } | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [conversations, setConversations] = useState<InboxContact[]>([]);
   const [summaries, setSummaries] = useState<Record<string, ConversationSummary>>({});
   const [activeFriendId, setActiveFriendId] = useState<string | null>(null);
   const activeFriendIdRef = useRef<string | null>(null);
   const peerIdsRef = useRef<string[]>([]);
+  const isInitialLoadRef = useRef(true);
 
   activeFriendIdRef.current = activeFriendId;
   peerIdsRef.current = conversations.map((c) => c.id);
@@ -51,60 +53,66 @@ function InboxPageContent() {
   );
 
   const fetchInbox = useCallback(async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return;
-    setCurrentUser(user);
+    if (isInitialLoadRef.current) setIsLoading(true);
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+      setCurrentUser(user);
 
-    const { data: friendships } = await supabase
-      .from("friendships")
-      .select(`
-        id, status, sender_id, receiver_id,
-        sender:sender_id (id, full_name, avatar_url, handle),
-        receiver:receiver_id (id, full_name, avatar_url, handle)
-      `)
-      .in("status", ["accepted", "pending"])
-      .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`);
+      const { data: friendships } = await supabase
+        .from("friendships")
+        .select(`
+          id, status, sender_id, receiver_id,
+          sender:sender_id (id, full_name, avatar_url, handle),
+          receiver:receiver_id (id, full_name, avatar_url, handle)
+        `)
+        .in("status", ["accepted", "pending"])
+        .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`);
 
-    let contactList: InboxContact[] = [];
-    if (friendships) {
-      contactList = friendships.map((f: any) => {
-        const profile = f.sender_id === user.id ? f.receiver : f.sender;
-        return {
-          ...profile,
-          friendshipStatus: f.status,
-          isSender: f.sender_id === user.id,
-        };
-      });
-    }
-
-    if (targetId && targetId !== user.id && !contactList.some((c) => c.id === targetId)) {
-      const { data: targetProfile } = await supabase
-        .from("profiles")
-        .select("id, full_name, avatar_url, handle")
-        .eq("id", targetId)
-        .single();
-
-      if (targetProfile) {
-        contactList.unshift({
-          ...targetProfile,
-          friendshipStatus: "none",
+      let contactList: InboxContact[] = [];
+      if (friendships) {
+        contactList = friendships.map((f: any) => {
+          const profile = f.sender_id === user.id ? f.receiver : f.sender;
+          return {
+            ...profile,
+            friendshipStatus: f.status,
+            isSender: f.sender_id === user.id,
+          };
         });
       }
+
+      if (targetId && targetId !== user.id && !contactList.some((c) => c.id === targetId)) {
+        const { data: targetProfile } = await supabase
+          .from("profiles")
+          .select("id, full_name, avatar_url, handle")
+          .eq("id", targetId)
+          .single();
+
+        if (targetProfile) {
+          contactList.unshift({
+            ...targetProfile,
+            friendshipStatus: "none",
+          });
+        }
+      }
+
+      setConversations(contactList);
+      await refreshSummaries(
+        user.id,
+        contactList.map((c) => c.id)
+      );
+
+      setActiveFriendId((prev) => {
+        if (targetId) return targetId;
+        if (prev && contactList.some((c) => c.id === prev)) return prev;
+        return null;
+      });
+    } finally {
+      setIsLoading(false);
+      isInitialLoadRef.current = false;
     }
-
-    setConversations(contactList);
-    await refreshSummaries(
-      user.id,
-      contactList.map((c) => c.id)
-    );
-
-    setActiveFriendId((prev) => {
-      if (targetId) return targetId;
-      if (prev && contactList.some((c) => c.id === prev)) return prev;
-      return contactList.length > 0 ? contactList[0].id : null;
-    });
   }, [supabase, targetId, refreshSummaries]);
 
   useEffect(() => {
@@ -178,8 +186,21 @@ function InboxPageContent() {
     return ids.map((id) => conversations.find((c) => c.id === id)!).filter(Boolean);
   }, [conversations, summaries]);
 
+  if (isLoading) {
+    return (
+      <div className="min-h-[calc(100dvh-3.5rem)] bg-slate-950 flex flex-col items-center justify-center text-zinc-500">
+        <Loader2 className="w-8 h-8 animate-spin mb-3 text-zinc-400" />
+        <p className="text-sm font-bold">載入收件匣中...</p>
+      </div>
+    );
+  }
+
   if (!currentUser) {
-    return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-zinc-500 font-mono">載入收件匣中...</div>;
+    return (
+      <div className="min-h-[calc(100dvh-3.5rem)] bg-slate-950 flex flex-col items-center justify-center text-zinc-500">
+        <p className="text-sm font-bold">請先登入以使用收件匣</p>
+      </div>
+    );
   }
 
   const activeContact = conversations.find((c) => c.id === activeFriendId);
@@ -265,9 +286,9 @@ function InboxPageContent() {
               </div>
             </div>
           ) : (
-            <div className="h-full bg-slate-900 border border-slate-800 rounded-3xl flex flex-col items-center justify-center text-zinc-500">
-              <span className="text-4xl mb-4">📫</span>
-              <p className="font-bold">請從左側選擇一個對話開始</p>
+            <div className="h-full w-full bg-slate-950 md:bg-slate-900 md:border md:border-slate-800 rounded-3xl flex flex-col items-center justify-center text-zinc-500">
+              <span className="text-4xl mb-4">💬</span>
+              <p className="font-bold text-sm md:text-base">請選擇對話以開始</p>
             </div>
           )}
         </div>
@@ -278,7 +299,14 @@ function InboxPageContent() {
 
 export default function InboxPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-slate-950 flex items-center justify-center text-zinc-500 font-mono">載入中...</div>}>
+    <Suspense
+      fallback={
+        <div className="min-h-[calc(100dvh-3.5rem)] bg-slate-950 flex flex-col items-center justify-center text-zinc-500">
+          <Loader2 className="w-8 h-8 animate-spin mb-3 text-zinc-400" />
+          <p className="text-sm font-bold">載入中...</p>
+        </div>
+      }
+    >
       <InboxPageContent />
     </Suspense>
   );

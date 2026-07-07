@@ -52,20 +52,32 @@ interface ProfileFlags {
   is_physio: boolean;
 }
 
+interface AdminTeamLink {
+  id: string;
+  name: string;
+}
+
+interface ProfileNavData extends ProfileFlags {
+  adminTeams: AdminTeamLink[];
+}
+
 function ProfileNavMenu({
   pathname,
-  profileFlags,
+  profileNav,
   onNavigate,
   variant,
 }: {
   pathname: string;
-  profileFlags: ProfileFlags;
+  profileNav: ProfileNavData;
   onNavigate?: () => void;
   variant: "desktop" | "mobile-inline" | "mobile-menu";
 }) {
   const isProfileActive = pathname === "/profile" || pathname.startsWith("/profile/");
+  const isFriendsActive = isProfileActive;
   const isCoachActive = pathname.startsWith("/dashboard/coach");
   const isPhysioActive = pathname.startsWith("/dashboard/physio");
+  const friendsHref = "/profile?tab=friends";
+  const teamsTabHref = "/profile?tab=teams";
 
   const profileIconClass = cn(
     "relative flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 transition-all duration-200 bg-slate-900",
@@ -103,13 +115,13 @@ function ProfileNavMenu({
             <User className="size-4" /> 個人檔案管理
           </Link>
         </li>
-        {profileFlags.is_coach && (
+        {profileNav.is_coach && (
           <li>
             <Link
               href="/dashboard/coach"
               className={cn(
                 "flex items-center gap-3 rounded-md px-3 py-3 text-sm font-bold transition-colors",
-                isCoachActive ? "text-amber-400" : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                isCoachActive ? "text-orange-400" : "text-slate-400 hover:bg-slate-800 hover:text-white"
               )}
               onClick={onNavigate}
             >
@@ -117,13 +129,13 @@ function ProfileNavMenu({
             </Link>
           </li>
         )}
-        {profileFlags.is_physio && (
+        {profileNav.is_physio && (
           <li>
             <Link
               href="/dashboard/physio"
               className={cn(
                 "flex items-center gap-3 rounded-md px-3 py-3 text-sm font-bold transition-colors",
-                isPhysioActive ? "text-emerald-400" : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                isPhysioActive ? "text-green-400" : "text-slate-400 hover:bg-slate-800 hover:text-white"
               )}
               onClick={onNavigate}
             >
@@ -131,9 +143,56 @@ function ProfileNavMenu({
             </Link>
           </li>
         )}
+        <li>
+          <Link
+            href={friendsHref}
+            className={cn(
+              "flex items-center gap-3 rounded-md px-3 py-3 text-sm font-bold transition-colors",
+              isFriendsActive ? "text-blue-400" : "text-slate-400 hover:bg-slate-800 hover:text-white"
+            )}
+            onClick={onNavigate}
+          >
+            <Users className="size-4" /> 好友列表
+          </Link>
+        </li>
+        {profileNav.adminTeams.length === 1 ? (
+          <li>
+            <Link
+              href={`/team/${profileNav.adminTeams[0].id}/admin`}
+              className={cn(
+                "flex items-center gap-3 rounded-md px-3 py-3 text-sm font-bold transition-colors",
+                pathname.startsWith(`/team/${profileNav.adminTeams[0].id}`)
+                  ? "text-purple-400"
+                  : "text-slate-400 hover:bg-slate-800 hover:text-white"
+              )}
+              onClick={onNavigate}
+            >
+              <Shield className="size-4" /> 我的團隊
+            </Link>
+          </li>
+        ) : profileNav.adminTeams.length > 1 ? (
+          <li>
+            <Link
+              href={teamsTabHref}
+              className={cn(
+                "flex items-center gap-3 rounded-md px-3 py-3 text-sm font-bold transition-colors",
+                pathname === "/profile" ? "text-purple-400" : "text-slate-400 hover:bg-slate-800 hover:text-white"
+              )}
+              onClick={onNavigate}
+            >
+              <Shield className="size-4" /> 我的團隊
+            </Link>
+          </li>
+        ) : null}
       </>
     );
   }
+
+  const teamMenuItems = profileNav.adminTeams.length === 1
+    ? [{ href: `/team/${profileNav.adminTeams[0].id}/admin`, label: "我的團隊", active: pathname.startsWith(`/team/${profileNav.adminTeams[0].id}`) }]
+    : profileNav.adminTeams.length > 1
+      ? [{ href: teamsTabHref, label: "我的團隊", active: pathname === "/profile" }]
+      : [];
 
   return (
     <div className="relative group">
@@ -141,18 +200,28 @@ function ProfileNavMenu({
         <User className="size-4" />
       </Link>
       <div className="absolute right-0 top-full pt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-        <div className="w-52 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden p-1.5">
+        <div className="w-56 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden p-1.5">
           <Link href="/profile" className={menuItemClass(isProfileActive)}>
             <User className="size-4 shrink-0" />
             我的檔案
           </Link>
-          {profileFlags.is_coach && (
+          <Link href={friendsHref} className={menuItemClass(isFriendsActive)}>
+            <Users className="size-4 shrink-0" />
+            好友列表
+          </Link>
+          {teamMenuItems.map((item) => (
+            <Link key={item.href} href={item.href} className={menuItemClass(item.active)}>
+              <Shield className="size-4 shrink-0" />
+              {item.label}
+            </Link>
+          ))}
+          {profileNav.is_coach && (
             <Link href="/dashboard/coach" className={menuItemClass(isCoachActive)}>
               <GraduationCap className="size-4 shrink-0" />
               教練後台管理
             </Link>
           )}
-          {profileFlags.is_physio && (
+          {profileNav.is_physio && (
             <Link href="/dashboard/physio" className={menuItemClass(isPhysioActive)}>
               <Activity className="size-4 shrink-0" />
               復健後台管理
@@ -353,8 +422,9 @@ export function Navbar() {
   const router   = useRouter();
 
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [isClient, setIsClient] = useState(false);
   const [user, setUser]             = useState<SupabaseAuthUser | null>(null);
-  const [profileFlags, setProfileFlags] = useState<ProfileFlags>({ is_coach: false, is_physio: false });
+  const [profileNav, setProfileNav] = useState<ProfileNavData>({ is_coach: false, is_physio: false, adminTeams: [] });
   const [notifications, setNotifications] = useState<Notification[]>([]);
 
   const processingIds = useRef<Set<string>>(new Set());
@@ -375,17 +445,41 @@ export function Navbar() {
     };
   }, [mobileOpen]);
 
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
-  const fetchProfileFlags = useCallback(async (uid: string) => {
-    const { data } = await supabase
-      .from("profiles")
-      .select("is_coach, is_physio")
-      .eq("id", uid)
-      .maybeSingle();
-    setProfileFlags({
-      is_coach: !!data?.is_coach,
-      is_physio: !!data?.is_physio,
+  const fetchProfileNav = useCallback(async (uid: string) => {
+    const [{ data: prof }, { data: teamRows }] = await Promise.all([
+      supabase
+        .from("profiles")
+        .select("is_coach, is_physio")
+        .eq("id", uid)
+        .maybeSingle(),
+      supabase
+        .from("team_members")
+        .select("teams(id, name_en, name_zh)")
+        .eq("user_id", uid)
+        .eq("role", "admin"),
+    ]);
+
+    const adminTeams: AdminTeamLink[] = (teamRows ?? [])
+      .map((row) => {
+        const team = row.teams as unknown as { id: string; name_en: string | null; name_zh: string | null } | null;
+        if (!team?.id) return null;
+        return {
+          id: team.id,
+          name: team.name_zh || team.name_en || "我的團隊",
+        };
+      })
+      .filter((t): t is AdminTeamLink => t !== null);
+
+    setProfileNav({
+      is_coach: !!prof?.is_coach,
+      is_physio: !!prof?.is_physio,
+      adminTeams,
     });
   }, [supabase]);
 
@@ -407,9 +501,9 @@ export function Navbar() {
       const { data } = await supabase.auth.getUser();
       setUser(data.user ?? null);
       if (data.user) {
-        await Promise.all([fetchNotifications(data.user.id), fetchProfileFlags(data.user.id)]);
+        await Promise.all([fetchNotifications(data.user.id), fetchProfileNav(data.user.id)]);
       } else {
-        setProfileFlags({ is_coach: false, is_physio: false });
+        setProfileNav({ is_coach: false, is_physio: false, adminTeams: [] });
       }
     };
     init();
@@ -417,14 +511,14 @@ export function Navbar() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setUser(session?.user ?? null);
       if (event === "SIGNED_IN" && session?.user) {
-        await Promise.all([fetchNotifications(session.user.id), fetchProfileFlags(session.user.id)]);
+        await Promise.all([fetchNotifications(session.user.id), fetchProfileNav(session.user.id)]);
       }
-      if (event === "SIGNED_OUT") { setNotifications([]); setProfileFlags({ is_coach: false, is_physio: false }); }
+      if (event === "SIGNED_OUT") { setNotifications([]); setProfileNav({ is_coach: false, is_physio: false, adminTeams: [] }); }
       if (event === "SIGNED_IN" || event === "SIGNED_OUT") router.refresh();
     });
 
     return () => subscription.unsubscribe();
-  }, [supabase, router, fetchNotifications, fetchProfileFlags]);
+  }, [supabase, router, fetchNotifications, fetchProfileNav]);
 
   useEffect(() => {
     let channel: ReturnType<typeof supabase.channel> | null = null;
@@ -539,7 +633,7 @@ export function Navbar() {
     router,
   };
 
-  const showAdmin = isSiteAdmin(user?.email);
+  const showAdmin = isClient && isSiteAdmin(user?.email);
 
   return (
     <header className="sticky top-0 z-50 border-b border-slate-800 bg-slate-950/90 backdrop-blur-md shadow-sm">
@@ -567,8 +661,8 @@ export function Navbar() {
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-lg border px-2 py-0.5 sm:px-2.5 sm:py-1 text-[9px] sm:text-[10px] font-black uppercase tracking-wider transition",
                 pathname.startsWith("/admin")
-                  ? "border-amber-500/50 bg-amber-500/10 text-amber-400"
-                  : "border-slate-700 bg-slate-900 text-zinc-400 hover:border-amber-500/40 hover:text-amber-400"
+                  ? "border-red-500/50 bg-red-500/10 text-red-400"
+                  : "border-slate-700 bg-slate-900 text-zinc-400 hover:border-red-500/40 hover:text-red-400"
               )}
               title="網站管理員 CMS"
             >
@@ -578,27 +672,27 @@ export function Navbar() {
           )}
         </div>
 
-        <ul className="hidden items-center gap-1 md:flex">
+        <ul className="hidden xl:flex xl:flex-nowrap xl:items-center xl:gap-0.5 min-w-0">
           {navLinks.map(({ href, label, icon: Icon }) => {
             const isActive = pathname === href || pathname.startsWith(`${href}/`);
             return (
-              <li key={href}>
+              <li key={href} className="shrink-0">
                 <Link
                   href={href}
                   className={cn(
-                    "flex items-center gap-2 rounded-md px-3 py-4 text-sm font-medium transition-colors",
+                    "flex items-center gap-1.5 rounded-md px-2.5 py-2 text-xs font-medium whitespace-nowrap transition-colors lg:px-3 lg:text-sm",
                     isActive ? "text-blue-400" : "text-slate-400 hover:text-white",
                   )}
                 >
-                  <Icon className="size-4" aria-hidden="true" />
+                  <Icon className="size-4 shrink-0" aria-hidden="true" />
                   {label}
                 </Link>
               </li>
             );
           })}
 
-          {user ? (
-            <li className="flex items-center gap-4 ml-4 pl-4 border-l border-slate-800">
+          {isClient && user ? (
+            <li className="flex shrink-0 items-center gap-2 ml-2 pl-3 border-l border-slate-800 lg:gap-3 lg:ml-3 lg:pl-4">
               <NotificationBell {...bellProps} /> 
               <Link 
                 href="/inbox" 
@@ -612,14 +706,14 @@ export function Navbar() {
                 className={cn(
                   "relative flex size-8 shrink-0 items-center justify-center rounded-full border transition-all duration-200 bg-slate-900",
                   pathname === "/events/my" 
-                    ? "border-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.3)] text-amber-400" 
+                    ? "border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.3)] text-red-400" 
                     : "border-slate-700 text-slate-400 hover:border-slate-400 hover:text-white"
                 )}
                 title="我的賽事中心"
               >
                 <Calendar className="size-4" />
               </Link>
-              <ProfileNavMenu pathname={pathname} profileFlags={profileFlags} variant="desktop" />
+              <ProfileNavMenu pathname={pathname} profileNav={profileNav} variant="desktop" />
               <button
                 onClick={handleLogout}
                 className="flex items-center justify-center p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-colors"
@@ -628,22 +722,22 @@ export function Navbar() {
                 <LogOut className="w-5 h-5" />
               </button>
             </li>
-          ) : (
+          ) : isClient ? (
             <li>
               <Link 
                 href="/auth" 
-                className="flex items-center justify-center gap-2 rounded-xl px-5 py-1 text-sm font-black bg-amber-600 hover:bg-amber-500 text-white transition-all shadow-lg active:scale-95"
+                className="flex items-center justify-center gap-2 rounded-xl px-5 py-1 text-sm font-black bg-red-600 hover:bg-red-500 text-white transition-all shadow-lg active:scale-95"
               >
                 登入 / 註冊
               </Link>
             </li>
-          )}
+          ) : null}
         </ul>
 
-        <div className="flex items-center gap-2 md:hidden">
-          {user && (
+        <div className="flex items-center gap-2 xl:hidden">
+          {isClient && user && (
             <>
-              <ProfileNavMenu pathname={pathname} profileFlags={profileFlags} variant="mobile-inline" />
+              <ProfileNavMenu pathname={pathname} profileNav={profileNav} variant="mobile-inline" />
               <NotificationBell {...bellProps} />
             </>
           )}
@@ -658,7 +752,7 @@ export function Navbar() {
       </nav>
 
       {mobileOpen && (
-        <div className="absolute top-full left-0 w-full h-[calc(100vh-3.5rem)] bg-slate-950 md:hidden overflow-y-auto border-t border-slate-800 shadow-2xl">
+        <div className="absolute top-full left-0 w-full h-[calc(100vh-3.5rem)] bg-slate-950 xl:hidden overflow-y-auto border-t border-slate-800 shadow-2xl">
           <ul className="mx-auto w-full space-y-2 px-4 py-6 sm:px-6 lg:px-10">
             {navLinks.map(({ href, label, icon: Icon }) => {
               const isActive = pathname === href || pathname.startsWith(`${href}/`);
@@ -686,8 +780,8 @@ export function Navbar() {
                   className={cn(
                     "flex items-center gap-3 rounded-md px-3 py-3 text-sm font-bold transition-colors",
                     pathname.startsWith("/admin")
-                      ? "bg-amber-600/15 text-amber-400"
-                      : "text-amber-500/80 hover:bg-slate-800 hover:text-amber-400"
+                      ? "bg-red-600/15 text-red-400"
+                      : "text-red-500/80 hover:bg-slate-800 hover:text-red-400"
                   )}
                   onClick={() => setMobileOpen(false)}
                 >
@@ -698,14 +792,14 @@ export function Navbar() {
 
             <div className="h-px bg-slate-800 my-4" />
 
-            {user ? (
+            {isClient && user ? (
               <>
                 <li>
                   <Link
                     href="/events/my"
                     className={cn(
                       "flex items-center gap-3 rounded-md px-3 py-3 text-sm font-bold transition-colors",
-                      pathname === "/events/my" ? "text-amber-400" : "text-slate-400 hover:bg-slate-800 hover:text-white",
+                      pathname === "/events/my" ? "text-red-400" : "text-slate-400 hover:bg-slate-800 hover:text-white",
                     )}
                     onClick={() => setMobileOpen(false)}
                   >
@@ -714,7 +808,7 @@ export function Navbar() {
                 </li>
                 <ProfileNavMenu
                   pathname={pathname}
-                  profileFlags={profileFlags}
+                  profileNav={profileNav}
                   variant="mobile-menu"
                   onNavigate={() => setMobileOpen(false)}
                 />
@@ -727,17 +821,17 @@ export function Navbar() {
                   </button>
                 </li>
               </>
-            ) : (
+            ) : isClient ? (
               <li>
                 <Link 
                   href="/auth" 
-                  className="flex items-center justify-center gap-2 rounded-md px-3 py-3 text-sm font-bold text-white bg-amber-600 hover:bg-amber-500 transition-colors shadow-lg active:scale-95" 
+                  className="flex items-center justify-center gap-2 rounded-md px-3 py-3 text-sm font-bold text-white bg-red-600 hover:bg-red-500 transition-colors shadow-lg active:scale-95" 
                   onClick={() => setMobileOpen(false)}
                 >
                   登入 / 註冊
                 </Link>
               </li>
-            )}
+            ) : null}
           </ul>
         </div>
       )}

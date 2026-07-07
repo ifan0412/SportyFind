@@ -74,9 +74,9 @@ export default function ContentListingClient() {
   const categoryOptions = CONTENT_CATEGORIES.map((c) => ({ id: c.id, label: c.label }));
 
   return (
-    <div className="bg-slate-950 min-h-screen text-zinc-200 font-sans selection:bg-violet-500/30 pb-24">
+    <div className="bg-slate-950 min-h-screen text-zinc-200 font-sans selection:bg-yellow-500/30 pb-24">
       <div className={`${LISTING_PAGE_MAX_WIDTH} mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10`}>
-        <BackButton label="返回首頁" />
+        <BackButton label="返回首頁" href="/" />
 
         <ListingPageHeader section="content" />
 
@@ -88,7 +88,7 @@ export default function ContentListingClient() {
               placeholder="搜尋文章標題或內容..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-700 rounded-xl py-3 pl-10 pr-4 text-sm text-white focus:border-violet-500 outline-none"
+              className="w-full bg-slate-950 border border-slate-700 rounded-xl py-3 pl-10 pr-4 text-sm text-white focus:border-yellow-500 outline-none"
             />
           </div>
 
@@ -97,7 +97,7 @@ export default function ContentListingClient() {
             onClick={() => setIsCategoryModalOpen(true)}
             className={`w-full md:w-auto flex items-center justify-between gap-3 px-5 py-3 rounded-xl border text-sm font-bold transition flex-shrink-0 cursor-pointer ${
               selectedCategories.length > 0
-                ? "bg-violet-600/10 border-violet-500 text-violet-400"
+                ? "bg-yellow-600/10 border-yellow-500 text-yellow-400"
                 : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"
             }`}
           >
@@ -121,7 +121,7 @@ export default function ContentListingClient() {
 
         {loading ? (
           <div className="py-20 flex justify-center text-zinc-500">
-            <Loader2 className="w-6 h-6 animate-spin text-violet-500" />
+            <Loader2 className="w-6 h-6 animate-spin text-yellow-500" />
           </div>
         ) : filtered.length === 0 ? (
           <div className="py-20 text-center text-zinc-500 text-sm font-bold border border-dashed border-slate-800 rounded-2xl">
@@ -144,7 +144,7 @@ export default function ContentListingClient() {
         options={categoryOptions}
         selected={selectedCategories}
         onApply={setSelectedCategories}
-        accent="violet"
+        accent="yellow"
       />
 
       <SportFilterModal

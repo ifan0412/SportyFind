@@ -20,8 +20,8 @@ export type AthleteSubTab = "expertise" | "highlights" | "feed";
 const PhysioStatusBadge = ({ tag }: { tag: string | null }) => {
   if (tag === "available") {
     return (
-      <div className="inline-flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] px-2.5 py-1 rounded-full font-black">
-        <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> 開放預約
+      <div className="inline-flex items-center gap-1.5 bg-green-500/10 border border-green-500/20 text-green-400 text-[10px] px-2.5 py-1 rounded-full font-black">
+        <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" /> 開放預約
       </div>
     );
   }
@@ -128,8 +128,8 @@ export function ProfileRolePreview({
             onClick={() => onRoleChange("coach")}
             className={`flex-1 flex flex-col items-center justify-center py-2 px-3 rounded-xl transition-all duration-300 min-w-[100px] cursor-pointer ${
               activeRole === "coach"
-                ? "bg-amber-500 text-black shadow-lg scale-[1.02]"
-                : "text-zinc-500 hover:text-amber-400 hover:bg-slate-800/50"
+                ? "bg-orange-500 text-black shadow-lg scale-[1.02]"
+                : "text-zinc-500 hover:text-orange-400 hover:bg-slate-800/50"
             }`}
           >
             <GraduationCap className="w-5 h-5 mb-0.5" strokeWidth={2.5} />
@@ -142,8 +142,8 @@ export function ProfileRolePreview({
             onClick={() => onRoleChange("physio")}
             className={`flex-1 flex flex-col items-center justify-center py-2 px-3 rounded-xl transition-all duration-300 min-w-[100px] cursor-pointer ${
               activeRole === "physio"
-                ? "bg-emerald-500 text-black shadow-lg scale-[1.02]"
-                : "text-zinc-500 hover:text-emerald-400 hover:bg-slate-800/50"
+                ? "bg-green-500 text-black shadow-lg scale-[1.02]"
+                : "text-zinc-500 hover:text-green-400 hover:bg-slate-800/50"
             }`}
           >
             <Activity className="w-5 h-5 mb-0.5" strokeWidth={2.5} />
@@ -170,7 +170,7 @@ export function ProfileRolePreview({
         <button
           type="button"
           onClick={onCoachBackend}
-          className="w-full mb-6 flex items-center justify-between px-5 py-3.5 rounded-2xl font-black text-sm transition bg-amber-600/15 border border-amber-500/30 text-amber-300 hover:bg-amber-600 hover:text-white hover:border-amber-600 cursor-pointer"
+          className="w-full mb-6 flex items-center justify-between px-5 py-3.5 rounded-2xl font-black text-sm transition bg-orange-600/15 border border-orange-500/30 text-orange-300 hover:bg-orange-600 hover:text-white hover:border-orange-600 cursor-pointer"
         >
           <span className="flex items-center gap-2.5">
             <Settings className="w-4 h-4" />
@@ -184,7 +184,7 @@ export function ProfileRolePreview({
         <button
           type="button"
           onClick={onPhysioBackend}
-          className="w-full mb-6 flex items-center justify-between px-5 py-3.5 rounded-2xl font-black text-sm transition bg-emerald-600/15 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 cursor-pointer"
+          className="w-full mb-6 flex items-center justify-between px-5 py-3.5 rounded-2xl font-black text-sm transition bg-green-600/15 border border-green-500/30 text-green-300 hover:bg-green-600 hover:text-white hover:border-green-600 cursor-pointer"
         >
           <span className="flex items-center gap-2.5">
             <Settings className="w-4 h-4" />
@@ -222,7 +222,7 @@ export function ProfileRolePreview({
                   </span>
                 )}
                 {profile.contact_phone && (
-                  <span className="bg-emerald-950/40 text-emerald-300 border border-emerald-500/30 px-3 py-1.5 rounded-xl">
+                  <span className="bg-green-950/40 text-green-300 border border-green-500/30 px-3 py-1.5 rounded-xl">
                     📞 {profile.contact_phone}
                     {profile.player_phone_friends_only !== false && (
                       <span className="text-[9px] text-zinc-500 ml-1">（非公開）</span>
@@ -234,7 +234,7 @@ export function ProfileRolePreview({
                     href={`https://wa.me/${String(profile.player_whatsapp).replace(/[^\d]/g, "")}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-3 py-1.5 rounded-xl transition inline-flex items-center gap-1.5"
+                    className="bg-green-600 hover:bg-green-500 text-white font-black px-3 py-1.5 rounded-xl transition inline-flex items-center gap-1.5"
                   >
                     💬 WhatsApp
                     {profile.player_whatsapp_friends_only !== false && (
@@ -288,7 +288,7 @@ export function ProfileRolePreview({
               <>
                 <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-xl">
                   <div className="space-y-2 max-w-2xl">
-                    <h3 className="text-sm font-black text-amber-400 uppercase tracking-wider flex items-center gap-2">
+                    <h3 className="text-sm font-black text-orange-400 uppercase tracking-wider flex items-center gap-2">
                       <span>🎓</span> 專業教學簡介
                     </h3>
                     <RichBody
@@ -299,14 +299,14 @@ export function ProfileRolePreview({
                   </div>
                   <div className="bg-slate-950 px-6 py-4 rounded-2xl border border-slate-800/80 text-center shrink-0 w-full md:w-auto">
                     <div className="text-xs font-bold text-zinc-500 mb-1">學員綜合總評</div>
-                    <div className="text-2xl font-black text-amber-400 flex items-center justify-center gap-1.5">
-                      <Star className="w-5 h-5 fill-amber-400 text-amber-400" />
+                    <div className="text-2xl font-black text-orange-400 flex items-center justify-center gap-1.5">
+                      <Star className="w-5 h-5 fill-orange-400 text-orange-400" />
                       {avgCoachRating}
                       <span className="text-xs text-zinc-500 font-normal">({coachReviews.length} 評價)</span>
                     </div>
                     <Link
                       href={`/p/${profile.id}?tab=coach`}
-                      className="mt-4 w-full inline-flex justify-center bg-amber-600/20 border border-amber-500/30 text-amber-300 hover:bg-amber-600 hover:text-white font-black py-2.5 px-5 rounded-xl transition text-sm"
+                      className="mt-4 w-full inline-flex justify-center bg-orange-600/20 border border-orange-500/30 text-orange-300 hover:bg-orange-600 hover:text-white font-black py-2.5 px-5 rounded-xl transition text-sm"
                     >
                       預覽公開頁面
                     </Link>
@@ -318,7 +318,7 @@ export function ProfileRolePreview({
                   profile.city_region ||
                   (profile.coach_districts && profile.coach_districts.length > 0)) && (
                   <div className="flex flex-wrap items-center gap-2 bg-slate-900/40 p-3.5 rounded-2xl border border-slate-800/80 text-xs">
-                    <span className="font-black text-amber-400 flex items-center gap-1 shrink-0 mr-1">
+                    <span className="font-black text-orange-400 flex items-center gap-1 shrink-0 mr-1">
                       <MapPin className="w-3.5 h-3.5" /> 授課據點與聯絡：
                     </span>
                     {(profile.coach_districts?.length || profile.city_region) && (
@@ -343,7 +343,7 @@ export function ProfileRolePreview({
                       </span>
                     )}
                     {profile.contact_phone && (
-                      <span className="bg-emerald-950/40 text-emerald-300 border border-emerald-500/30 px-3 py-1.5 rounded-xl">
+                      <span className="bg-green-950/40 text-green-300 border border-green-500/30 px-3 py-1.5 rounded-xl">
                         📞 {profile.contact_phone}
                       </span>
                     )}
@@ -363,18 +363,18 @@ export function ProfileRolePreview({
                       {coachServices.map((srv: any) => (
                         <div
                           key={srv.id}
-                          className="bg-slate-900 border border-slate-800 hover:border-amber-500/50 rounded-3xl p-6 transition-all duration-300 flex flex-col justify-between group"
+                          className="bg-slate-900 border border-slate-800 hover:border-orange-500/50 rounded-3xl p-6 transition-all duration-300 flex flex-col justify-between group"
                         >
                           <div className="space-y-3">
                             <div className="flex flex-wrap items-center justify-between gap-2">
                               <div className="flex items-center gap-2 flex-wrap">
-                                <SportCategoryBadge category={srv.sport_category} variant="amber" size="xs" />
+                                <SportCategoryBadge category={srv.sport_category} variant="orange" size="xs" />
                                 <ServicePublishBadge isActive={!!srv.is_active} />
                               </div>
                               {(() => {
                                 const p = formatCoachServicePrice(srv);
                                 return (
-                                  <span className={`text-base font-black ${p.isDm ? "text-zinc-400" : "text-emerald-400"}`}>
+                                  <span className={`text-base font-black ${p.isDm ? "text-zinc-400" : "text-orange-400"}`}>
                                     {p.main}
                                     {p.unit && (
                                       <span className="text-xs text-zinc-500 font-normal ml-0.5">{p.unit}</span>
@@ -384,7 +384,7 @@ export function ProfileRolePreview({
                               })()}
                             </div>
                             <Link href={`/coaches/services/${srv.id}`} className="block">
-                              <h4 className="text-lg font-black text-white group-hover:text-amber-400 transition line-clamp-1">
+                              <h4 className="text-lg font-black text-white group-hover:text-orange-400 transition line-clamp-1">
                                 {srv.title || "未命名課程"}
                               </h4>
                             </Link>
@@ -392,7 +392,7 @@ export function ProfileRolePreview({
                               {stripHtml(srv.description || "") || "點擊查看完整課程內容與學員評價"}
                             </p>
                             <div className="inline-flex items-center gap-1 text-[10px] font-bold text-zinc-400">
-                              <MapPin className="w-3 h-3 text-amber-400" />
+                              <MapPin className="w-3 h-3 text-orange-400" />
                               {formatDistrictList(normalizeDistrictIds(srv.districts, srv.location), 2) ||
                                 "地點可商議"}
                             </div>
@@ -401,7 +401,7 @@ export function ProfileRolePreview({
                             {srv.is_active ? (
                               <Link
                                 href={`/coaches/services/${srv.id}`}
-                                className="w-full bg-amber-600 hover:bg-amber-500 text-white font-black py-3 rounded-2xl transition shadow-[0_0_15px_rgba(217,119,6,0.3)] active:scale-95 flex items-center justify-center gap-1.5 text-sm"
+                                className="w-full bg-orange-600 hover:bg-orange-500 text-white font-black py-3 rounded-2xl transition shadow-[0_0_15px_rgba(234,88,12,0.3)] active:scale-95 flex items-center justify-center gap-1.5 text-sm"
                               >
                                 查看課程詳情 →
                               </Link>
@@ -433,7 +433,7 @@ export function ProfileRolePreview({
               <>
                 <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-xl">
                   <div className="space-y-2 max-w-2xl">
-                    <h3 className="text-sm font-black text-emerald-400 uppercase tracking-wider flex items-center gap-2">
+                    <h3 className="text-sm font-black text-green-400 uppercase tracking-wider flex items-center gap-2">
                       <span>⚕️</span> 治療師專業簡介
                     </h3>
                     <RichBody
@@ -454,7 +454,7 @@ export function ProfileRolePreview({
                     <PhysioStatusBadge tag={profile.physio_status ?? null} />
                     <Link
                       href={`/p/${profile.id}?tab=physio`}
-                      className="mt-4 w-full inline-flex justify-center bg-emerald-600/20 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-600 hover:text-white font-black py-2.5 px-5 rounded-xl transition text-sm"
+                      className="mt-4 w-full inline-flex justify-center bg-green-600/20 border border-green-500/30 text-green-300 hover:bg-green-600 hover:text-white font-black py-2.5 px-5 rounded-xl transition text-sm"
                     >
                       預覽公開頁面
                     </Link>
@@ -466,7 +466,7 @@ export function ProfileRolePreview({
                   profile.physio_city_region ||
                   (profile.physio_districts && profile.physio_districts.length > 0)) && (
                   <div className="flex flex-wrap items-center gap-2 bg-slate-900/40 p-3.5 rounded-2xl border border-slate-800/80 text-xs">
-                    <span className="font-black text-emerald-400 flex items-center gap-1 shrink-0 mr-1">
+                    <span className="font-black text-green-400 flex items-center gap-1 shrink-0 mr-1">
                       <MapPin className="w-3.5 h-3.5" /> 服務據點與聯絡：
                     </span>
                     {(profile.physio_districts?.length || profile.physio_city_region) && (
@@ -487,7 +487,7 @@ export function ProfileRolePreview({
                       </span>
                     )}
                     {profile.physio_contact_phone && (
-                      <span className="bg-emerald-950/40 text-emerald-300 border border-emerald-500/30 px-3 py-1.5 rounded-xl">
+                      <span className="bg-green-950/40 text-green-300 border border-green-500/30 px-3 py-1.5 rounded-xl">
                         📞 {profile.physio_contact_phone}
                       </span>
                     )}
@@ -507,7 +507,7 @@ export function ProfileRolePreview({
                       {physioServices.map((srv: any) => (
                         <div
                           key={srv.id}
-                          className="bg-slate-900 border border-slate-800 hover:border-emerald-500/50 rounded-3xl p-6 transition-all duration-300 flex flex-col justify-between group"
+                          className="bg-slate-900 border border-slate-800 hover:border-green-500/50 rounded-3xl p-6 transition-all duration-300 flex flex-col justify-between group"
                         >
                           <div className="space-y-3">
                             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -518,7 +518,7 @@ export function ProfileRolePreview({
                               {(() => {
                                 const p = formatPhysioServicePrice(srv);
                                 return (
-                                  <span className={`text-base font-black ${p.isDm ? "text-zinc-400" : "text-emerald-400"}`}>
+                                  <span className={`text-base font-black ${p.isDm ? "text-zinc-400" : "text-green-400"}`}>
                                     {p.main}
                                     {p.unit && (
                                       <span className="text-xs text-zinc-500 font-normal ml-0.5">{p.unit}</span>
@@ -528,7 +528,7 @@ export function ProfileRolePreview({
                               })()}
                             </div>
                             <Link href={`/physio/services/${srv.id}`} className="block">
-                              <h4 className="text-lg font-black text-white group-hover:text-emerald-400 transition line-clamp-1">
+                              <h4 className="text-lg font-black text-white group-hover:text-green-400 transition line-clamp-1">
                                 {srv.title || "未命名項目"}
                               </h4>
                             </Link>
@@ -536,7 +536,7 @@ export function ProfileRolePreview({
                               {stripHtml(srv.description || "") || "點擊查看完整診療內容與評價"}
                             </p>
                             <div className="inline-flex items-center gap-1 text-[10px] font-bold text-zinc-400">
-                              <MapPin className="w-3 h-3 text-emerald-400" />
+                              <MapPin className="w-3 h-3 text-green-400" />
                               {formatDistrictList(normalizeDistrictIds(srv.districts, srv.location), 2) ||
                                 "地點可商議"}
                             </div>
@@ -545,7 +545,7 @@ export function ProfileRolePreview({
                             {srv.is_active ? (
                               <Link
                                 href={`/physio/services/${srv.id}`}
-                                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-3 rounded-2xl transition shadow-[0_0_15px_rgba(16,185,129,0.3)] active:scale-95 flex items-center justify-center gap-1.5 text-sm"
+                                className="w-full bg-green-600 hover:bg-green-500 text-white font-black py-3 rounded-2xl transition shadow-[0_0_15px_rgba(34,197,94,0.3)] active:scale-95 flex items-center justify-center gap-1.5 text-sm"
                               >
                                 查看項目詳情 →
                               </Link>

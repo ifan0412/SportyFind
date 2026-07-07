@@ -4,20 +4,24 @@ const badgeSizes = {
 };
 
 const accentStyles = {
-  amber: "bg-amber-500/10 text-amber-300 border-amber-500/25",
-  emerald: "bg-violet-500/10 text-violet-300 border-violet-500/25",
+  orange: "bg-orange-500/10 text-orange-300 border-orange-500/25",
+  green: "bg-green-500/10 text-green-300 border-green-500/25",
   blue: "bg-blue-500/10 text-blue-300 border-blue-500/25",
+  /** @deprecated use orange */
+  amber: "bg-orange-500/10 text-orange-300 border-orange-500/25",
+  /** @deprecated use green */
+  emerald: "bg-green-500/10 text-green-300 border-green-500/25",
 };
 
 export function QualificationBadges({
   tags,
-  accent = "amber",
+  accent = "orange",
   size = "sm",
   max = 4,
   align = "center",
 }: {
   tags: string[];
-  accent?: "amber" | "emerald" | "blue";
+  accent?: "orange" | "green" | "blue" | "amber" | "emerald";
   size?: "xs" | "sm";
   max?: number;
   align?: "left" | "center";
@@ -27,7 +31,8 @@ export function QualificationBadges({
 
   const shown = unique.slice(0, max);
   const extra = unique.length - shown.length;
-  const style = accentStyles[accent];
+  const resolvedAccent = accent === "amber" ? "orange" : accent === "emerald" ? "green" : accent;
+  const style = accentStyles[resolvedAccent];
 
   return (
     <div className={`flex flex-wrap items-center gap-1.5 ${align === "left" ? "justify-start" : "justify-center"}`}>

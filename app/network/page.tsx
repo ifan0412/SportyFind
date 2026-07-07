@@ -16,6 +16,8 @@ import {
 import { profileLink } from "@/lib/profile-links";
 import { useProfileReturnTo } from "@/lib/use-profile-return-to";
 import { truncatePlainBio } from "@/lib/content/body";
+import { type ProfileGender, PROFILE_GENDER_LABELS } from "@/lib/gender";
+import { GenderAvatarBadge } from "@/components/profile/GenderBadge";
 
 interface ProfileRow {
   id: string;
@@ -25,6 +27,7 @@ interface ProfileRow {
   bio: string | null;
   avatar_url: string | null;
   status_tag: string | null;
+  gender: ProfileGender | null;
   display_sports: string[] | null;
   height_cm: number | null;
   weight_kg: number | null;
@@ -43,7 +46,7 @@ function PlayerStatusBadge({ tag }: { tag: string | null }) {
   if (tag === "seeking_team")
     return <div className="inline-flex items-center gap-1.5 bg-blue-500/10 border border-blue-500/20 text-blue-400 text-[10px] md:text-xs px-2.5 py-1 rounded-full font-black tracking-widest whitespace-nowrap shadow"><div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" /> 尋找隊伍</div>;
   if (tag === "open_to_match")
-    return <div className="inline-flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] md:text-xs px-2.5 py-1 rounded-full font-black tracking-widest whitespace-nowrap shadow"><div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" /> 開放約戰</div>;
+    return <div className="inline-flex items-center gap-1.5 bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] md:text-xs px-2.5 py-1 rounded-full font-black tracking-widest whitespace-nowrap shadow"><div className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" /> 開放約戰</div>;
   return <div className="inline-flex items-center gap-1.5 bg-slate-800/80 border border-slate-700/50 text-zinc-400 text-[10px] md:text-xs px-2.5 py-1 rounded-full font-black tracking-widest whitespace-nowrap shadow"><div className="w-1.5 h-1.5 rounded-full bg-slate-500" /> 穩定狀態</div>;
 }
 
@@ -63,7 +66,7 @@ function NetworkPageContent() {
   const [isLoading, setIsLoading] = useState(true);
 
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterStatus, setFilterStatus] = useState<string>("");
+  const [filterGender, setFilterGender] = useState<"" | ProfileGender>("");
   const [selectedSports, setSelectedSports] = useState<string[]>([]);
   const [selectedPositions, setSelectedPositions] = useState<string[]>([]);
   const [isPositionFilterExpanded, setIsPositionFilterExpanded] = useState(false);
@@ -84,7 +87,7 @@ function NetworkPageContent() {
         .from("profiles")
         .select(
           `
-          id, full_name, location, headline, bio, avatar_url, status_tag, display_sports, is_coach, coach_status, is_physio, physio_status,
+          id, full_name, location, headline, bio, avatar_url, status_tag, gender, display_sports, is_coach, coach_status, is_physio, physio_status,
           height_cm, weight_kg, show_physical_stats, user_sports (
             metadata,
             sports ( name )
@@ -131,14 +134,14 @@ function NetworkPageContent() {
               sportMatchesFilter(us.sports?.name, selectedSports) &&
               metadataMatchesPositionFilter(us.metadata, selectedPositions)
           );
-    const matchStatus = filterStatus ? p.status_tag === filterStatus : true;
-    return matchSearch && matchSport && matchPosition && matchStatus;
+    const matchGender = filterGender ? p.gender === filterGender : true;
+    return matchSearch && matchSport && matchPosition && matchGender;
   });
 
   return (
     <div className="bg-slate-950 min-h-screen text-zinc-200 font-sans selection:bg-blue-500/30 pb-24 relative">
       <div className={`${LISTING_PAGE_MAX_WIDTH} mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10`}>
-        <BackButton label="返回首頁" />
+        <BackButton label="返回首頁" href="/" />
 
         <ListingPageHeader section="network" />
 
@@ -154,10 +157,9 @@ function NetworkPageContent() {
           </button>
 
           <div className="flex items-center gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden w-full md:w-auto">
-            <button onClick={() => setFilterStatus("")} className={`whitespace-nowrap px-4 py-2.5 rounded-xl text-xs font-bold border transition cursor-pointer ${!filterStatus ? "bg-slate-100 border-slate-200 text-black shadow-[0_0_10px_rgba(255,255,255,0.2)]" : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"}`}>全部狀態</button>
-            <button onClick={() => setFilterStatus("seeking_team")} className={`whitespace-nowrap px-4 py-2.5 rounded-xl text-xs font-bold border transition cursor-pointer ${filterStatus === "seeking_team" ? "bg-slate-100 border-slate-200 text-black" : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"}`}>🔵 尋找隊伍</button>
-            <button onClick={() => setFilterStatus("open_to_match")} className={`whitespace-nowrap px-4 py-2.5 rounded-xl text-xs font-bold border transition cursor-pointer ${filterStatus === "open_to_match" ? "bg-slate-100 border-slate-200 text-black" : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"}`}>🟡 開放約戰</button>
-            <button onClick={() => setFilterStatus("recruiting")} className={`whitespace-nowrap px-4 py-2.5 rounded-xl text-xs font-bold border transition cursor-pointer ${filterStatus === "recruiting" ? "bg-slate-100 border-slate-200 text-black" : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"}`}>🟢 尋找新血</button>
+            <button onClick={() => setFilterGender("")} className={`whitespace-nowrap px-4 py-2.5 rounded-xl text-xs font-bold border transition cursor-pointer ${!filterGender ? "bg-slate-100 border-slate-200 text-black shadow-[0_0_10px_rgba(255,255,255,0.2)]" : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"}`}>全部性別</button>
+            <button onClick={() => setFilterGender("male")} className={`whitespace-nowrap px-4 py-2.5 rounded-xl text-xs font-bold border transition cursor-pointer ${filterGender === "male" ? "bg-slate-100 border-slate-200 text-black" : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"}`}>♂ {PROFILE_GENDER_LABELS.male}</button>
+            <button onClick={() => setFilterGender("female")} className={`whitespace-nowrap px-4 py-2.5 rounded-xl text-xs font-bold border transition cursor-pointer ${filterGender === "female" ? "bg-slate-100 border-slate-200 text-black" : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"}`}>♀ {PROFILE_GENDER_LABELS.female}</button>
           </div>
         </div>
 
@@ -266,6 +268,7 @@ function NetworkPageContent() {
                       <div className="w-full h-full rounded-2xl bg-slate-800 border-2 border-slate-700/60 flex items-center justify-center text-3xl font-black text-zinc-600 overflow-hidden bg-cover bg-center shadow-lg" style={p.avatar_url ? { backgroundImage: `url(${p.avatar_url})` } : undefined}>
                         {!p.avatar_url && (p.full_name?.[0] || "P")}
                       </div>
+                      <GenderAvatarBadge gender={p.gender} />
                       <div className="absolute -bottom-3 flex justify-center w-full"><PlayerStatusBadge tag={p.status_tag} /></div>
                     </div>
 

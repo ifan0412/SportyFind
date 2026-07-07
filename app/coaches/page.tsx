@@ -122,9 +122,9 @@ export default function CoachesPage() {
   });
 
   return (
-    <div className="bg-slate-950 min-h-screen text-zinc-200 font-sans selection:bg-amber-500/30 pb-24 relative">
+    <div className="bg-slate-950 min-h-screen text-zinc-200 font-sans selection:bg-orange-500/30 pb-24 relative">
       <div className={`${LISTING_PAGE_MAX_WIDTH} mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10`}>
-        <BackButton label="返回上一頁" />
+        <BackButton label="返回首頁" href="/" />
 
         <ListingPageHeader section="coaches" />
 
@@ -136,7 +136,7 @@ export default function CoachesPage() {
               placeholder="搜尋課程名稱或教練名字..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-700 rounded-xl py-3 pl-10 pr-4 text-sm text-white focus:outline-none focus:border-amber-500 transition"
+              className="w-full bg-slate-950 border border-slate-700 rounded-xl py-3 pl-10 pr-4 text-sm text-white focus:outline-none focus:border-orange-500 transition"
             />
           </div>
 
@@ -145,7 +145,7 @@ export default function CoachesPage() {
             onClick={() => setIsSportModalOpen(true)}
             className={`w-full md:w-auto flex items-center justify-between gap-3 px-5 py-3 rounded-xl border text-sm font-bold transition flex-shrink-0 cursor-pointer ${
               selectedSports.length > 0
-                ? "bg-amber-600/10 border-amber-500 text-amber-400"
+                ? "bg-orange-600/10 border-orange-500 text-orange-400"
                 : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"
             }`}
           >
@@ -158,7 +158,7 @@ export default function CoachesPage() {
             onClick={() => setIsLocationModalOpen(true)}
             className={`w-full md:w-auto flex items-center justify-between gap-3 px-5 py-3 rounded-xl border text-sm font-bold transition flex-shrink-0 cursor-pointer ${
               selectedDistricts.length > 0
-                ? "bg-amber-600/10 border-amber-500 text-amber-400"
+                ? "bg-orange-600/10 border-orange-500 text-orange-400"
                 : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"
             }`}
           >
@@ -191,11 +191,11 @@ export default function CoachesPage() {
                 return (
                   <div
                     key={srv.id}
-                    className="bg-slate-900/60 border border-slate-800 hover:border-amber-500/50 rounded-3xl p-6 flex flex-col justify-between transition duration-300 group hover:-translate-y-1 shadow-md hover:shadow-2xl"
+                    className="bg-slate-900/60 border border-slate-800 hover:border-orange-500/50 rounded-3xl p-6 flex flex-col justify-between transition duration-300 group hover:-translate-y-1 shadow-md hover:shadow-2xl"
                   >
                     <div className="space-y-4">
                       <div className="flex items-center justify-between gap-2">
-                        <SportCategoryBadge category={srv.sport_category} variant="amber" size="md" />
+                        <SportCategoryBadge category={srv.sport_category} variant="orange" size="md" />
                         {(() => {
                           const p = formatCoachServicePrice(srv);
                           return (
@@ -229,19 +229,19 @@ export default function CoachesPage() {
                           <div className="text-[10px] text-zinc-500 uppercase font-bold leading-none mb-0.5">
                             授課導師
                           </div>
-                          <div className="text-lg font-black text-white group-hover/coach:text-amber-400 transition truncate leading-tight">
+                          <div className="text-lg font-black text-white group-hover/coach:text-orange-400 transition truncate leading-tight">
                             {srv.profiles?.full_name || "專業教練"}
                           </div>
                         </div>
                       </Link>
 
                       {qualificationTags.length > 0 && (
-                        <QualificationBadges tags={qualificationTags} accent="amber" size="xs" max={3} align="left" />
+                        <QualificationBadges tags={qualificationTags} accent="orange" size="xs" max={3} align="left" />
                       )}
 
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="inline-flex items-center gap-1 text-[10px] font-bold text-zinc-300 bg-slate-950/60 px-2.5 py-1 rounded-full border border-slate-800">
-                          <MapPin className="w-3 h-3 text-amber-400 shrink-0" />
+                          <MapPin className="w-3 h-3 text-orange-400 shrink-0" />
                           {districtLabel}
                         </span>
                         {exp != null && exp > 0 && (
@@ -253,7 +253,7 @@ export default function CoachesPage() {
 
                       <div>
                         <Link href={`/coaches/services/${srv.id}`} className="block">
-                          <h3 className="text-sm font-bold text-zinc-300 group-hover:text-amber-400 transition line-clamp-2 leading-snug">
+                          <h3 className="text-sm font-bold text-zinc-300 group-hover:text-orange-400 transition line-clamp-2 leading-snug">
                             {srv.title || "未命名課程"}
                           </h3>
                         </Link>
@@ -274,7 +274,7 @@ export default function CoachesPage() {
                       </Link>
                       <Link
                         href={`/coaches/services/${srv.id}`}
-                        className="py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-black text-xs text-center transition flex items-center justify-center gap-1"
+                        className="py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-black text-xs text-center transition flex items-center justify-center gap-1"
                       >
                         課程詳情 →
                       </Link>

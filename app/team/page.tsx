@@ -171,7 +171,7 @@ function TeamPageContent() {
   return (
     <div className="bg-slate-950 min-h-screen text-zinc-200 font-sans selection:bg-blue-500/30 pb-24 relative">
       <div className={`${LISTING_PAGE_MAX_WIDTH} mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10`}>
-        <BackButton label="返回上一頁" />
+        <BackButton label="返回首頁" href="/" />
 
         <ListingPageHeader section="team" />
 
@@ -188,10 +188,10 @@ function TeamPageContent() {
           </div>
           <button
             onClick={() => router.push("/team/create")}
-            className="flex-shrink-0 flex items-center gap-2 bg-amber-600 hover:bg-amber-500 text-white text-sm font-black px-5 py-3 rounded-2xl shadow-[0_0_15px_rgba(217,119,6,0.25)] transition-all active:scale-95 whitespace-nowrap"
+            className="flex-shrink-0 flex items-center gap-2 bg-purple-600 hover:bg-purple-500 text-white text-sm font-black px-5 py-3 rounded-2xl shadow-[0_0_15px_rgba(168,85,247,0.25)] transition-all active:scale-95 whitespace-nowrap"
           >
             <span className="text-base leading-none">＋</span>
-            <span className="hidden sm:inline">Create Team</span>
+            <span className="hidden sm:inline">建立隊伍/團體</span>
           </button>
         </div>
 
@@ -305,7 +305,7 @@ function TeamPageContent() {
                       key={t.id}
                       className="bg-slate-900/50 border border-slate-800 hover:border-slate-600 rounded-2xl p-6 flex flex-col items-center text-center transition duration-300 group hover:-translate-y-1 shadow-md hover:shadow-xl relative overflow-hidden"
                     >
-                      <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-amber-500/20 via-orange-500/20 to-red-500/20 opacity-0 group-hover:opacity-100 transition duration-300" />
+                      <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-purple-500/20 via-orange-500/20 to-red-500/20 opacity-0 group-hover:opacity-100 transition duration-300" />
                       <div className="relative w-20 h-20 md:w-24 md:h-24 mb-5 mt-2">
                         <div
                           className="w-full h-full rounded-2xl bg-slate-800 border-2 border-slate-700/50 overflow-hidden flex items-center justify-center text-3xl font-black text-zinc-600 bg-cover bg-center shadow-inner"
@@ -354,7 +354,7 @@ function TeamPageContent() {
                       <div className="mt-auto w-full pt-4 border-t border-slate-800/80">
                         <Link
                           href={`/team/${t.id}`}
-                          className="block w-full bg-slate-800 hover:bg-amber-600 text-white text-sm font-black py-3 rounded-xl transition duration-300"
+                          className="block w-full bg-slate-800 hover:bg-purple-600 text-white text-sm font-black py-3 rounded-xl transition duration-300"
                         >
                           查看團隊專頁
                         </Link>
@@ -370,7 +370,7 @@ function TeamPageContent() {
 
       <button
         onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-        className={`fixed bottom-8 right-8 bg-amber-600 hover:bg-amber-500 text-white w-12 h-12 rounded-full shadow-[0_0_20px_rgba(217,119,6,0.4)] flex items-center justify-center text-xl z-50 transition-all duration-300 transform ${
+        className={`fixed bottom-8 right-8 bg-purple-600 hover:bg-purple-500 text-white w-12 h-12 rounded-full shadow-[0_0_20px_rgba(168,85,247,0.4)] flex items-center justify-center text-xl z-50 transition-all duration-300 transform ${
           showTopBtn ? "translate-y-0 opacity-100" : "translate-y-10 opacity-0 pointer-events-none"
         }`}
       >

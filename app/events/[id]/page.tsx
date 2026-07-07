@@ -21,6 +21,13 @@ import {
   isWaitlistRegStatus,
   normalizeRegStatus,
 } from "@/lib/event-registration";
+import {
+  genderMeetsRequirement,
+  genderRequirementRejectMessage,
+  GENDER_REQUIREMENT_LABELS,
+  normalizeGenderRequirement,
+} from "@/lib/gender";
+import { GenderAvatarBadge } from "@/components/profile/GenderBadge";
 
 export default function EventDetailPage() {
   const params = useParams();
@@ -31,6 +38,7 @@ export default function EventDetailPage() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentUserGender, setCurrentUserGender] = useState<string | null>(null);
   const [event, setEvent] = useState<any>(null);
   const [registrations, setRegistrations] = useState<any[]>([]);
   const [myManagedTeams, setMyManagedTeams] = useState<any[]>([]);
@@ -81,7 +89,7 @@ export default function EventDetailPage() {
         .from("event_registrations")
         .select(`
           *,
-          profiles:user_id (id, full_name, avatar_url),
+          profiles:user_id (id, full_name, avatar_url, gender),
           team:teams!team_id (id, name_zh, name_en)
         `)
         .eq("event_id", eventId)
@@ -94,6 +102,13 @@ export default function EventDetailPage() {
       }
 
       if (user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("gender")
+          .eq("id", user.id)
+          .maybeSingle();
+        setCurrentUserGender(profile?.gender ?? null);
+
         const { data: tm } = await supabase
           .from("team_members")
           .select("team_id, teams (id, name_zh, name_en, sport_category)")
@@ -107,6 +122,8 @@ export default function EventDetailPage() {
             : managedTeams;
           setMyManagedTeams(sportFiltered);
         }
+      } else {
+        setCurrentUserGender(null);
       }
     } catch (err) {
       console.error("無法載入活動:", err);
@@ -154,7 +171,7 @@ export default function EventDetailPage() {
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white p-4">
         <Trophy className="w-12 h-12 text-zinc-600 mb-4" />
         <h2 className="text-xl font-bold mb-2">找不到此活動</h2>
-        <Link href="/events" className="text-blue-400 hover:underline text-sm">返回約戰大廳</Link>
+        <Link href="/events" className="text-blue-400 hover:underline text-sm">返回約戰賽事</Link>
       </div>
     );
   }
@@ -230,7 +247,7 @@ export default function EventDetailPage() {
       >
         <div className="flex items-center gap-3 min-w-0">
           {reg.profiles ? (
-            <Link href={profileLink(reg.profiles.id || reg.user_id, returnTo)} className="shrink-0">
+            <Link href={profileLink(reg.profiles.id || reg.user_id, returnTo)} className="shrink-0 relative">
               <div
                 className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center font-black text-xs shrink-0 overflow-hidden"
                 style={{
@@ -240,9 +257,10 @@ export default function EventDetailPage() {
               >
                 {!reg.profiles.avatar_url && (reg.profiles.full_name?.[0] || "?")}
               </div>
+              <GenderAvatarBadge gender={reg.profiles.gender} size="xs" />
             </Link>
           ) : (
-            <div className="w-10 h-10 rounded-full bg-amber-600/20 text-amber-400 flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-full bg-red-600/20 text-red-400 flex items-center justify-center shrink-0">
               <Shield className="w-5 h-5" />
             </div>
           )}
@@ -267,7 +285,7 @@ export default function EventDetailPage() {
             </div>
 
             {reg.note && (
-              <div className="text-xs text-amber-300/90 bg-amber-950/40 border border-amber-500/20 px-2.5 py-1 rounded-lg mt-1.5 truncate max-w-sm">
+              <div className="text-xs text-red-300/90 bg-red-950/40 border border-red-500/20 px-2.5 py-1 rounded-lg mt-1.5 truncate max-w-sm">
                 💬 {reg.note}
               </div>
             )}
@@ -296,7 +314,7 @@ export default function EventDetailPage() {
             </span>
           )}
           {isWaitlistRegStatus(normRegStatus) && (
-            <span className="px-3 py-1 rounded-full text-xs font-black bg-amber-950 text-amber-400 border border-amber-500/30">
+            <span className="px-3 py-1 rounded-full text-xs font-black bg-red-950 text-red-400 border border-red-500/30">
               候補名單
             </span>
           )}
@@ -407,6 +425,17 @@ export default function EventDetailPage() {
 
   const handleIndividualJoin = async () => {
     if (!currentUser) return router.push("/auth");
+
+    const requirement = event?.gender_requirement ?? "both";
+    if (!genderMeetsRequirement(currentUserGender, requirement)) {
+      alert(
+        !currentUserGender
+          ? "請先於個人檔案設定性別後再報名。"
+          : genderRequirementRejectMessage(requirement)
+      );
+      return;
+    }
+
     setActionLoading(true);
     try {
       const approvalMode = getEventApprovalMode(event);
@@ -503,6 +532,16 @@ export default function EventDetailPage() {
     const selectedTeam = myManagedTeams.find(t => t.id === selectedTeamId);
     if (selectedTeam?.sport_category && event.sport_category && selectedTeam.sport_category !== event.sport_category) {
       return alert("❌ 系統錯誤：所選球隊運動類別與本活動不吻合！");
+    }
+
+    const requirement = event?.gender_requirement ?? "both";
+    if (!genderMeetsRequirement(currentUserGender, requirement)) {
+      alert(
+        !currentUserGender
+          ? "請先於個人檔案設定性別後再申請。"
+          : genderRequirementRejectMessage(requirement)
+      );
+      return;
     }
 
     setActionLoading(true);
@@ -704,7 +743,7 @@ export default function EventDetailPage() {
             <span className={`px-3 py-1 rounded-full text-xs font-black border ${
               event.registration_type === "individual" 
                 ? "bg-purple-950/50 text-purple-300 border-purple-500/30"
-                : "bg-amber-950/50 text-amber-300 border-amber-500/30"
+                : "bg-red-950/50 text-red-300 border-red-500/30"
             }`}>
               {event.registration_type === "individual" ? "👤 個人" : "🛡️ 團隊"}
             </span>
@@ -741,7 +780,7 @@ export default function EventDetailPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-zinc-300 bg-slate-950/60 p-4 rounded-2xl border border-slate-800/80 mb-6">
             <div className="flex items-center gap-3"><Calendar className="w-5 h-5 text-blue-400 shrink-0" /><div><div className="text-xs text-zinc-500 font-bold">活動時間</div><div className="font-extrabold text-white">{formatEventPeriod(event.start_time, event.end_time)}</div></div></div>
-            <div className="flex items-center gap-3"><MapPin className="w-5 h-5 text-amber-400 shrink-0" /><div><div className="text-xs text-zinc-500 font-bold">舉辦場地</div><div className="font-extrabold text-white">{event.location_name}</div>{event.location_address && <div className="text-xs text-zinc-400">{event.location_address}</div>}</div></div>
+            <div className="flex items-center gap-3"><MapPin className="w-5 h-5 text-red-400 shrink-0" /><div><div className="text-xs text-zinc-500 font-bold">舉辦場地</div><div className="font-extrabold text-white">{event.location_name}</div>{event.location_address && <div className="text-xs text-zinc-400">{event.location_address}</div>}</div></div>
             
             <div className="flex items-center gap-3">
               <Users className="w-5 h-5 text-emerald-400 shrink-0" />
@@ -755,6 +794,16 @@ export default function EventDetailPage() {
             </div>
 
             <div className="flex items-center gap-3"><Trophy className="w-5 h-5 text-purple-400 shrink-0" /><div><div className="text-xs text-zinc-500 font-bold">費用</div><div className="font-extrabold text-white">{event.fee > 0 ? `HKD $${event.fee}` : "免費活動"}</div></div></div>
+
+            {event.gender_requirement && event.gender_requirement !== "both" && (
+              <div className="flex items-center gap-3 sm:col-span-2">
+                <UserIcon className="w-5 h-5 text-pink-400 shrink-0" />
+                <div>
+                  <div className="text-xs text-zinc-500 font-bold">報名性別要求</div>
+                  <div className="font-extrabold text-white">{GENDER_REQUIREMENT_LABELS[normalizeGenderRequirement(event.gender_requirement)]}</div>
+                </div>
+              </div>
+            )}
           </div>
 
           {event.description && <div className="text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap bg-slate-950/30 p-4 rounded-2xl border border-slate-800/40">{event.description}</div>}
@@ -792,14 +841,14 @@ export default function EventDetailPage() {
                         ? "bg-emerald-950/40 border-emerald-500/40"
                         : isPendingRegStatus(activeIndivReg.status)
                           ? "bg-slate-800/60 border-slate-600/40"
-                          : "bg-amber-950/40 border-amber-500/40"
+                          : "bg-red-950/40 border-red-500/40"
                     }`}>
                       <div className={`text-xs font-black uppercase mb-1 ${
                         isConfirmedRegStatus(activeIndivReg.status)
                           ? "text-emerald-400"
                           : isPendingRegStatus(activeIndivReg.status)
                             ? "text-zinc-400"
-                            : "text-amber-400"
+                            : "text-red-400"
                       }`}>
                         您的狀態
                       </div>
@@ -897,7 +946,7 @@ export default function EventDetailPage() {
                       type="button"
                       disabled={actionLoading}
                       onClick={handleIndividualJoin}
-                      className="w-full py-3.5 rounded-xl bg-amber-600 hover:bg-amber-500 disabled:bg-slate-800 text-white font-black text-sm transition shadow-lg active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+                      className="w-full py-3.5 rounded-xl bg-red-600 hover:bg-red-500 disabled:bg-slate-800 text-white font-black text-sm transition shadow-lg active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
                     >
                       {actionLoading ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
@@ -1000,7 +1049,7 @@ export default function EventDetailPage() {
                       type="button"
                       disabled={actionLoading}
                       onClick={handleTeamApply}
-                      className="w-full py-3 rounded-xl bg-amber-600 hover:bg-amber-500 disabled:bg-slate-800 text-white font-black text-sm transition flex items-center justify-center gap-2 shadow-lg active:scale-95 cursor-pointer"
+                      className="w-full py-3 rounded-xl bg-red-600 hover:bg-red-500 disabled:bg-slate-800 text-white font-black text-sm transition flex items-center justify-center gap-2 shadow-lg active:scale-95 cursor-pointer"
                     >
                       {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "代表球隊送出參賽申請"}
                     </button>
@@ -1071,7 +1120,7 @@ export default function EventDetailPage() {
 
                     {waitlistRegistrations.length > 0 && (
                       <div>
-                        <h4 className="text-xs font-black text-amber-500/80 uppercase tracking-wider mb-2">
+                        <h4 className="text-xs font-black text-red-500/80 uppercase tracking-wider mb-2">
                           候補名單 ({waitlistRegistrations.length})
                         </h4>
                         <div className="space-y-3">
@@ -1178,7 +1227,7 @@ export default function EventDetailPage() {
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl">
             <h3 className="text-lg font-black text-white mb-2 flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-amber-500" /> 確認退出此賽事？
+              <AlertTriangle className="w-5 h-5 text-red-500" /> 確認退出此賽事？
             </h3>
 
             {isLateInfractionTrigger && (

@@ -1,17 +1,19 @@
 import { getSportCategory } from "@/lib/sports-categories";
 
-type BadgeVariant = "amber" | "emerald" | "blue" | "slate";
+type BadgeVariant = "orange" | "green" | "blue" | "slate" | "amber" | "emerald";
 
 const VARIANT_CLASS: Record<BadgeVariant, string> = {
-  amber: "bg-amber-500/15 text-amber-400 border-amber-500/30",
-  emerald: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+  orange: "bg-orange-500/15 text-orange-400 border-orange-500/30",
+  green: "bg-green-500/15 text-green-400 border-green-500/30",
   blue: "bg-blue-500/15 text-blue-400 border-blue-500/30",
   slate: "bg-slate-800/80 text-zinc-300 border-slate-700",
+  amber: "bg-orange-500/15 text-orange-400 border-orange-500/30",
+  emerald: "bg-green-500/15 text-green-400 border-green-500/30",
 };
 
 export function SportCategoryBadge({
   category,
-  variant = "amber",
+  variant = "orange",
   size = "sm",
 }: {
   category: string | null | undefined;

@@ -16,6 +16,7 @@ interface FormData {
   name_zh: string;
   est_year: string;
   recruitment_status: RecruitmentStatus;
+  gender_requirement: GenderRequirement;
   sport_metadata: Record<string, string | boolean | string[]>;
   bio: string;
   contact_phone: string;
@@ -30,6 +31,7 @@ const DEFAULT_FORM: FormData = {
   name_zh: "",
   est_year: "",
   recruitment_status: "open",
+  gender_requirement: "both",
   sport_metadata: {},
   bio: "",
   contact_phone: "",
@@ -41,6 +43,7 @@ const DEFAULT_FORM: FormData = {
 const SPORT_OPTIONS = SPORT_CATEGORIES;
 
 import { getTeamMetaFields, cleanTeamMetadata, regionsToLocationString } from "@/lib/team-metadata-fields";
+import { type GenderRequirement, GENDER_REQUIREMENT_OPTIONS } from "@/lib/gender";
 
 function StepIndicator({ current, total }: { current: number; total: number }) {
   const labels = ["基礎資訊", "專項詳情", "介紹與送出"];
@@ -55,19 +58,19 @@ function StepIndicator({ current, total }: { current: number; total: number }) {
             <div className={`flex flex-col items-center gap-1.5 ${active ? "scale-110" : ""} transition-transform`}>
               <div
                 className={`w-9 h-9 rounded-full flex items-center justify-center font-black text-sm border-2 transition-all
-                  ${done   ? "bg-amber-500 border-amber-500 text-black"         : ""}
+                  ${done   ? "bg-purple-500 border-purple-500 text-black"         : ""}
                   ${active ? "bg-slate-50  border-slate-50  text-black shadow-[0_0_16px_rgba(255,255,255,0.2)]" : ""}
                   ${!done && !active ? "bg-slate-900 border-slate-700 text-zinc-500" : ""}
                 `}
               >
                 {done ? "✓" : step}
               </div>
-              <span className={`text-[10px] font-bold whitespace-nowrap ${active ? "text-white" : done ? "text-amber-400" : "text-zinc-600"}`}>
+              <span className={`text-[10px] font-bold whitespace-nowrap ${active ? "text-white" : done ? "text-purple-400" : "text-zinc-600"}`}>
                 {labels[i]}
               </span>
             </div>
             {i < total - 1 && (
-              <div className={`flex-1 h-px mx-2 mt-[-14px] transition-colors ${done ? "bg-amber-500/60" : "bg-slate-800"}`} />
+              <div className={`flex-1 h-px mx-2 mt-[-14px] transition-colors ${done ? "bg-purple-500/60" : "bg-slate-800"}`} />
             )}
           </div>
         );
@@ -76,7 +79,7 @@ function StepIndicator({ current, total }: { current: number; total: number }) {
   );
 }
 
-const inputCls = "w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 transition";
+const inputCls = "w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500/30 transition";
 const labelCls = "block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1.5 pl-1";
 
 export default function CreateTeamPage() {
@@ -191,6 +194,7 @@ export default function CreateTeamPage() {
         name_zh:            formData.name_zh.trim() || null,
         sport_category:     formData.sport_category as SportCategory,
         recruitment_status: formData.recruitment_status,
+        gender_requirement: formData.gender_requirement,
         est_year:           formData.est_year ? Number(formData.est_year) : null,
         bio:                formData.bio.trim() || null,
         logo_url:           finalLogoUrl,
@@ -226,7 +230,7 @@ export default function CreateTeamPage() {
   };
 
   return (
-    <div className="bg-slate-950 min-h-screen text-zinc-200 font-sans selection:bg-amber-500/30 pb-24">
+    <div className="bg-slate-950 min-h-screen text-zinc-200 font-sans selection:bg-purple-500/30 pb-24">
       <div className="w-full max-w-4xl md:max-w-5xl mx-auto px-4 sm:px-6 py-8 md:py-12">
         <button
           onClick={() => (currentStep > 1 ? setCurrentStep((s) => s - 1) : router.push("/team"))}
@@ -252,7 +256,7 @@ export default function CreateTeamPage() {
                     onClick={() => { set("sport_category", s.id as SportCategory); set("sport_metadata", {}); }}
                     className={`flex flex-col items-center gap-1 py-4 rounded-2xl border text-center transition-all min-h-[88px]
                       ${formData.sport_category === s.id
-                        ? "bg-amber-500/10 border-amber-500 text-amber-400 shadow-[0_0_12px_rgba(217,119,6,0.2)]"
+                        ? "bg-purple-500/10 border-purple-500 text-purple-400 shadow-[0_0_12px_rgba(168,85,247,0.2)]"
                         : "bg-slate-900/50 border-slate-800 text-zinc-400 hover:border-slate-600 hover:text-white"
                       }`}
                   >
@@ -264,7 +268,7 @@ export default function CreateTeamPage() {
               </div>
             </div>
             <div>
-              <label className={labelCls}>英文隊名 * <span className="text-amber-500/70 normal-case font-normal">(必填，對外顯示)</span></label>
+              <label className={labelCls}>英文隊名 * <span className="text-purple-500/70 normal-case font-normal">(必填，對外顯示)</span></label>
               <input className={inputCls} placeholder="例如：Kowloon Dunkers" value={formData.name_en} onChange={(e) => set("name_en", e.target.value)} />
             </div>
             <div>
@@ -284,6 +288,15 @@ export default function CreateTeamPage() {
                   <option value="closed">🔴 暫停招募</option>
                 </select>
               </div>
+            </div>
+            <div>
+              <label className={labelCls}>加入性別要求 *</label>
+              <select className={inputCls} value={formData.gender_requirement} onChange={(e) => set("gender_requirement", e.target.value as GenderRequirement)}>
+                {GENDER_REQUIREMENT_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+              <p className="text-[10px] text-zinc-600 mt-1.5 pl-1">不符合性別要求的用戶將無法申請加入。</p>
             </div>
           </div>
         )}
@@ -316,7 +329,7 @@ export default function CreateTeamPage() {
                 )}
                 {field.type === "boolean" && (
                   <label className="flex items-center gap-3 p-3 bg-slate-950/50 border border-slate-800 rounded-xl cursor-pointer hover:bg-slate-900 transition-colors">
-                    <input type="checkbox" checked={(formData.sport_metadata[field.key] as boolean) ?? false} onChange={(e) => setMeta(field.key, e.target.checked)} className="w-4 h-4 rounded border-slate-700 text-amber-500 focus:ring-amber-500/50 bg-slate-950" />
+                    <input type="checkbox" checked={(formData.sport_metadata[field.key] as boolean) ?? false} onChange={(e) => setMeta(field.key, e.target.checked)} className="w-4 h-4 rounded border-slate-700 text-purple-500 focus:ring-purple-500/50 bg-slate-950" />
                     <span className="text-sm text-slate-300 font-bold">是</span>
                   </label>
                 )}
@@ -330,7 +343,7 @@ export default function CreateTeamPage() {
                           type="button"
                           onClick={() => toggleRegion(field.key, opt.value)}
                           className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm font-bold transition-all text-left
-                            ${selected ? "bg-amber-500/10 border-amber-500 text-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.1)]" : "bg-slate-950 border-slate-800 text-zinc-400 hover:border-slate-600 hover:text-white"}`}
+                            ${selected ? "bg-purple-500/10 border-purple-500 text-purple-400 shadow-[0_0_10px_rgba(192,132,252,0.1)]" : "bg-slate-950 border-slate-800 text-zinc-400 hover:border-slate-600 hover:text-white"}`}
                         >
                           {opt.label}
                         </button>
@@ -346,18 +359,18 @@ export default function CreateTeamPage() {
         {currentStep === 3 && (
           <div className="space-y-6 animate-fadeIn">
             <div className="bg-slate-900/40 border border-slate-800 p-5 rounded-2xl space-y-4">
-              <p className="text-[10px] font-bold text-amber-400 uppercase tracking-wider pl-1">🖼️ 團隊視覺檔案上傳 <span className="normal-case font-normal text-zinc-600">(支援 PNG/JPG，皆為選填)</span></p>
+              <p className="text-[10px] font-bold text-purple-400 uppercase tracking-wider pl-1">🖼️ 團隊視覺檔案上傳 <span className="normal-case font-normal text-zinc-600">(支援 PNG/JPG，皆為選填)</span></p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div className="space-y-2">
                   <label className={labelCls}>團隊 Logo 徽章檔案</label>
-                  <label className="flex flex-col items-center justify-center border-2 border-dashed border-slate-800 hover:border-amber-500/50 bg-slate-950/60 rounded-2xl p-4 cursor-pointer transition group">
+                  <label className="flex flex-col items-center justify-center border-2 border-dashed border-slate-800 hover:border-purple-500/50 bg-slate-950/60 rounded-2xl p-4 cursor-pointer transition group">
                     <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, "logo")} className="hidden" />
                     {logoPreview ? (
                       <div className="flex items-center gap-3 w-full">
                         <div className="w-12 h-12 rounded-xl bg-cover bg-center border border-slate-700 shrink-0" style={{ backgroundImage: `url(${logoPreview})` }} />
                         <div className="truncate text-left">
                           <p className="text-xs font-bold text-white truncate">{logoFile?.name}</p>
-                          <span className="text-[10px] text-amber-400 group-hover:underline">點擊更換檔案</span>
+                          <span className="text-[10px] text-purple-400 group-hover:underline">點擊更換檔案</span>
                         </div>
                       </div>
                     ) : (
@@ -372,14 +385,14 @@ export default function CreateTeamPage() {
 
                 <div className="space-y-2">
                   <label className={labelCls}>專屬主頁封面大圖檔案</label>
-                  <label className="flex flex-col items-center justify-center border-2 border-dashed border-slate-800 hover:border-amber-500/50 bg-slate-950/60 rounded-2xl p-4 cursor-pointer transition group">
+                  <label className="flex flex-col items-center justify-center border-2 border-dashed border-slate-800 hover:border-purple-500/50 bg-slate-950/60 rounded-2xl p-4 cursor-pointer transition group">
                     <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, "cover")} className="hidden" />
                     {coverPreview ? (
                       <div className="w-full space-y-1.5">
                         <div className="w-full h-12 rounded-lg bg-cover bg-center border border-slate-700" style={{ backgroundImage: `url(${coverPreview})` }} />
                         <div className="flex justify-between items-center text-[10px]">
                           <span className="text-zinc-300 font-bold truncate max-w-[160px]">{coverFile?.name}</span>
-                          <span className="text-amber-400 group-hover:underline">點擊更換</span>
+                          <span className="text-purple-400 group-hover:underline">點擊更換</span>
                         </div>
                       </div>
                     ) : (
@@ -401,7 +414,7 @@ export default function CreateTeamPage() {
 
             {/* ✅ 聯絡方式填寫區 */}
             <div className="bg-slate-900/40 border border-slate-800 p-5 rounded-2xl space-y-4">
-              <p className="text-[10px] font-bold text-amber-400 uppercase tracking-wider pl-1">📞 聯絡與社群資訊 <span className="normal-case font-normal text-zinc-600">(對外展示，皆為選填)</span></p>
+              <p className="text-[10px] font-bold text-purple-400 uppercase tracking-wider pl-1">📞 聯絡與社群資訊 <span className="normal-case font-normal text-zinc-600">(對外展示，皆為選填)</span></p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className={labelCls}>聯絡電話／WhatsApp</label>
@@ -438,11 +451,11 @@ export default function CreateTeamPage() {
           )}
 
           {currentStep < 3 ? (
-            <button onClick={() => setCurrentStep((s) => s + 1)} disabled={!canProceed} className="flex-1 bg-amber-600 hover:bg-amber-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-black py-3 rounded-xl transition-all shadow-[0_0_15px_rgba(217,119,6,0.2)] active:scale-[.98]">
+            <button onClick={() => setCurrentStep((s) => s + 1)} disabled={!canProceed} className="flex-1 bg-purple-600 hover:bg-purple-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-black py-3 rounded-xl transition-all shadow-[0_0_15px_rgba(168,85,247,0.2)] active:scale-[.98]">
               {currentStep === 1 && !canProceed ? "請選擇運動種類並填寫隊名" : "下一步 →"}
             </button>
           ) : (
-            <button onClick={handleSubmit} disabled={isSaving} className="flex-1 bg-amber-600 hover:bg-amber-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-black py-3 rounded-xl transition-all shadow-[0_0_15px_rgba(217,119,6,0.3)] active:scale-[.98]">
+            <button onClick={handleSubmit} disabled={isSaving} className="flex-1 bg-purple-600 hover:bg-purple-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-black py-3 rounded-xl transition-all shadow-[0_0_15px_rgba(168,85,247,0.3)] active:scale-[.98]">
               {isSaving ? "處理中並建立後台..." : "🚀 建立團隊"}
             </button>
           )}

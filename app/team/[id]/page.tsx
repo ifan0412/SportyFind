@@ -14,8 +14,15 @@ import {
   listFilledTeamMetaEntries,
   isTeamMetaValueEmpty,
 } from "@/lib/team-metadata-fields";
+import {
+  genderMeetsRequirement,
+  teamGenderRequirementRejectMessage,
+  GENDER_REQUIREMENT_LABELS,
+  type GenderRequirement,
+} from "@/lib/gender";
 import type { SportCategory, RecruitmentStatus } from "@/types/team";
 import { SPORT_CATEGORIES } from "@/lib/sports-categories";
+import { GenderAvatarBadge } from "@/components/profile/GenderBadge";
 
 interface TeamData {
   id: string;
@@ -23,6 +30,7 @@ interface TeamData {
   name_zh: string | null;
   sport_category: SportCategory;
   recruitment_status: RecruitmentStatus;
+  gender_requirement?: GenderRequirement | null;
   est_year: number | null;
   location_region: string | null;
   logo_url: string | null;
@@ -38,6 +46,7 @@ interface MemberProfile {
   full_name: string | null;
   avatar_url: string | null;
   bio: string | null;
+  gender?: string | null;
 }
 
 interface TeamMemberRow {
@@ -111,7 +120,7 @@ function Avatar({ src, name, size = "md" }: { src: string | null; name: string |
 }
 
 function roleBadge(role: string) {
-  if (role === "admin")   return <span className="text-[10px] font-black text-amber-400  bg-amber-500/10  border border-amber-500/20  px-2 py-0.5 rounded-full">管理員</span>;
+  if (role === "admin")   return <span className="text-[10px] font-black text-purple-400  bg-purple-500/10  border border-purple-500/20  px-2 py-0.5 rounded-full">管理員</span>;
   if (role === "coach")   return <span className="text-[10px] font-black text-blue-400   bg-blue-500/10   border border-blue-500/20   px-2 py-0.5 rounded-full">教練</span>;
   if (role === "captain") return <span className="text-[10px] font-black text-purple-400 bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 rounded-full">隊長</span>;
   if (role === "pending") return <span className="text-[10px] font-black text-zinc-500   bg-slate-800     border border-slate-700     px-2 py-0.5 rounded-full">待審核</span>;
@@ -128,6 +137,7 @@ export default function TeamDetailPage() {
   const [members, setMembers] = useState<TeamMemberRow[]>([]);
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [currentUserGender, setCurrentUserGender] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [joinState, setJoinState] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [joinError, setJoinError] = useState<string | null>(null);
@@ -139,7 +149,7 @@ export default function TeamDetailPage() {
       supabase.from("teams").select("*").eq("id", id).single(),
       supabase
         .from("team_members")
-        .select("team_id, user_id, role, joined_at, profiles(id, full_name, avatar_url, bio)")
+        .select("team_id, user_id, role, joined_at, profiles(id, full_name, avatar_url, bio, gender)")
         .eq("team_id", id),
       supabase
         .from("team_achievements")
@@ -147,11 +157,19 @@ export default function TeamDetailPage() {
         .eq("team_id", id)
         .order("year", { ascending: false }),
       supabase.auth.getUser(),
-    ]).then(([{ data: teamData }, { data: membersData }, { data: achData }, { data: authData }]) => {
+    ]).then(async ([{ data: teamData }, { data: membersData }, { data: achData }, { data: authData }]) => {
       if (teamData) setTeam(teamData as TeamData);
       if (membersData) setMembers(membersData as unknown as TeamMemberRow[]);
       if (achData)     setAchievements(achData as Achievement[]);
       setCurrentUserId(authData?.user?.id ?? null);
+      if (authData?.user?.id) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("gender")
+          .eq("id", authData.user.id)
+          .maybeSingle();
+        setCurrentUserGender(profile?.gender ?? null);
+      }
       setIsLoading(false);
     });
   }, [id, supabase]);
@@ -167,6 +185,18 @@ export default function TeamDetailPage() {
   // 🔥 修正版：加入 team_id 欄位
   const handleJoin = async () => {
     if (!currentUserId) { router.push("/auth"); return; }
+
+    const requirement = team?.gender_requirement ?? "both";
+    if (!genderMeetsRequirement(currentUserGender, requirement)) {
+      setJoinError(
+        !currentUserGender
+          ? "請先於個人檔案設定性別後再申請加入。"
+          : teamGenderRequirementRejectMessage(requirement)
+      );
+      setJoinState("error");
+      return;
+    }
+
     setJoinState("loading");
     setJoinError(null);
 
@@ -222,6 +252,7 @@ export default function TeamDetailPage() {
   const metaEntries = listFilledTeamMetaEntries(team.sport_metadata);
   const teamGender = team.sport_metadata?.team_gender as string | undefined;
   const genderLabel = teamGender && !isTeamMetaValueEmpty(teamGender) ? TEAM_GENDER_LABELS[teamGender] : null;
+  const joinRequirementLabel = GENDER_REQUIREMENT_LABELS[team.gender_requirement ?? "both"];
 
   const socialLinks = team.social_links ?? {};
   const hasContactInfo = socialLinks.phone || socialLinks.email || socialLinks.ig || socialLinks.fb || socialLinks.youtube || socialLinks.threads;
@@ -234,7 +265,7 @@ export default function TeamDetailPage() {
       onClick={() => setActiveTab(tab)}
       className={`px-4 py-2.5 rounded-xl font-black text-sm transition whitespace-nowrap ${
         activeTab === tab
-          ? "bg-amber-600 text-white shadow-[0_0_12px_rgba(217,119,6,0.25)]"
+          ? "bg-purple-600 text-white shadow-[0_0_12px_rgba(168,85,247,0.25)]"
           : "bg-slate-900 text-zinc-400 hover:text-white"
       }`}
     >
@@ -260,7 +291,7 @@ export default function TeamDetailPage() {
         <div className="-mt-36 md:-mt-52 mb-6 relative z-30">
           <Link
             href="/team"
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-950/60 hover:bg-slate-900 border border-slate-800/80 text-sm font-black text-amber-400 hover:text-amber-300 backdrop-blur-md transition shadow-lg"
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-950/60 hover:bg-slate-900 border border-slate-800/80 text-sm font-black text-purple-400 hover:text-purple-300 backdrop-blur-md transition shadow-lg"
           >
             ← 返回團隊列表
           </Link>
@@ -287,6 +318,11 @@ export default function TeamDetailPage() {
                   </span>
                 )}
                 <RecruitBadge status={team.recruitment_status} />
+                {(team.gender_requirement && team.gender_requirement !== "both") && (
+                  <span className="bg-pink-500/10 border border-pink-500/20 text-pink-300 text-xs font-black px-3 py-1 rounded-full">
+                    {joinRequirementLabel}
+                  </span>
+                )}
                 {genderLabel && (
                   <span className="bg-violet-500/10 border border-violet-500/20 text-violet-300 text-xs font-black px-3 py-1 rounded-full">
                     👤 {genderLabel}
@@ -309,7 +345,7 @@ export default function TeamDetailPage() {
               {isAdmin ? (
                 <Link
                   href={`/team/${id}/admin`}
-                  className="block text-center sm:inline-block bg-amber-600 hover:bg-amber-500 text-white text-sm font-black px-6 py-3.5 rounded-xl transition-all shadow-[0_0_15px_rgba(217,119,6,0.3)] active:scale-95"
+                  className="block text-center sm:inline-block bg-purple-600 hover:bg-purple-500 text-white text-sm font-black px-6 py-3.5 rounded-xl transition-all shadow-[0_0_15px_rgba(168,85,247,0.3)] active:scale-95"
                 >
                   ⚙️ 管理團隊
                 </Link>
@@ -353,7 +389,7 @@ export default function TeamDetailPage() {
           {isAdmin && (
             <Link
               href={`/team/${id}/admin?tab=media`}
-              className="ml-auto text-xs font-bold text-amber-400 hover:text-amber-300 px-3 py-2"
+              className="ml-auto text-xs font-bold text-purple-400 hover:text-purple-300 px-3 py-2"
             >
               管理媒體 →
             </Link>
@@ -391,7 +427,7 @@ export default function TeamDetailPage() {
                       <span className="text-xl">✉️</span>
                       <div className="min-w-0">
                         <p className="text-[10px] font-bold text-zinc-500 uppercase">公開聯絡 Email</p>
-                        <a href={`mailto:${socialLinks.email}`} className="text-sm font-black text-amber-400 hover:underline truncate block">{socialLinks.email}</a>
+                        <a href={`mailto:${socialLinks.email}`} className="text-sm font-black text-purple-400 hover:underline truncate block">{socialLinks.email}</a>
                       </div>
                     </div>
                   )}
@@ -434,14 +470,14 @@ export default function TeamDetailPage() {
           <div className="bg-slate-900/40 border border-slate-800 rounded-3xl p-6 mb-6">
             <h2 className="text-xs font-black text-zinc-500 uppercase tracking-widest mb-6">🏆 成就與榮譽榜</h2>
             <div className="relative">
-              <div className="absolute left-[18px] top-2 bottom-2 w-px bg-gradient-to-b from-amber-500/40 via-slate-700 to-transparent" />
+              <div className="absolute left-[18px] top-2 bottom-2 w-px bg-gradient-to-b from-purple-500/40 via-slate-700 to-transparent" />
               <div className="space-y-5 pl-10">
                 {achievements.map((ach) => (
                   <div key={ach.id} className="relative">
-                    <div className="absolute -left-[29px] top-1 w-3 h-3 rounded-full bg-amber-500 border-2 border-slate-950 shadow-[0_0_8px_rgba(217,119,6,0.6)]" />
+                    <div className="absolute -left-[29px] top-1 w-3 h-3 rounded-full bg-purple-500 border-2 border-slate-950 shadow-[0_0_8px_rgba(168,85,247,0.6)]" />
                     <div className="bg-slate-950/60 border border-slate-800 rounded-2xl px-5 py-4">
                       <div className="flex items-center gap-3 mb-1">
-                        <span className="text-xs font-black text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-0.5 rounded-full">
+                        <span className="text-xs font-black text-purple-400 bg-purple-500/10 border border-purple-500/20 px-2.5 py-0.5 rounded-full">
                           {ach.year}
                         </span>
                         <h3 className="text-sm font-black text-white">{ach.title}</h3>
@@ -487,7 +523,7 @@ export default function TeamDetailPage() {
               {isAdmin && (
                 <Link
                   href={`/team/${id}/admin?tab=media`}
-                  className="text-xs font-bold text-amber-400 hover:text-amber-300"
+                  className="text-xs font-bold text-purple-400 hover:text-purple-300"
                 >
                   ＋ 上傳相片
                 </Link>
@@ -510,11 +546,14 @@ export default function TeamDetailPage() {
               <>
             {adminsAndLeads.length > 0 && (
               <div className="mb-6">
-                <p className="text-[10px] font-black text-amber-400/80 uppercase tracking-widest mb-3 pl-1">管理員與領隊</p>
+                <p className="text-[10px] font-black text-purple-400/80 uppercase tracking-widest mb-3 pl-1">管理員與領隊</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {adminsAndLeads.map((m) => (
                     <Link key={m.user_id} href={profileLink(m.user_id, returnTo)} className="flex items-center gap-3 bg-slate-950/50 border border-slate-800 rounded-2xl px-4 py-3 hover:border-slate-700 transition">
-                      <Avatar src={m.profiles?.avatar_url ?? null} name={m.profiles?.full_name ?? null} size="sm" />
+                      <div className="relative shrink-0">
+                        <Avatar src={m.profiles?.avatar_url ?? null} name={m.profiles?.full_name ?? null} size="sm" />
+                        <GenderAvatarBadge gender={m.profiles?.gender} size="xs" />
+                      </div>
                       <div className="min-w-0">
                         <p className="text-sm font-black text-white truncate">{m.profiles?.full_name ?? "成員"}</p>
                         {roleBadge(m.role)}
@@ -533,7 +572,10 @@ export default function TeamDetailPage() {
                 <div className="flex flex-wrap gap-3">
                   {regularMembers.map((m) => (
                     <Link key={m.user_id} href={profileLink(m.user_id, returnTo)} className="flex items-center gap-2 bg-slate-950/50 border border-slate-800 rounded-full pl-1.5 pr-4 py-1.5 hover:border-slate-700 transition">
-                      <Avatar src={m.profiles?.avatar_url ?? null} name={m.profiles?.full_name ?? null} size="sm" />
+                      <div className="relative shrink-0">
+                        <Avatar src={m.profiles?.avatar_url ?? null} name={m.profiles?.full_name ?? null} size="sm" />
+                        <GenderAvatarBadge gender={m.profiles?.gender} size="xs" />
+                      </div>
                       <span className="text-xs font-bold text-zinc-300 whitespace-nowrap">
                         {m.profiles?.full_name ?? "成員"}
                       </span>

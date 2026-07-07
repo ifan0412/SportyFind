@@ -147,12 +147,12 @@ export default function AdminAnalyticsPage() {
         <div className="space-y-8">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <StatCard label="註冊用戶" value={stats.totals.users} icon={Users} accent="bg-blue-500/10 text-blue-400" />
-            <StatCard label="賽事" value={stats.totals.events} icon={Calendar} accent="bg-amber-500/10 text-amber-400" />
+            <StatCard label="賽事" value={stats.totals.events} icon={Calendar} accent="bg-red-500/10 text-red-400" />
             <StatCard label="隊伍" value={stats.totals.teams} icon={Shield} accent="bg-purple-500/10 text-purple-400" />
-            <StatCard label="頁面瀏覽" value={stats.totals.page_views} icon={Eye} accent="bg-emerald-500/10 text-emerald-400" />
-            <StatCard label="教練" value={stats.totals.coaches} icon={Activity} accent="bg-amber-500/10 text-amber-400" />
-            <StatCard label="物理治療師" value={stats.totals.physios} icon={Activity} accent="bg-emerald-500/10 text-emerald-400" />
-            <StatCard label="已發佈文章" value={stats.totals.content_posts} icon={FileText} accent="bg-blue-500/10 text-blue-400" />
+            <StatCard label="頁面瀏覽" value={stats.totals.page_views} icon={Eye} accent="bg-green-500/10 text-green-400" />
+            <StatCard label="教練" value={stats.totals.coaches} icon={Activity} accent="bg-orange-500/10 text-orange-400" />
+            <StatCard label="物理治療師" value={stats.totals.physios} icon={Activity} accent="bg-green-500/10 text-green-400" />
+            <StatCard label="已發佈文章" value={stats.totals.content_posts} icon={FileText} accent="bg-yellow-500/10 text-yellow-400" />
           </div>
 
           <div className="grid lg:grid-cols-3 gap-6">
