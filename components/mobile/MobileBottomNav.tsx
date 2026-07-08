@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Calendar, Menu, MessageSquare, User, X } from "lucide-react";
+import { Home, Calendar, Menu, MessageSquare, User, X, LogIn } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/SupabaseProvider";
 import { useProfileNav } from "@/lib/hooks/useProfileNav";
@@ -109,43 +109,82 @@ export function MobileBottomNav() {
     return () => window.removeEventListener("chat-message-sync", onSync);
   }, [refreshDmUnread]);
 
-  if (hidden || !user) return null;
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [pathname]);
 
+  if (hidden) return null;
+
+  const isAuthenticated = Boolean(user);
   const isHome = pathname === "/";
-  const isEvents = pathname === "/events/my" || pathname.startsWith("/events/my/");
+  const isEvents = isAuthenticated
+    ? pathname === "/events/my" || pathname.startsWith("/events/my/")
+    : pathname === "/events" || pathname.startsWith("/events/");
   const isInbox = pathname === "/inbox" || pathname.startsWith("/inbox/");
   const isProfile = pathname === "/profile" || pathname.startsWith("/profile/");
+  const isAuth = pathname === "/auth" || pathname.startsWith("/auth/");
 
   return (
     <>
-      <nav className="fixed bottom-0 inset-x-0 z-[100] md:hidden border-t border-slate-800 bg-slate-950/95 backdrop-blur-md pb-[env(safe-area-inset-bottom)]">
+      <nav
+        aria-label="主要導覽"
+        className="fixed bottom-0 inset-x-0 z-[100] md:hidden border-t border-slate-800 bg-slate-950/95 backdrop-blur-md pb-[env(safe-area-inset-bottom)]"
+      >
         <div className="flex items-stretch h-16 px-1">
           <NavButton href="/" label="首頁" active={isHome}>
             <Home className="w-5 h-5" />
           </NavButton>
-          <NavButton href="/events/my" label="賽事中心" active={isEvents}>
-            <Calendar className="w-5 h-5" />
-          </NavButton>
-          <NavButton
-            label={menuOpen ? "關閉" : "選單"}
-            active={menuOpen}
-            onClick={() => setMenuOpen((open) => !open)}
-            ariaLabel={menuOpen ? "關閉選單" : "開啟選單"}
-          >
-            {menuOpen ? (
-              <span className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-800 border border-slate-600 text-white shadow-md">
-                <X className="w-4 h-4" strokeWidth={2.5} />
-              </span>
-            ) : (
-              <Menu className="w-5 h-5" />
-            )}
-          </NavButton>
-          <NavButton href="/inbox" label="訊息" active={isInbox} badge={dmUnread}>
-            <MessageSquare className="w-5 h-5" />
-          </NavButton>
-          <NavButton href="/profile" label="我的" active={isProfile}>
-            <User className="w-5 h-5" />
-          </NavButton>
+
+          {isAuthenticated ? (
+            <>
+              <NavButton href="/events/my" label="我的活動" active={isEvents}>
+                <Calendar className="w-5 h-5" />
+              </NavButton>
+              <NavButton
+                label={menuOpen ? "關閉" : "選單"}
+                active={menuOpen}
+                onClick={() => setMenuOpen((open) => !open)}
+                ariaLabel={menuOpen ? "關閉選單" : "開啟選單"}
+              >
+                {menuOpen ? (
+                  <span className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-800 border border-slate-600 text-white shadow-md">
+                    <X className="w-4 h-4" strokeWidth={2.5} />
+                  </span>
+                ) : (
+                  <Menu className="w-5 h-5" />
+                )}
+              </NavButton>
+              <NavButton href="/inbox" label="訊息" active={isInbox} badge={dmUnread}>
+                <MessageSquare className="w-5 h-5" />
+              </NavButton>
+              <NavButton href="/profile" label="我的" active={isProfile}>
+                <User className="w-5 h-5" />
+              </NavButton>
+            </>
+          ) : (
+            <>
+              <NavButton href="/events" label="賽事/活動" active={isEvents}>
+                <Calendar className="w-5 h-5" />
+              </NavButton>
+              <NavButton
+                label={menuOpen ? "關閉" : "選單"}
+                active={menuOpen}
+                onClick={() => setMenuOpen((open) => !open)}
+                ariaLabel={menuOpen ? "關閉選單" : "開啟選單"}
+              >
+                {menuOpen ? (
+                  <span className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-800 border border-slate-600 text-white shadow-md">
+                    <X className="w-4 h-4" strokeWidth={2.5} />
+                  </span>
+                ) : (
+                  <Menu className="w-5 h-5" />
+                )}
+              </NavButton>
+              <NavButton href="/auth" label="登入" active={isAuth}>
+                <LogIn className="w-5 h-5" />
+              </NavButton>
+            </>
+          )}
         </div>
       </nav>
 
@@ -153,8 +192,9 @@ export function MobileBottomNav() {
         open={menuOpen}
         onClose={() => setMenuOpen(false)}
         profileNav={profileNav}
-        userEmail={user.email}
+        userEmail={user?.email}
         onLogout={() => signOut()}
+        isGuest={!isAuthenticated}
       />
     </>
   );

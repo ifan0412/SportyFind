@@ -442,13 +442,6 @@ export function Navbar() {
                   </span>
                 )}
               </button>
-            ) : isClient ? (
-              <Link
-                href="/auth"
-                className="inline-flex items-center justify-center whitespace-nowrap shrink-0 rounded-xl px-3 py-1.5 text-xs font-black bg-red-600 hover:bg-red-500 text-white transition"
-              >
-                登入
-              </Link>
             ) : (
               <span className="w-9" aria-hidden />
             )}

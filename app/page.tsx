@@ -62,7 +62,7 @@ export default function HomePage() {
       category: "content",
       href: "/content",
       title: "運動貼士",
-      subtitle: "訓練、營養與復康指南",
+      subtitle: "訓練與營養指南",
       icon: Sparkles,
       badge: { label: "新上線", className: CATEGORY_COLORS.content.badge },
     },

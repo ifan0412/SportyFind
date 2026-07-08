@@ -67,7 +67,7 @@ export const LISTING_SECTIONS: Record<ListingSectionId, ListingSectionConfig> = 
     gradient: CATEGORY_COLORS.content.iconGradient,
     shadow: CATEGORY_COLORS.content.shadow,
     title: "運動貼士",
-    subtitle: "訓練、營養與復康指南，助你打得更好、恢復更快。",
+    subtitle: "訓練與營養指南，助你打得更好、恢復更快。",
     tagline: "運動指南",
   },
 };

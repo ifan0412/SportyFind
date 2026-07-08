@@ -34,7 +34,7 @@ export function CookieConsent() {
     <div
       role="dialog"
       aria-label="Cookie 通知"
-      className="fixed bottom-0 inset-x-0 z-[200] p-4 sm:p-6 pointer-events-none"
+      className="fixed inset-x-0 z-[200] p-4 sm:p-6 pointer-events-none bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] md:bottom-0"
     >
       <div className="max-w-4xl mx-auto pointer-events-auto bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-4">
         <div className="flex items-start gap-3 flex-1 min-w-0">

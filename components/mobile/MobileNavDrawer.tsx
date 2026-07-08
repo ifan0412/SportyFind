@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LogOut, Settings2 } from "lucide-react";
+import { LogOut, Settings2, LogIn } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { navLinks } from "@/lib/nav-links";
 import { isSiteAdmin } from "@/lib/admin";
@@ -15,6 +15,7 @@ interface MobileNavDrawerProps {
   profileNav: ProfileNavData;
   userEmail?: string | null;
   onLogout: () => void;
+  isGuest?: boolean;
 }
 
 export function MobileNavDrawer({
@@ -23,6 +24,7 @@ export function MobileNavDrawer({
   profileNav,
   userEmail,
   onLogout,
+  isGuest = false,
 }: MobileNavDrawerProps) {
   const pathname = usePathname();
   const showAdmin = isSiteAdmin(userEmail);
@@ -89,25 +91,44 @@ export function MobileNavDrawer({
             </li>
           )}
 
-          <div className="h-px bg-slate-800 my-4" />
+          {!isGuest && (
+            <>
+              <div className="h-px bg-slate-800 my-4" />
 
-          <ProfileNavMenu
-            pathname={pathname}
-            profileNav={profileNav}
-            variant="mobile-menu"
-            onNavigate={onClose}
-          />
-          <li>
-            <button
-              onClick={() => {
-                onClose();
-                onLogout();
-              }}
-              className="flex w-full items-center gap-3 rounded-md px-3 py-3 text-sm font-bold text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
-            >
-              <LogOut className="size-4" /> 登出
-            </button>
-          </li>
+              <ProfileNavMenu
+                pathname={pathname}
+                profileNav={profileNav}
+                variant="mobile-menu"
+                onNavigate={onClose}
+              />
+              <li>
+                <button
+                  onClick={() => {
+                    onClose();
+                    onLogout();
+                  }}
+                  className="flex w-full items-center gap-3 rounded-md px-3 py-3 text-sm font-bold text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+                >
+                  <LogOut className="size-4" /> 登出
+                </button>
+              </li>
+            </>
+          )}
+
+          {isGuest && (
+            <>
+              <div className="h-px bg-slate-800 my-4" />
+              <li>
+                <Link
+                  href="/auth"
+                  className="flex items-center gap-3 rounded-md px-3 py-3 text-sm font-bold bg-red-600/15 text-red-400 hover:bg-red-600/25 transition-colors"
+                  onClick={onClose}
+                >
+                  <LogIn className="size-4" /> 登入 / 註冊
+                </Link>
+              </li>
+            </>
+          )}
         </ul>
       </div>
     </div>
