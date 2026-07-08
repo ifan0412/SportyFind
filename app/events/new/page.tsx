@@ -8,7 +8,7 @@ import {
   Shield, Trophy, Loader2, ArrowLeft, Clock, ChevronLeft, ChevronRight 
 } from "lucide-react";
 import Link from "next/link";
-import { SPORT_CATEGORIES } from "@/lib/sports-categories";
+import { SPORT_CATEGORIES, normalizeSportCategory } from "@/lib/sports-categories";
 import { HKDistrictPicker } from "@/components/location/HKDistrictPicker";
 import { normalizeDistrictIds, normalizeSubdistrictIds } from "@/lib/hk-locations";
 import { type GenderRequirement, GENDER_REQUIREMENT_OPTIONS } from "@/lib/gender";
@@ -353,10 +353,12 @@ export default function CreateEventPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("尚未登入");
 
+      const normalizedSport = normalizeSportCategory(sportCategory) || sportCategory;
+
       const payload = {
         creator_id: user.id,
         organizer_team_id: organizerTeamId || null,
-        sport_category: sportCategory,
+        sport_category: normalizedSport,
         title: title.trim(),
         description: description.trim() || null,
         event_type: eventType,

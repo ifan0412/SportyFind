@@ -3,6 +3,14 @@
 import React, { useState, useMemo, useRef, useEffect } from "react";
 import Link from "next/link";
 import { SPORT_CATEGORIES, getSportCategory } from "@/lib/sports-categories";
+import { MobileFilterSheet } from "@/components/filters/MobileFilterSheet";
+import { ScrollRevealFilterShell } from "@/components/filters/ScrollRevealFilterShell";
+import { useMobileFilterDraft } from "@/components/filters/useMobileFilterDraft";
+import {
+  countActiveMobileFilters,
+  multiSelectCategory,
+} from "@/components/filters/filter-helpers";
+import type { MobileFilterValues } from "@/components/filters/types";
 
 // ==========================================
 // 1. Interfaces
@@ -210,10 +218,33 @@ function CustomMultiSelect({ title, options, selected, onChange }: MultiSelectPr
 // 4. Main page component
 // ==========================================
 export default function PlayersPage() {
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [selectedSports, setSelectedSports] = useState<string[]>([]);
   const [selectedLevels, setSelectedLevels] = useState<string[]>([]);
   const [selectedDistricts, setSelectedDistricts] = useState<string[]>([]);
+
+  const mobileFilterCategories = useMemo(
+    () => [
+      multiSelectCategory("sports", "運動項目", SPORT_OPTIONS.map((o) => ({ id: o.value, label: o.label }))),
+      multiSelectCategory("levels", "技術程度", LEVEL_OPTIONS.map((o) => ({ id: o.value, label: o.label }))),
+      multiSelectCategory("districts", "區域", DISTRICT_OPTIONS.map((o) => ({ id: o.value, label: o.label }))),
+    ],
+    []
+  );
+
+  const appliedMobileFilters: MobileFilterValues = useMemo(
+    () => ({ sports: selectedSports, levels: selectedLevels, districts: selectedDistricts }),
+    [selectedSports, selectedLevels, selectedDistricts]
+  );
+
+  const mobileFilters = useMobileFilterDraft(appliedMobileFilters);
+
+  const applyMobileFilters = () => {
+    const d = mobileFilters.draft;
+    setSelectedSports(Array.isArray(d.sports) ? d.sports : []);
+    setSelectedLevels(Array.isArray(d.levels) ? d.levels : []);
+    setSelectedDistricts(Array.isArray(d.districts) ? d.districts : []);
+    mobileFilters.close();
+  };
 
   const filteredList = useMemo(() => {
     return MOCK_PLAYERS.filter((p) => {
@@ -301,51 +332,34 @@ export default function PlayersPage() {
 
       <div className="max-w-6xl mx-auto px-4 mt-8">
 
+        <ScrollRevealFilterShell className="mb-6" containerClassName="max-w-6xl">
         {/* Mobile filter trigger */}
         <button
-          onClick={() => setIsFilterOpen(true)}
-          className="md:hidden w-full py-3.5 bg-pro-slate-900 border border-pro-slate-700 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg mb-6 hover:bg-pro-slate-800 active:scale-95 transition-all text-slate-200"
+          onClick={mobileFilters.open}
+          className="md:hidden w-full py-3.5 bg-pro-slate-900 border border-pro-slate-700 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg hover:bg-pro-slate-800 active:scale-95 transition-all text-slate-200"
         >
-          <span>⚙️</span> 進階篩選與區域 Filter & Area
-          {hasAnyFilter && <span className="w-2 h-2 rounded-full bg-pro-blue-500 ml-1" />}
+          <span>⚙️</span> 進階篩選與區域
+          {countActiveMobileFilters(mobileFilterCategories, appliedMobileFilters) > 0 && (
+            <span className="w-2 h-2 rounded-full bg-pro-blue-500 ml-1" />
+          )}
         </button>
 
         {/* Desktop filter panel */}
-        <div className="hidden md:block bg-pro-slate-900/60 p-6 rounded-2xl border border-pro-slate-800 mb-8 relative z-30 shadow-sm">
+        <div className="hidden md:block bg-pro-slate-900/60 p-6 rounded-2xl border border-pro-slate-800 relative z-30 shadow-sm mt-0 md:mt-0">
           {filterControlsJSX}
         </div>
+        </ScrollRevealFilterShell>
 
-        {/* Mobile bottom sheet */}
-        {isFilterOpen && (
-          <div className="md:hidden fixed inset-0 z-50 flex items-end justify-center">
-            <div
-              className="absolute inset-0 bg-pro-slate-950/80 backdrop-blur-sm"
-              onClick={() => setIsFilterOpen(false)}
-            />
-            <div className="relative w-full bg-pro-slate-950 border-t border-pro-slate-800 rounded-t-3xl p-6 pb-10 shadow-2xl animate-in slide-in-from-bottom-8 duration-300 ease-out max-h-[85vh] overflow-y-auto">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="font-black text-xl text-white flex items-center gap-2">
-                  篩選條件 <span className="text-sm font-medium text-slate-500">Filters</span>
-                </h2>
-                <button
-                  onClick={() => setIsFilterOpen(false)}
-                  className="text-slate-400 hover:text-white p-2 text-sm font-bold bg-pro-slate-900 rounded-full w-8 h-8 flex items-center justify-center border border-pro-slate-800"
-                >
-                  ✕
-                </button>
-              </div>
-
-              {filterControlsJSX}
-
-              <button
-                onClick={() => setIsFilterOpen(false)}
-                className="w-full mt-8 py-4 bg-pro-blue-600 hover:bg-pro-blue-500 rounded-xl font-bold text-white shadow-lg shadow-blue-900/40 transition-all active:scale-95"
-              >
-                套用篩選 Apply ({filteredList.length})
-              </button>
-            </div>
-          </div>
-        )}
+        <MobileFilterSheet
+          isOpen={mobileFilters.isOpen}
+          categories={mobileFilterCategories}
+          values={mobileFilters.draft}
+          onChange={mobileFilters.setDraft}
+          onCancel={mobileFilters.cancel}
+          onApply={applyMobileFilters}
+          accent="blue"
+          title="篩選條件"
+        />
 
         {/* Results grid */}
         {filteredList.length === 0 ? (

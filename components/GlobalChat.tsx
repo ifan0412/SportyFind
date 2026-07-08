@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { usePathname } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { useAuth } from "@/components/SupabaseProvider";
 import { MessageCircle, X, ChevronLeft, Send, Loader2 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -40,12 +41,13 @@ interface Message {
 }
 
 export function GlobalChat() {
-  const supabase = createSupabaseBrowserClient();
+  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+  const { user: authUser } = useAuth();
   const pathname = usePathname();
   const isInboxPage = pathname === "/inbox" || pathname.startsWith("/inbox/");
 
   const [isOpen, setIsOpen] = useState(false);
-  const [currentUser, setCurrentUser] = useState<{ id: string } | null>(null);
+  const currentUser = authUser ? { id: authUser.id } : null;
   const [friends, setFriends] = useState<Friend[]>([]);
   const [summaries, setSummaries] = useState<Record<string, ConversationSummary>>({});
   const [activeChat, setActiveChat] = useState<Friend | null>(null);
@@ -181,16 +183,9 @@ export function GlobalChat() {
   );
 
   useEffect(() => {
-    const initData = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
-      setCurrentUser(user);
-      await loadFriends(user.id);
-    };
-    initData();
-  }, [supabase, loadFriends]);
+    if (!authUser?.id) return;
+    loadFriends(authUser.id).catch(() => {});
+  }, [authUser?.id, loadFriends]);
 
   useEffect(() => {
     if (!currentUser) return;

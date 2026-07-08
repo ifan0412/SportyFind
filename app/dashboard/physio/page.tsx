@@ -35,8 +35,17 @@ import {
   physioPricingModeLabel,
 } from "@/lib/coach-pricing";
 
+const ENQUIRY_DOT_CLASS =
+  "absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)] z-10 animate-pulse";
+
 // ─── Physio Enquiries Inbox ───────────────────────────────────────────────────
-function PhysioEnquiriesInbox({ physioId }: { physioId: string }) {
+function PhysioEnquiriesInbox({
+  physioId,
+  onEnquiriesChanged,
+}: {
+  physioId: string;
+  onEnquiriesChanged?: () => void;
+}) {
   const [leads, setLeads] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const supabase = createSupabaseBrowserClient();
@@ -66,6 +75,16 @@ function PhysioEnquiriesInbox({ physioId }: { physioId: string }) {
     const { error } = await supabase.from("physio_enquiries").update({ status: newStatus }).eq("id", id);
     if (error) { alert("狀態更新失敗: " + error.message); return; }
     setLeads(prev => prev.map(l => l.id === id ? { ...l, status: newStatus } : l));
+    onEnquiriesChanged?.();
+    window.dispatchEvent(new CustomEvent("sync-physio-enquiries"));
+  };
+
+  const handleDeleteLead = async (id: string) => {
+    if (!confirm("確定要刪除此諮詢單嗎？此動作無法復原。")) return;
+    const { error } = await supabase.from("physio_enquiries").delete().eq("id", id);
+    if (error) { alert("刪除失敗: " + error.message); return; }
+    setLeads(prev => prev.filter(l => l.id !== id));
+    window.dispatchEvent(new CustomEvent("sync-physio-enquiries"));
   };
 
   return (
@@ -101,7 +120,15 @@ function PhysioEnquiriesInbox({ physioId }: { physioId: string }) {
                   <span className="text-[10px] text-zinc-500 mt-1.5 block">送出時間：{new Date(lead.created_at).toLocaleString("zh-HK", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
                 </div>
               </div>
-              <div className="shrink-0 self-end sm:self-center">
+              <div className="flex items-center gap-2 shrink-0 self-end sm:self-center flex-wrap justify-end">
+                {lead.service_id && (
+                  <Link
+                    href={`/dashboard/physio?service=${lead.service_id}`}
+                    className="px-3 py-2 rounded-xl bg-slate-900 hover:bg-green-500/15 border border-slate-700 hover:border-green-500/40 text-zinc-300 hover:text-green-300 font-bold text-xs transition flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <ClipboardList className="w-3.5 h-3.5" /> 前往課程
+                  </Link>
+                )}
                 {lead.status === "contacted" ? (
                   <button onClick={() => toggleContacted(lead.id, lead.status)} className="px-3.5 py-2 rounded-xl bg-green-950/60 border border-green-500/40 text-green-400 hover:bg-slate-800 hover:text-zinc-300 font-bold text-xs transition flex items-center gap-1.5 cursor-pointer">
                     <CheckCircle2 className="w-4 h-4" /> 已標記聯絡 <RotateCcw className="w-3 h-3 text-zinc-400" />
@@ -109,6 +136,9 @@ function PhysioEnquiriesInbox({ physioId }: { physioId: string }) {
                 ) : (
                   <button onClick={() => toggleContacted(lead.id, lead.status)} className="px-4 py-2 rounded-xl bg-green-600 hover:bg-green-500 text-white font-bold text-xs transition cursor-pointer shadow-md">標記為已聯絡</button>
                 )}
+                <button onClick={() => handleDeleteLead(lead.id)} className="p-2 rounded-xl bg-slate-900 hover:bg-red-500/20 text-zinc-400 hover:text-red-400 transition cursor-pointer" title="刪除諮詢單">
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
             </div>
           ))}
@@ -119,7 +149,15 @@ function PhysioEnquiriesInbox({ physioId }: { physioId: string }) {
 }
 
 // ─── Physio Services Manager ──────────────────────────────────────────────────
-function PhysioServicesManager({ physioId }: { physioId: string }) {
+function PhysioServicesManager({
+  physioId,
+  uncontactedServiceIds,
+  onEnquiriesChanged,
+}: {
+  physioId: string;
+  uncontactedServiceIds: Set<string>;
+  onEnquiriesChanged: () => void;
+}) {
   const supabase = createSupabaseBrowserClient();
   const searchParams = useSearchParams();
   const returnTo = useProfileReturnTo();
@@ -136,7 +174,6 @@ function PhysioServicesManager({ physioId }: { physioId: string }) {
   const [serviceLeads, setServiceLeads] = useState<any[]>([]);
   const [loadingSubData, setLoadingSubData] = useState(false);
   const [uploadingMedia, setUploadingMedia] = useState(false);
-  const [pendingServiceIds, setPendingServiceIds] = useState<Set<string>>(new Set());
   const titleSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const persistServiceField = useCallback(
@@ -166,16 +203,23 @@ function PhysioServicesManager({ physioId }: { physioId: string }) {
 
   const fetchServices = useCallback(async () => {
     setLoading(true);
-    const [{ data: servicesData }, { data: pendingLeads }] = await Promise.all([
-      supabase.from("physio_services").select("*").eq("physio_id", physioId).order("sort_order", { ascending: true }).order("created_at", { ascending: true }),
-      supabase.from("physio_enquiries").select("service_id").eq("physio_id", physioId).eq("status", "pending")
-    ]);
+    const { data: servicesData } = await supabase
+      .from("physio_services")
+      .select("*")
+      .eq("physio_id", physioId)
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: true });
     setServices(servicesData || []);
-    setPendingServiceIds(new Set((pendingLeads || []).map((l: any) => l.service_id)));
     setLoading(false);
   }, [physioId, supabase]);
 
   useEffect(() => { fetchServices(); }, [fetchServices]);
+
+  useEffect(() => {
+    const onSync = () => { fetchServices(); onEnquiriesChanged(); };
+    window.addEventListener("sync-physio-enquiries", onSync);
+    return () => window.removeEventListener("sync-physio-enquiries", onSync);
+  }, [fetchServices, onEnquiriesChanged]);
 
   const handleOpenDetail = useCallback(async (srv: any) => {
     setSelectedService(srv);
@@ -187,13 +231,7 @@ function PhysioServicesManager({ physioId }: { physioId: string }) {
     });
     setIsEditingInfo(false);
     setDetailTab("info");
-    setPendingServiceIds((prev) => {
-      const next = new Set(prev);
-      next.delete(srv.id);
-      return next;
-    });
-    await supabase.from("physio_enquiries").update({ status: "seen" }).eq("service_id", srv.id).eq("status", "pending");
-  }, [supabase]);
+  }, []);
 
   useEffect(() => {
     if (!deepLinkServiceId || loading) return;
@@ -299,6 +337,24 @@ function PhysioServicesManager({ physioId }: { physioId: string }) {
     setServiceReviews(serviceReviews.filter(r => r.id !== revId));
   };
 
+  const toggleLeadContacted = async (id: string, currentStatus: string) => {
+    const newStatus = currentStatus === "contacted" ? "seen" : "contacted";
+    const { error } = await supabase.from("physio_enquiries").update({ status: newStatus }).eq("id", id);
+    if (error) { alert("狀態更新失敗: " + error.message); return; }
+    setServiceLeads(prev => prev.map(l => l.id === id ? { ...l, status: newStatus } : l));
+    onEnquiriesChanged();
+    window.dispatchEvent(new CustomEvent("sync-physio-enquiries"));
+  };
+
+  const handleDeleteLead = async (id: string) => {
+    if (!confirm("確定要刪除此諮詢單嗎？此動作無法復原。")) return;
+    const { error } = await supabase.from("physio_enquiries").delete().eq("id", id);
+    if (error) { alert("刪除失敗: " + error.message); return; }
+    setServiceLeads((prev) => prev.filter((l) => l.id !== id));
+    onEnquiriesChanged();
+    window.dispatchEvent(new CustomEvent("sync-physio-enquiries"));
+  };
+
   const handleUploadPhoto = async (files: FileList | null) => {
     if (!files || files.length === 0 || !selectedService) return;
     setUploadingMedia(true);
@@ -389,7 +445,7 @@ function PhysioServicesManager({ physioId }: { physioId: string }) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {services.map(srv => (
               <div key={srv.id} onClick={() => handleOpenDetail(srv)} className="relative bg-slate-900/90 border border-slate-800 hover:border-green-500/50 rounded-3xl p-6 flex flex-col justify-between transition duration-300 group hover:-translate-y-1 shadow-md hover:shadow-2xl cursor-pointer overflow-hidden">
-                {pendingServiceIds.has(srv.id) && <span className="absolute top-4 right-4 w-3 h-3 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)] z-10 animate-pulse" />}
+                {uncontactedServiceIds.has(srv.id) && <span className="absolute top-4 right-4 w-3 h-3 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)] z-10 animate-pulse" />}
                 <div className="absolute top-4 left-4 z-10 flex items-center gap-1.5">
                   <button type="button" onClick={(e) => { e.stopPropagation(); handleMoveService(srv.id, "up"); }} className="px-2 py-1 rounded-lg bg-slate-950/90 border border-slate-700 text-zinc-300 text-[10px] font-black">↑</button>
                   <button type="button" onClick={(e) => { e.stopPropagation(); handleMoveService(srv.id, "down"); }} className="px-2 py-1 rounded-lg bg-slate-950/90 border border-slate-700 text-zinc-300 text-[10px] font-black">↓</button>
@@ -455,7 +511,10 @@ function PhysioServicesManager({ physioId }: { physioId: string }) {
 
           <div className="flex border-b border-slate-800 gap-6 overflow-x-auto pb-1">
             {(["info", "reviews", "media", "leads"] as const).map(tab => (
-              <button key={tab} onClick={() => setDetailTab(tab)} className={`pb-2.5 text-sm font-black transition whitespace-nowrap border-b-2 cursor-pointer ${detailTab === tab ? "border-green-500 text-white" : "border-transparent text-zinc-500 hover:text-zinc-300"}`}>
+              <button key={tab} onClick={() => setDetailTab(tab)} className={`relative pb-2.5 text-sm font-black transition whitespace-nowrap border-b-2 cursor-pointer ${detailTab === tab ? "border-green-500 text-white" : "border-transparent text-zinc-500 hover:text-zinc-300"}`}>
+                {tab === "leads" && uncontactedServiceIds.has(selectedService.id) && (
+                  <span className="absolute -top-0.5 right-0 w-2 h-2 rounded-full bg-red-500 ring-2 ring-slate-950 pointer-events-none" aria-hidden />
+                )}
                 {tab === "info"    && "📋 項目資訊與編輯"}
                 {tab === "reviews" && `💬 運動員評價 (${serviceReviews.length})`}
                 {tab === "media"   && `🖼️ 診所相簿 (${(selectedService.photos?.length || 0) + (selectedService.draft_photos?.length || 0)})`}
@@ -634,14 +693,28 @@ function PhysioServicesManager({ physioId }: { physioId: string }) {
               {loadingSubData ? <div className="py-8 text-center text-zinc-500 text-xs">載入預約單中...</div>
                 : serviceLeads.length === 0 ? <div className="py-10 text-center bg-slate-900/40 rounded-2xl border border-dashed border-slate-800 text-zinc-500 text-xs font-bold">此診療項目目前尚未收到預約單。</div>
                 : serviceLeads.map(lead => (
-                  <div key={lead.id} className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800">
-                    <div className="flex items-start gap-3">
-                      <div className="w-9 h-9 rounded-full bg-slate-800 bg-cover bg-center shrink-0 border border-slate-700" style={lead.patient?.avatar_url ? { backgroundImage: `url(${lead.patient.avatar_url})` } : undefined} />
-                      <div>
-                        <div className="font-bold text-sm text-white">{lead.patient?.full_name || "運動員"}</div>
+                  <div key={lead.id} className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div className="flex items-start gap-3 min-w-0">
+                      <Link href={profileLink(lead.patient?.id || lead.patient_id, returnTo)} className="shrink-0">
+                        <div className="w-9 h-9 rounded-full bg-slate-800 bg-cover bg-center shrink-0 border border-slate-700" style={lead.patient?.avatar_url ? { backgroundImage: `url(${lead.patient.avatar_url})` } : undefined} />
+                      </Link>
+                      <div className="min-w-0">
+                        <Link href={profileLink(lead.patient?.id || lead.patient_id, returnTo)} className="font-bold text-sm text-white hover:text-green-400 transition">{lead.patient?.full_name || "運動員"}</Link>
                         <p className="text-xs text-zinc-300 mt-1 bg-slate-950 p-2.5 rounded-lg border border-slate-800">💬 {lead.message}</p>
-                        <span className="text-[10px] text-zinc-500 mt-1 block">{new Date(lead.created_at).toLocaleString()}</span>
+                        <span className="text-[10px] text-zinc-500 mt-1 block">{new Date(lead.created_at).toLocaleString("zh-HK", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
                       </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                      {lead.status === "contacted" ? (
+                        <button onClick={() => toggleLeadContacted(lead.id, lead.status)} className="px-3.5 py-2 rounded-xl bg-green-950/60 border border-green-500/40 text-green-400 hover:bg-slate-800 hover:text-zinc-300 font-bold text-xs transition flex items-center gap-1.5 cursor-pointer">
+                          <CheckCircle2 className="w-4 h-4" /> 已標記聯絡 <RotateCcw className="w-3 h-3 text-zinc-400" />
+                        </button>
+                      ) : (
+                        <button onClick={() => toggleLeadContacted(lead.id, lead.status)} className="px-4 py-2 rounded-xl bg-green-600 hover:bg-green-500 text-white font-bold text-xs transition cursor-pointer shadow-md">標記為已聯絡</button>
+                      )}
+                      <button onClick={() => handleDeleteLead(lead.id)} className="p-2 rounded-xl bg-slate-900 hover:bg-red-500/20 text-zinc-400 hover:text-red-400 transition cursor-pointer" title="刪除諮詢單">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -811,6 +884,19 @@ function PhysioDashboardContent() {
 
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [uncontactedEnquiryCount, setUncontactedEnquiryCount] = useState(0);
+  const [uncontactedServiceIds, setUncontactedServiceIds] = useState<Set<string>>(new Set());
+
+  const refreshPhysioEnquiryDots = useCallback(async (physioId: string) => {
+    const { data } = await supabase
+      .from("physio_enquiries")
+      .select("service_id, status")
+      .eq("physio_id", physioId)
+      .neq("status", "contacted");
+    const rows = data ?? [];
+    setUncontactedEnquiryCount(rows.length);
+    setUncontactedServiceIds(new Set(rows.map((r) => r.service_id)));
+  }, [supabase]);
 
   const [subTab, setSubTab] = useState<"settings" | "services" | "inbox">(() => {
     const s = searchParams.get("subtab");
@@ -833,9 +919,28 @@ function PhysioDashboardContent() {
       if (!prof?.is_physio) { router.push("/profile"); return; }
       setProfile(prof);
       setLoading(false);
+      refreshPhysioEnquiryDots(prof.id);
     };
     init();
-  }, [supabase, router]);
+  }, [supabase, router, refreshPhysioEnquiryDots]);
+
+  useEffect(() => {
+    if (!profile?.id) return;
+    const onSync = () => refreshPhysioEnquiryDots(profile.id);
+    window.addEventListener("sync-physio-enquiries", onSync);
+    const channel = supabase
+      .channel(`physio-dashboard-enquiries-${profile.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "physio_enquiries", filter: `physio_id=eq.${profile.id}` },
+        onSync
+      )
+      .subscribe();
+    return () => {
+      window.removeEventListener("sync-physio-enquiries", onSync);
+      supabase.removeChannel(channel);
+    };
+  }, [profile?.id, supabase, refreshPhysioEnquiryDots]);
 
   if (loading) return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-zinc-500 font-mono text-sm">載入治療師後台中...</div>;
   if (!profile) return null;
@@ -873,16 +978,29 @@ function PhysioDashboardContent() {
             { id: "services", icon: <ClipboardList className="w-4 h-4 shrink-0" />, label: "診療項目管理" },
             { id: "inbox",    icon: <Inbox         className="w-4 h-4 shrink-0" />, label: "預約諮詢收件匣" },
           ] as const).map(t => (
-            <button key={t.id} onClick={() => setSubTab(t.id)} className={`py-3 px-4 rounded-xl text-xs md:text-sm font-black flex items-center justify-center gap-2 transition cursor-pointer ${subTab === t.id ? "bg-green-700 text-white shadow-md" : "text-zinc-400 hover:text-white hover:bg-slate-800/50"}`}>
+            <button key={t.id} onClick={() => setSubTab(t.id)} className={`relative py-3 px-4 rounded-xl text-xs md:text-sm font-black flex items-center justify-center gap-2 transition cursor-pointer ${subTab === t.id ? "bg-green-700 text-white shadow-md" : "text-zinc-400 hover:text-white hover:bg-slate-800/50"}`}>
               {t.icon}<span className="truncate">{t.label}</span>
+              {t.id === "services" && uncontactedServiceIds.size > 0 && <span className={ENQUIRY_DOT_CLASS} />}
+              {t.id === "inbox" && uncontactedEnquiryCount > 0 && <span className={ENQUIRY_DOT_CLASS} />}
             </button>
           ))}
         </div>
 
         {/* ── Content ── */}
         {subTab === "settings" && <PhysioSettingsPanel profile={profile} onSaved={() => {}} />}
-        {subTab === "services" && <PhysioServicesManager physioId={profile.id} />}
-        {subTab === "inbox"    && <PhysioEnquiriesInbox physioId={profile.id} />}
+        {subTab === "services" && (
+          <PhysioServicesManager
+            physioId={profile.id}
+            uncontactedServiceIds={uncontactedServiceIds}
+            onEnquiriesChanged={() => refreshPhysioEnquiryDots(profile.id)}
+          />
+        )}
+        {subTab === "inbox" && (
+          <PhysioEnquiriesInbox
+            physioId={profile.id}
+            onEnquiriesChanged={() => refreshPhysioEnquiryDots(profile.id)}
+          />
+        )}
       </div>
     </div>
   );

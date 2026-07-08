@@ -137,7 +137,7 @@ export function MyEventsTab({ embedded = false, userId }: MyEventsTabProps) {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 border-b border-slate-800 pb-6">
           <div>
             <h1 className="text-3xl font-black tracking-tight flex items-center gap-3">
-              <Trophy className="w-8 h-8 text-red-500" /> 我的賽事中心
+              <Trophy className="w-8 h-8 text-red-500" /> 我的賽事/活動中心
             </h1>
             <p className="text-xs sm:text-sm text-zinc-400 mt-1">
               隨時掌握即將參加的約戰行程與您主辦的活動進度。

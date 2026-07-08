@@ -10,7 +10,7 @@ import {
 import { cn } from "@/lib/utils";
 import { isSiteAdmin } from "@/lib/admin";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import type { User as SupabaseAuthUser } from "@supabase/supabase-js";
+import { useAuth } from "@/components/SupabaseProvider";
 
 const navLinks = [
   { href: "/network", label: "運動夥伴", icon: Users },
@@ -24,7 +24,7 @@ const navLinks = [
 export interface Notification {
   id: string;
   // ✅ Added coach_enquiry and coach_review to the type union
-  type: "friend_request" | "friend_accepted" | "team_join_request" | "team_request_accepted" | "team_request_rejected" | "event_registration" | "event_kicked" | "event_accepted" | "coach_enquiry" | "coach_review";
+  type: "friend_request" | "friend_accepted" | "team_join_request" | "team_request_accepted" | "team_request_rejected" | "event_registration" | "event_kicked" | "event_accepted" | "event_joined" | "coach_enquiry" | "coach_review" | "physio_enquiry" | "physio_review";
   is_read: boolean;
   created_at: string;
   friendship_id: string | null;
@@ -258,6 +258,10 @@ function NotificationBell({
       router.push("/dashboard/coach?subtab=inbox");
       return;
     }
+    if (notif.type === "physio_enquiry") {
+      router.push("/dashboard/physio?subtab=inbox");
+      return;
+    }
     if (notif.type === "coach_review") {
       router.push("/dashboard/coach?subtab=services");
       return;
@@ -268,7 +272,7 @@ function NotificationBell({
       router.push(`/team/${notif.team_id}`);
     } else if (notif.type === "event_registration" && notif.event_id) {
       router.push(`/events/${notif.event_id}`);
-    } else if ((notif.type === "event_kicked" || notif.type === "event_accepted") && notif.event_id) {
+    } else if ((notif.type === "event_kicked" || notif.type === "event_accepted" || notif.type === "event_joined") && notif.event_id) {
       router.push(`/events/${notif.event_id}`);
     } else {
       router.push("/profile?tab=friends");
@@ -373,6 +377,9 @@ function NotificationBell({
                         {notif.type === "event_accepted" && (
                           <><span className="text-white">系統通知</span>：您的主辦活動參賽申請已獲批准 🎉</>
                         )}
+                        {notif.type === "event_joined" && (
+                          <><span className="text-white">系統通知</span>：您已成功加入活動 🎉</>
+                        )}
                         {/* ✅ NEW: coach enquiry notification text */}
                         {notif.type === "coach_enquiry" && (
                           <><span className="text-white">{notif.sender?.full_name ?? "某學員"}</span> 向您發送了一份課程諮詢單 📬</>
@@ -380,6 +387,12 @@ function NotificationBell({
                         {/* ✅ NEW: coach review notification text */}
                         {notif.type === "coach_review" && (
                           <><span className="text-white">{notif.sender?.full_name ?? "某學員"}</span> 為您的課程留下了一則評價 ⭐</>
+                        )}
+                        {notif.type === "physio_enquiry" && (
+                          <><span className="text-white">{notif.sender?.full_name ?? "某運動員"}</span> 向您發送了一份診療諮詢單 📬</>
+                        )}
+                        {notif.type === "physio_review" && (
+                          <><span className="text-white">{notif.sender?.full_name ?? "某運動員"}</span> 為您的診療項目留下了一則評價 ⭐</>
                         )}
                       </p>
                       <span className="text-[10px] text-zinc-500">
@@ -426,7 +439,7 @@ export function Navbar() {
 
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isClient, setIsClient] = useState(false);
-  const [user, setUser]             = useState<SupabaseAuthUser | null>(null);
+  const { user, signOut } = useAuth();
   const [profileNav, setProfileNav] = useState<ProfileNavData>({ is_coach: false, is_physio: false, adminTeams: [] });
   const [notifications, setNotifications] = useState<Notification[]>([]);
 
@@ -500,77 +513,67 @@ export function Navbar() {
   }, [supabase]);
 
   useEffect(() => {
-    const init = async () => {
-      const { data } = await supabase.auth.getUser();
-      setUser(data.user ?? null);
-      if (data.user) {
-        await Promise.all([fetchNotifications(data.user.id), fetchProfileNav(data.user.id)]);
-      } else {
-        setProfileNav({ is_coach: false, is_physio: false, adminTeams: [] });
+    if (!user?.id) {
+      setNotifications([]);
+      setProfileNav({ is_coach: false, is_physio: false, adminTeams: [] });
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        await Promise.all([fetchNotifications(user.id), fetchProfileNav(user.id)]);
+      } catch (err) {
+        if (!cancelled) console.error("Navbar init:", err);
       }
+    })();
+
+    return () => {
+      cancelled = true;
     };
-    init();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      setUser(session?.user ?? null);
-      if (event === "SIGNED_IN" && session?.user) {
-        await Promise.all([fetchNotifications(session.user.id), fetchProfileNav(session.user.id)]);
-      }
-      if (event === "SIGNED_OUT") { setNotifications([]); setProfileNav({ is_coach: false, is_physio: false, adminTeams: [] }); }
-      if (event === "SIGNED_IN" || event === "SIGNED_OUT") router.refresh();
-    });
-
-    return () => subscription.unsubscribe();
-  }, [supabase, router, fetchNotifications, fetchProfileNav]);
+  }, [user?.id, fetchNotifications, fetchProfileNav]);
 
   useEffect(() => {
-    let channel: ReturnType<typeof supabase.channel> | null = null;
-    let isMounted = true;
+    if (!user?.id) return;
 
-    const subscribe = async () => {
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
-      if (!currentUser || !isMounted) return; 
-      const uid = currentUser.id;
-
-      channel = supabase
-        .channel(`navbar-notif-${uid}`)
-        .on(
-          "postgres_changes",
-          { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${uid}` },
-          async (payload) => {
+    const uid = user.id;
+    const channel = supabase
+      .channel(`navbar-notif-${uid}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${uid}` },
+        async (payload) => {
+          try {
             const { data: newNotif } = await supabase
               .from("notifications")
               .select(`id, type, is_read, created_at, friendship_id, team_id, event_id, sender:sender_id (id, full_name, avatar_url)`)
               .eq("id", payload.new.id)
               .single();
 
-            if (newNotif && isMounted) {
+            if (newNotif) {
               setNotifications((prev) => {
                 if (prev.some((n) => n.id === newNotif.id)) return prev;
                 return [newNotif as unknown as Notification, ...prev];
               });
             }
+          } catch {
+            // ignore transient fetch errors
           }
-        )
-        .on(
-          "postgres_changes",
-          { event: "DELETE", schema: "public", table: "notifications", filter: `user_id=eq.${uid}` },
-          (payload) => {
-            setNotifications((prev) => prev.filter((n) => n.id !== payload.old.id));
-          }
-        )
-        .subscribe();
-    };
-
-    subscribe();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "notifications", filter: `user_id=eq.${uid}` },
+        (payload) => {
+          setNotifications((prev) => prev.filter((n) => n.id !== payload.old.id));
+        }
+      )
+      .subscribe();
 
     return () => {
-      isMounted = false;
-      if (channel) {
-        supabase.removeChannel(channel);
-      }
+      supabase.removeChannel(channel);
     };
-  }, [supabase, fetchNotifications]);
+  }, [supabase, user?.id]);
 
   const handleMarkAllRead = useCallback(async () => {
     if (!user?.id) return;
@@ -621,9 +624,8 @@ export function Navbar() {
   }, [supabase]);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setUser(null); setNotifications([]);
-    router.push("/"); router.refresh();
+    setNotifications([]);
+    await signOut();
   };
 
   const bellProps: NotificationBellProps = {
@@ -806,7 +808,7 @@ export function Navbar() {
                     )}
                     onClick={() => setMobileOpen(false)}
                   >
-                    <Calendar className="size-4" /> 我的賽事 / 行程中心
+                    <Calendar className="size-4" /> / 行程中心
                   </Link>
                 </li>
                 <ProfileNavMenu

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { MapPin, Star, AlertCircle, Settings, Users, GraduationCap, Activity } from "lucide-react";
+import { MapPin, Star, AlertCircle, Settings, Users, GraduationCap, Activity, Inbox } from "lucide-react";
 import {
   formatDistrictList,
   normalizeDistrictIds,
@@ -13,6 +13,7 @@ import { PhysioServiceTypeBadges } from "@/components/physio/PhysioServiceTypePi
 import { normalizePhysioServiceTypes } from "@/lib/physio-service-types";
 import { ServicePublishBadge } from "@/components/services/ServicePublishBadge";
 import { formatCoachServicePrice, formatPhysioServicePrice } from "@/lib/coach-pricing";
+import { serviceHasUncontactedEnquiry } from "@/lib/service-enquiry";
 
 export type ProfileRole = "athlete" | "coach" | "physio";
 export type AthleteSubTab = "expertise" | "highlights" | "feed";
@@ -73,6 +74,10 @@ interface ProfileRolePreviewProps {
   coachServices: any[];
   physioServices: any[];
   coachReviews: { rating: number }[];
+  hasUncontactedCoachEnquiries?: boolean;
+  hasUncontactedPhysioEnquiries?: boolean;
+  uncontactedCoachServiceIds?: string[];
+  uncontactedPhysioServiceIds?: string[];
   athleteExpertise: React.ReactNode;
   athleteHighlights: React.ReactNode;
   athleteFeed: React.ReactNode;
@@ -93,6 +98,10 @@ export function ProfileRolePreview({
   coachServices,
   physioServices,
   coachReviews,
+  hasUncontactedCoachEnquiries = false,
+  hasUncontactedPhysioEnquiries = false,
+  uncontactedCoachServiceIds = [],
+  uncontactedPhysioServiceIds = [],
   athleteExpertise,
   athleteHighlights,
   athleteFeed,
@@ -125,12 +134,15 @@ export function ProfileRolePreview({
           <button
             type="button"
             onClick={() => onRoleChange("coach")}
-            className={`flex-1 flex flex-col items-center justify-center py-2 px-3 rounded-xl transition-all duration-300 min-w-[100px] cursor-pointer ${
+            className={`relative flex-1 flex flex-col items-center justify-center py-2 px-3 rounded-xl transition-all duration-300 min-w-[100px] cursor-pointer ${
               activeRole === "coach"
                 ? "bg-orange-500 text-black shadow-lg scale-[1.02]"
                 : "text-zinc-500 hover:text-orange-400 hover:bg-slate-800/50"
             }`}
           >
+            {hasUncontactedCoachEnquiries && (
+              <span className="absolute top-1.5 right-2 w-2 h-2 rounded-full bg-red-500 ring-2 ring-slate-900 pointer-events-none" aria-hidden />
+            )}
             <GraduationCap className="w-5 h-5 mb-0.5" strokeWidth={2.5} />
             <span className="text-[10px] md:text-xs font-black leading-tight">教練簡介</span>
           </button>
@@ -139,12 +151,15 @@ export function ProfileRolePreview({
           <button
             type="button"
             onClick={() => onRoleChange("physio")}
-            className={`flex-1 flex flex-col items-center justify-center py-2 px-3 rounded-xl transition-all duration-300 min-w-[100px] cursor-pointer ${
+            className={`relative flex-1 flex flex-col items-center justify-center py-2 px-3 rounded-xl transition-all duration-300 min-w-[100px] cursor-pointer ${
               activeRole === "physio"
                 ? "bg-green-500 text-black shadow-lg scale-[1.02]"
                 : "text-zinc-500 hover:text-green-400 hover:bg-slate-800/50"
             }`}
           >
+            {hasUncontactedPhysioEnquiries && (
+              <span className="absolute top-1.5 right-2 w-2 h-2 rounded-full bg-red-500 ring-2 ring-slate-900 pointer-events-none" aria-hidden />
+            )}
             <Activity className="w-5 h-5 mb-0.5" strokeWidth={2.5} />
             <span className="text-[10px] md:text-xs font-black leading-tight">運動/物理治療</span>
           </button>
@@ -368,8 +383,11 @@ export function ProfileRolePreview({
                       {coachServices.map((srv: any) => (
                         <div
                           key={srv.id}
-                          className="bg-slate-900 border border-slate-800 hover:border-orange-500/50 rounded-3xl p-6 transition-all duration-300 flex flex-col justify-between group"
+                          className="relative bg-slate-900 border border-slate-800 hover:border-orange-500/50 rounded-3xl p-6 transition-all duration-300 flex flex-col justify-between group overflow-hidden"
                         >
+                          {serviceHasUncontactedEnquiry(srv.id, uncontactedCoachServiceIds) && (
+                            <span className="absolute top-4 right-4 w-3 h-3 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)] z-10 animate-pulse pointer-events-none" aria-hidden />
+                          )}
                           <div className="space-y-3">
                             <div className="flex flex-wrap items-center justify-between gap-2">
                               <div className="flex items-center gap-2 flex-wrap">
@@ -402,7 +420,7 @@ export function ProfileRolePreview({
                                 "地點可商議"}
                             </div>
                           </div>
-                          <div className="pt-4 mt-5 border-t border-slate-800/80">
+                          <div className="pt-4 mt-5 border-t border-slate-800/80 space-y-2">
                             {srv.is_active ? (
                               <Link
                                 href={`/coaches/services/${srv.id}`}
@@ -415,6 +433,12 @@ export function ProfileRolePreview({
                                 草稿 — 發佈後才會顯示於名師榜
                               </p>
                             )}
+                            <Link
+                              href="/dashboard/coach?subtab=inbox"
+                              className="w-full bg-slate-950 hover:bg-orange-500/10 border border-slate-700 hover:border-orange-500/40 text-zinc-300 hover:text-orange-300 font-bold py-2.5 rounded-2xl transition active:scale-95 flex items-center justify-center gap-1.5 text-xs"
+                            >
+                              <Inbox className="w-3.5 h-3.5" /> 前往收件匣
+                            </Link>
                           </div>
                         </div>
                       ))}
@@ -512,8 +536,11 @@ export function ProfileRolePreview({
                       {physioServices.map((srv: any) => (
                         <div
                           key={srv.id}
-                          className="bg-slate-900 border border-slate-800 hover:border-green-500/50 rounded-3xl p-6 transition-all duration-300 flex flex-col justify-between group"
+                          className="relative bg-slate-900 border border-slate-800 hover:border-green-500/50 rounded-3xl p-6 transition-all duration-300 flex flex-col justify-between group overflow-hidden"
                         >
+                          {serviceHasUncontactedEnquiry(srv.id, uncontactedPhysioServiceIds) && (
+                            <span className="absolute top-4 right-4 w-3 h-3 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)] z-10 animate-pulse pointer-events-none" aria-hidden />
+                          )}
                           <div className="space-y-3">
                             <div className="flex flex-wrap items-center justify-between gap-2">
                               <div className="flex items-center gap-2 flex-wrap">
@@ -546,7 +573,7 @@ export function ProfileRolePreview({
                                 "地點可商議"}
                             </div>
                           </div>
-                          <div className="pt-4 mt-5 border-t border-slate-800/80">
+                          <div className="pt-4 mt-5 border-t border-slate-800/80 space-y-2">
                             {srv.is_active ? (
                               <Link
                                 href={`/physio/services/${srv.id}`}
@@ -559,6 +586,12 @@ export function ProfileRolePreview({
                                 草稿 — 發佈後才會顯示於名錄
                               </p>
                             )}
+                            <Link
+                              href="/dashboard/physio?subtab=inbox"
+                              className="w-full bg-slate-950 hover:bg-green-500/10 border border-slate-700 hover:border-green-500/40 text-zinc-300 hover:text-green-300 font-bold py-2.5 rounded-2xl transition active:scale-95 flex items-center justify-center gap-1.5 text-xs"
+                            >
+                              <Inbox className="w-3.5 h-3.5" /> 前往收件匣
+                            </Link>
                           </div>
                         </div>
                       ))}

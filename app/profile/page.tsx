@@ -18,6 +18,7 @@ import { getSportSchema } from "@/constants/sportsSchema";
 import { getSportCategory, normalizeSportCategory, type SportCategoryId } from "@/lib/sports-categories";
 import { normalizePhysioProfileTags } from "@/lib/physio-service-types";
 import { stripHtml, PROFILE_CARD_BIO_MAX } from "@/lib/content/body";
+import { enquiryServiceIdsWithUncontacted } from "@/lib/service-enquiry";
 import { SportCategoryPicker } from "@/components/sports/SportCategoryPicker";
 import { SportPositionPicker } from "@/components/sports/SportPositionPicker";
 import { normalizeSportMetadataForSave, sportFormDataFromMetadata, sportFormHasEmptyFields } from "@/lib/sport-positions";
@@ -222,6 +223,10 @@ function ProfilePageContent() {
   const [coachServices, setCoachServices] = useState<any[]>([]);
   const [physioServices, setPhysioServices] = useState<any[]>([]);
   const [coachReviews, setCoachReviews] = useState<{ rating: number }[]>([]);
+  const [uncontactedCoachEnquiries, setUncontactedCoachEnquiries] = useState(0);
+  const [uncontactedPhysioEnquiries, setUncontactedPhysioEnquiries] = useState(0);
+  const [uncontactedCoachServiceIds, setUncontactedCoachServiceIds] = useState<string[]>([]);
+  const [uncontactedPhysioServiceIds, setUncontactedPhysioServiceIds] = useState<string[]>([]);
 
   useEffect(() => {
     const tabQuery = searchParams?.get("tab");
@@ -292,6 +297,10 @@ function ProfilePageContent() {
         { data: coachSvc },
         { data: physioSvc },
         { data: reviewsData },
+        { count: uncontactedCoachCount },
+        { count: uncontactedPhysioCount },
+        { data: uncontactedCoachServiceRows },
+        { data: uncontactedPhysioServiceRows },
       ] = await Promise.all([
         supabase.from("profiles").select("*").eq("id", userId).single(),
         supabase.from("user_sports").select("id, sport_id, metadata, sort_order, sports(name)").eq("user_id", userId).order("sort_order", { ascending: true }).order("created_at", { ascending: true }),
@@ -301,6 +310,10 @@ function ProfilePageContent() {
         supabase.from("coach_services").select("*").eq("coach_id", userId).order("sort_order", { ascending: true }).order("created_at", { ascending: true }),
         supabase.from("physio_services").select("*").eq("physio_id", userId).order("sort_order", { ascending: true }).order("created_at", { ascending: true }),
         supabase.from("coach_reviews").select("rating").eq("coach_id", userId),
+        supabase.from("coach_enquiries").select("id", { count: "exact", head: true }).eq("coach_id", userId).neq("status", "contacted"),
+        supabase.from("physio_enquiries").select("id", { count: "exact", head: true }).eq("physio_id", userId).neq("status", "contacted"),
+        supabase.from("coach_enquiries").select("service_id, status").eq("coach_id", userId).neq("status", "contacted"),
+        supabase.from("physio_enquiries").select("service_id, status").eq("physio_id", userId).neq("status", "contacted"),
       ]);
       if (locData) {
         const locMap: Record<string, string[]> = {};
@@ -375,6 +388,10 @@ function ProfilePageContent() {
       if (coachSvc) setCoachServices(coachSvc);
       if (physioSvc) setPhysioServices(physioSvc);
       if (reviewsData) setCoachReviews(reviewsData);
+      setUncontactedCoachEnquiries(uncontactedCoachCount ?? 0);
+      setUncontactedPhysioEnquiries(uncontactedPhysioCount ?? 0);
+      setUncontactedCoachServiceIds(enquiryServiceIdsWithUncontacted(uncontactedCoachServiceRows));
+      setUncontactedPhysioServiceIds(enquiryServiceIdsWithUncontacted(uncontactedPhysioServiceRows));
       const { data: files } = await supabase.storage.from("highlights").list(`${userId}/`, { limit: 20, sortBy: { column: "created_at", order: "desc" } });
       setGalleryMedia(files ? mapHighlightGalleryFiles(supabase, userId, files) : []);
     } catch (err) { console.error(err); } finally { setIsLoading(false); }
@@ -390,6 +407,38 @@ function ProfilePageContent() {
       if (authUser) { setUser(authUser); loadProfileData(authUser.id); } else setIsLoading(false);
     });
   }, [loadProfileData, supabase]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const refreshEnquiries = () => loadProfileData(user.id);
+    const onFocus = () => refreshEnquiries();
+    const onCoachSync = () => refreshEnquiries();
+    const onPhysioSync = () => refreshEnquiries();
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("sync-coach-enquiries", onCoachSync);
+    window.addEventListener("sync-physio-enquiries", onPhysioSync);
+
+    const channel = supabase
+      .channel(`profile-enquiries-${user.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "coach_enquiries", filter: `coach_id=eq.${user.id}` },
+        refreshEnquiries
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "physio_enquiries", filter: `physio_id=eq.${user.id}` },
+        refreshEnquiries
+      )
+      .subscribe();
+
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("sync-coach-enquiries", onCoachSync);
+      window.removeEventListener("sync-physio-enquiries", onPhysioSync);
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, supabase, loadProfileData]);
 
   useEffect(() => {
     if (privateTab !== "edit" || editForm.handle === profile?.handle || editForm.handle.length < 3) { setHandleStatus("idle"); return; }
@@ -710,6 +759,10 @@ function ProfilePageContent() {
                     coachServices={coachServices}
                     physioServices={physioServices}
                     coachReviews={coachReviews}
+                    hasUncontactedCoachEnquiries={uncontactedCoachEnquiries > 0}
+                    hasUncontactedPhysioEnquiries={uncontactedPhysioEnquiries > 0}
+                    uncontactedCoachServiceIds={uncontactedCoachServiceIds}
+                    uncontactedPhysioServiceIds={uncontactedPhysioServiceIds}
                     onCoachBackend={showCoach ? () => router.push("/dashboard/coach") : undefined}
                     onPhysioBackend={showPhysio ? () => router.push("/dashboard/physio") : undefined}
                     onAthleteBackend={showPlayer ? () => handlePrivateTabSwitch("dashboard") : undefined}

@@ -21,6 +21,15 @@ import {
   metadataSearchText,
 } from "@/lib/team-metadata-fields";
 import { stripHtml } from "@/lib/content/body";
+import { ListingFilterBar } from "@/components/filters/ListingFilterBar";
+import { ScrollRevealFilterShell } from "@/components/filters/ScrollRevealFilterShell";
+import { MobileFilterSheet } from "@/components/filters/MobileFilterSheet";
+import { useMobileFilterDraft } from "@/components/filters/useMobileFilterDraft";
+import {
+  countActiveMobileFilters,
+  multiSelectCategory,
+} from "@/components/filters/filter-helpers";
+import type { MobileFilterValues } from "@/components/filters/types";
 
 const SPORT_OPTIONS: { value: SportCategory; emoji: string; label: string; labelZh: string }[] = SPORT_CATEGORIES.map((s) => ({
   value: s.id as SportCategory,
@@ -73,9 +82,6 @@ function TeamPageContent() {
   const searchParams = useSearchParams();
   const urlSport = searchParams?.get("sport")?.toLowerCase() || "";
 
-  const [isMounted, setIsMounted] = useState(false);
-  useEffect(() => setIsMounted(true), []);
-
   const [teams, setTeams] = useState<TeamProfile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [hasInteracted, setHasInteracted] = useState(!!urlSport);
@@ -112,22 +118,56 @@ function TeamPageContent() {
     [teams]
   );
 
-  const filteredTeams = teams.filter((t) => {
-    const name = t.name_en || t.name_zh || "";
-    const metaText = metadataSearchText(t.sport_metadata);
-    const bioText = stripHtml(t.bio ?? "");
-    const matchesSearch =
-      name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      bioText.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      metaText.includes(searchTerm.toLowerCase());
-    
-    // 🔥 統一轉小寫精準比對
-    const matchesSport =
-      filterSports.length === 0 || filterSports.includes(t.sport_category.toLowerCase());
-    const matchesStatus =
-      filterStatuses.length === 0 || filterStatuses.includes(t.recruitment_status);
-    return matchesSearch && matchesSport && matchesStatus;
-  });
+  const mobileFilterCategories = useMemo(() => {
+    const sportOpts = SPORT_OPTIONS.filter((s) =>
+      activeCategories.includes(s.value.toLowerCase())
+    ).map((s) => ({
+      id: s.value.toLowerCase(),
+      label: `${s.emoji} ${s.labelZh}`,
+    }));
+    return [
+      multiSelectCategory("sports", "項目", sportOpts),
+      multiSelectCategory("statuses", "狀態", [
+        { id: "open", label: "🟢 公開招募" },
+        { id: "invite_only", label: "🔵 邀請制" },
+        { id: "closed", label: "🔴 暫停招募" },
+      ]),
+    ];
+  }, [activeCategories]);
+
+  const appliedMobileFilters: MobileFilterValues = useMemo(
+    () => ({ sports: filterSports, statuses: filterStatuses }),
+    [filterSports, filterStatuses]
+  );
+
+  const mobileFilters = useMobileFilterDraft(appliedMobileFilters);
+
+  const applyMobileFilters = () => {
+    const d = mobileFilters.draft;
+    setHasInteracted(true);
+    setFilterSports(Array.isArray(d.sports) ? d.sports : []);
+    setFilterStatuses(Array.isArray(d.statuses) ? d.statuses : []);
+    mobileFilters.close();
+  };
+
+  const filteredTeams = useMemo(() => {
+    const q = searchTerm.toLowerCase();
+    return teams.filter((t) => {
+      const name = t.name_en || t.name_zh || "";
+      const metaText = metadataSearchText(t.sport_metadata);
+      const bioText = stripHtml(t.bio ?? "");
+      const matchesSearch =
+        !q ||
+        name.toLowerCase().includes(q) ||
+        bioText.toLowerCase().includes(q) ||
+        metaText.includes(q);
+      const matchesSport =
+        filterSports.length === 0 || filterSports.includes(t.sport_category.toLowerCase());
+      const matchesStatus =
+        filterStatuses.length === 0 || filterStatuses.includes(t.recruitment_status);
+      return matchesSearch && matchesSport && matchesStatus;
+    });
+  }, [teams, searchTerm, filterSports, filterStatuses]);
 
   const visibleTeams = filteredTeams.slice(0, visibleCount);
 
@@ -158,14 +198,6 @@ function TeamPageContent() {
     );
   };
 
-  if (!isMounted) {
-    return (
-      <div className="bg-slate-950 min-h-screen flex items-center justify-center text-zinc-500 font-mono text-sm">
-        系統載入中...
-      </div>
-    );
-  }
-
   const isInitialState = !hasInteracted && searchTerm === "";
 
   return (
@@ -175,87 +207,129 @@ function TeamPageContent() {
 
         <ListingPageHeader section="team" />
 
-        <div className="flex gap-3 mb-6">
-          <div className="relative flex-1">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none">🔍</span>
-            <input
-              type="text"
-              placeholder="搜尋團隊名稱或簡介..."
-              value={searchTerm}
-              onChange={(e) => { setHasInteracted(true); setSearchTerm(e.target.value); }}
-              className="w-full bg-slate-900/80 border border-slate-800 rounded-2xl py-3 pl-10 pr-4 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-blue-500 transition"
-            />
-          </div>
-          <button
-            onClick={() => router.push("/team/create")}
-            className="flex-shrink-0 flex items-center gap-2 bg-purple-600 hover:bg-purple-500 text-white text-sm font-black px-5 py-3 rounded-2xl shadow-[0_0_15px_rgba(168,85,247,0.25)] transition-all active:scale-95 whitespace-nowrap"
-          >
-            <span className="text-base leading-none">＋</span>
-            <span className="hidden sm:inline">建立隊伍/團體</span>
-          </button>
-        </div>
-
-        {!isInitialState && (
-          <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-800 p-4 rounded-3xl mb-8 relative z-30 shadow-lg space-y-4 animate-fadeIn">
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-              <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest whitespace-nowrap mr-1">項目</span>
-              <button
-                onClick={() => { setHasInteracted(true); setFilterSports([]); }}
-                className={`whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold border transition ${
-                  filterSports.length === 0
-                    ? "bg-blue-600 border-blue-500 text-white shadow-[0_0_10px_rgba(37,99,235,0.3)]"
-                    : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500 hover:text-white"
-                }`}
+        <ScrollRevealFilterShell className="mb-6">
+          {!isInitialState ? (
+            <>
+              <ListingFilterBar
+                searchValue={searchTerm}
+                onSearchChange={(v) => { setHasInteracted(true); setSearchTerm(v); }}
+                searchPlaceholder="搜尋團隊名稱或簡介..."
+                onFilterOpen={mobileFilters.open}
+                hasActiveFilters={countActiveMobileFilters(mobileFilterCategories, appliedMobileFilters) > 0}
+                accent="purple"
+                mobileTrailing={
+                  <button
+                    onClick={() => router.push("/team/create")}
+                    className="shrink-0 flex items-center justify-center w-11 h-11 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-black shadow-[0_0_15px_rgba(168,85,247,0.25)] transition active:scale-95"
+                    aria-label="建立隊伍"
+                  >
+                    ＋
+                  </button>
+                }
               >
-                全部
-              </button>
-              {SPORT_OPTIONS.filter((s) => activeCategories.includes(s.value.toLowerCase())).map((sport) => (
-                <button
-                  key={sport.value}
-                  onClick={() => toggleSport(sport.value.toLowerCase())}
-                  className={`whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold border transition ${
-                    filterSports.includes(sport.value.toLowerCase())
-                      ? "bg-blue-600 border-blue-500 text-white shadow-[0_0_10px_rgba(37,99,235,0.3)]"
-                      : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500 hover:text-white"
-                  }`}
-                >
-                  {sport.emoji} {sport.labelZh}
-                </button>
-              ))}
-            </div>
+                <div className="flex gap-3">
+                  <div className="relative flex-1">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none">🔍</span>
+                    <input
+                      type="text"
+                      placeholder="搜尋團隊名稱或簡介..."
+                      value={searchTerm}
+                      onChange={(e) => { setHasInteracted(true); setSearchTerm(e.target.value); }}
+                      className="w-full bg-slate-900/80 border border-slate-800 rounded-2xl py-3 pl-10 pr-4 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-blue-500 transition"
+                    />
+                  </div>
+                  <button
+                    onClick={() => router.push("/team/create")}
+                    className="shrink-0 flex items-center gap-2 bg-purple-600 hover:bg-purple-500 text-white text-sm font-black px-5 py-3 rounded-2xl shadow-[0_0_15px_rgba(168,85,247,0.25)] transition-all active:scale-95 whitespace-nowrap"
+                  >
+                    <span className="text-base leading-none">＋</span>
+                    <span>建立隊伍/團體</span>
+                  </button>
+                </div>
+              </ListingFilterBar>
 
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-              <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest whitespace-nowrap mr-1">狀態</span>
+              <div className="hidden md:block bg-slate-900/80 backdrop-blur-xl border border-slate-800 p-4 rounded-3xl mt-4 shadow-lg space-y-4 animate-fadeIn">
+                <div className="flex items-center gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                  <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest whitespace-nowrap mr-1">項目</span>
+                  <button
+                    onClick={() => { setHasInteracted(true); setFilterSports([]); }}
+                    className={`whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold border transition ${
+                      filterSports.length === 0
+                        ? "bg-blue-600 border-blue-500 text-white shadow-[0_0_10px_rgba(37,99,235,0.3)]"
+                        : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500 hover:text-white"
+                    }`}
+                  >
+                    全部
+                  </button>
+                  {SPORT_OPTIONS.filter((s) => activeCategories.includes(s.value.toLowerCase())).map((sport) => (
+                    <button
+                      key={sport.value}
+                      onClick={() => toggleSport(sport.value.toLowerCase())}
+                      className={`whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold border transition ${
+                        filterSports.includes(sport.value.toLowerCase())
+                          ? "bg-blue-600 border-blue-500 text-white shadow-[0_0_10px_rgba(37,99,235,0.3)]"
+                          : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500 hover:text-white"
+                      }`}
+                    >
+                      {sport.emoji} {sport.labelZh}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                  <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest whitespace-nowrap mr-1">狀態</span>
+                  <button
+                    onClick={() => { setHasInteracted(true); setFilterStatuses([]); }}
+                    className={`whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold border transition ${
+                      filterStatuses.length === 0
+                        ? "bg-slate-100 border-slate-200 text-black shadow-[0_0_10px_rgba(255,255,255,0.2)]"
+                        : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500 hover:text-white"
+                    }`}
+                  >
+                    全部
+                  </button>
+                  {[
+                    { id: "open",        label: "🟢 公開招募" },
+                    { id: "invite_only", label: "🔵 邀請制" },
+                    { id: "closed",      label: "🔴 暫停招募" },
+                  ].map((status) => (
+                    <button
+                      key={status.id}
+                      onClick={() => toggleStatus(status.id)}
+                      className={`whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold border transition ${
+                        filterStatuses.includes(status.id)
+                          ? "bg-slate-100 border-slate-200 text-black shadow-[0_0_10px_rgba(255,255,255,0.2)]"
+                          : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500 hover:text-white"
+                      }`}
+                    >
+                      {status.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="flex gap-3">
+              <div className="relative flex-1 min-w-0">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none">🔍</span>
+                <input
+                  type="text"
+                  placeholder="搜尋團隊名稱或簡介..."
+                  value={searchTerm}
+                  onChange={(e) => { setHasInteracted(true); setSearchTerm(e.target.value); }}
+                  className="w-full bg-slate-900/80 border border-slate-800 rounded-2xl py-3 pl-10 pr-4 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-blue-500 transition"
+                />
+              </div>
               <button
-                onClick={() => { setHasInteracted(true); setFilterStatuses([]); }}
-                className={`whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold border transition ${
-                  filterStatuses.length === 0
-                    ? "bg-slate-100 border-slate-200 text-black shadow-[0_0_10px_rgba(255,255,255,0.2)]"
-                    : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500 hover:text-white"
-                }`}
+                onClick={() => router.push("/team/create")}
+                className="shrink-0 flex items-center gap-2 bg-purple-600 hover:bg-purple-500 text-white text-sm font-black px-5 py-3 rounded-2xl shadow-[0_0_15px_rgba(168,85,247,0.25)] transition-all active:scale-95 whitespace-nowrap"
               >
-                全部
+                <span className="text-base leading-none">＋</span>
+                <span className="hidden sm:inline">建立隊伍/團體</span>
               </button>
-              {[
-                { id: "open",        label: "🟢 公開招募" },
-                { id: "invite_only", label: "🔵 邀請制" },
-                { id: "closed",      label: "🔴 暫停招募" },
-              ].map((status) => (
-                <button
-                  key={status.id}
-                  onClick={() => toggleStatus(status.id)}
-                  className={`whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold border transition ${
-                    filterStatuses.includes(status.id)
-                      ? "bg-slate-100 border-slate-200 text-black shadow-[0_0_10px_rgba(255,255,255,0.2)]"
-                      : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500 hover:text-white"
-                  }`}
-                >
-                  {status.label}
-                </button>
-              ))}
             </div>
-          </div>
-        )}
+          )}
+        </ScrollRevealFilterShell>
 
         <div>
           {isLoading ? (
@@ -367,6 +441,16 @@ function TeamPageContent() {
           )}
         </div>
       </div>
+
+      <MobileFilterSheet
+        isOpen={mobileFilters.isOpen}
+        categories={mobileFilterCategories}
+        values={mobileFilters.draft}
+        onChange={mobileFilters.setDraft}
+        onCancel={mobileFilters.cancel}
+        onApply={applyMobileFilters}
+        accent="purple"
+      />
 
       <button
         onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}

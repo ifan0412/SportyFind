@@ -19,6 +19,17 @@ import {
   normalizeDistrictIds,
   serviceMatchesDistrictFilter,
 } from "@/lib/hk-locations";
+import { ListingFilterBar } from "@/components/filters/ListingFilterBar";
+import { ScrollRevealFilterShell } from "@/components/filters/ScrollRevealFilterShell";
+import { MobileFilterSheet } from "@/components/filters/MobileFilterSheet";
+import { useMobileFilterDraft } from "@/components/filters/useMobileFilterDraft";
+import {
+  countActiveMobileFilters,
+  locationFilterCategory,
+  singleSelectCategory,
+  sportFilterCategory,
+} from "@/components/filters/filter-helpers";
+import type { MobileFilterValues } from "@/components/filters/types";
 
 const REG_TYPE_OPTIONS = [
   { id: "all", label: "全部" },
@@ -47,6 +58,37 @@ export default function EventsLobbyPage() {
   const [selectedAvailability, setSelectedAvailability] = useState("all");
 
   const locationOptions = useMemo(() => districtsForFilterModal(), []);
+
+  const mobileFilterCategories = useMemo(
+    () => [
+      sportFilterCategory("sports", "項目"),
+      locationFilterCategory(locationOptions, "districts", "地區"),
+      singleSelectCategory("regType", "模式", REG_TYPE_OPTIONS),
+      singleSelectCategory("availability", "名額", AVAILABILITY_OPTIONS),
+    ],
+    [locationOptions]
+  );
+
+  const appliedMobileFilters: MobileFilterValues = useMemo(
+    () => ({
+      sports: selectedSports,
+      districts: selectedDistricts,
+      regType: selectedRegType,
+      availability: selectedAvailability,
+    }),
+    [selectedSports, selectedDistricts, selectedRegType, selectedAvailability]
+  );
+
+  const mobileFilters = useMobileFilterDraft(appliedMobileFilters);
+
+  const applyMobileFilters = () => {
+    const d = mobileFilters.draft;
+    setSelectedSports(Array.isArray(d.sports) ? d.sports : []);
+    setSelectedDistricts(Array.isArray(d.districts) ? d.districts : []);
+    setSelectedRegType(typeof d.regType === "string" ? d.regType : "all");
+    setSelectedAvailability(typeof d.availability === "string" ? d.availability : "all");
+    mobileFilters.close();
+  };
 
   const fetchEvents = useCallback(async () => {
     setIsLoading(true);
@@ -80,7 +122,7 @@ export default function EventsLobbyPage() {
     fetchEvents();
   }, [fetchEvents]);
 
-  const filteredEvents = events.filter(ev => {
+  const filteredEvents = useMemo(() => events.filter(ev => {
     if (selectedSports.length > 0 && !sportMatchesFilter(ev.sport_category, selectedSports)) {
       return false;
     }
@@ -119,7 +161,7 @@ export default function EventsLobbyPage() {
     if (selectedAvailability === "full" && !isFull) return false;
 
     return true;
-  });
+  }), [events, selectedSports, selectedDistricts, searchQuery, selectedAvailability]);
 
   const formatDateTime = (isoString: string) => {
     const d = new Date(isoString);
@@ -141,57 +183,68 @@ export default function EventsLobbyPage() {
               href="/events/my"
               className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs font-bold text-zinc-300 transition cursor-pointer text-center whitespace-nowrap"
             >
-              📋 我的賽事
+              📋 我的賽事/活動
             </Link>
             <Link
               href="/events/new"
               className="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-black text-xs transition shadow-lg flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
             >
-              <Plus className="w-4 h-4 shrink-0" /> 發起新約戰
+              <Plus className="w-4 h-4 shrink-0" /> 發起新約戰/活動
             </Link>
           </div>
         </div>
 
-        <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-800 p-4 md:p-5 rounded-3xl mb-8 shadow-lg flex flex-col md:flex-row gap-4 items-center">
-          <div className="relative w-full md:flex-1">
-            <span className="absolute left-3.5 top-3.5 text-zinc-500">🔍</span>
-            <input
-              type="text"
-              placeholder="搜尋活動標題、場地、主辦球隊或發起人..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-700 rounded-xl py-3 pl-10 pr-4 text-sm text-white focus:outline-none focus:border-blue-500 transition"
-            />
+        <ScrollRevealFilterShell className="mb-6">
+        <ListingFilterBar
+          searchValue={searchQuery}
+          onSearchChange={setSearchQuery}
+          searchPlaceholder="搜尋活動標題、場地、主辦..."
+          onFilterOpen={mobileFilters.open}
+          hasActiveFilters={countActiveMobileFilters(mobileFilterCategories, appliedMobileFilters) > 0}
+          accent="blue"
+          className="bg-slate-900/80 backdrop-blur-xl border border-slate-800 p-3 rounded-3xl mb-4 shadow-lg"
+        >
+          <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-800 p-4 md:p-5 rounded-3xl mb-8 shadow-lg flex flex-col md:flex-row gap-4 items-center">
+            <div className="relative w-full md:flex-1">
+              <span className="absolute left-3.5 top-3.5 text-zinc-500">🔍</span>
+              <input
+                type="text"
+                placeholder="搜尋活動標題、場地、主辦球隊或發起人..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-700 rounded-xl py-3 pl-10 pr-4 text-sm text-white focus:outline-none focus:border-blue-500 transition"
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsSportModalOpen(true)}
+              className={`w-full md:w-auto flex items-center justify-between gap-3 px-5 py-3 rounded-xl border text-sm font-bold transition flex-shrink-0 cursor-pointer ${
+                selectedSports.length > 0
+                  ? "bg-blue-600/10 border-blue-500 text-blue-400"
+                  : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"
+              }`}
+            >
+              <span>項目 {selectedSports.length > 0 ? `(${selectedSports.length})` : "(全部)"}</span>
+              <span className="text-[10px]">▼</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsLocationModalOpen(true)}
+              className={`w-full md:w-auto flex items-center justify-between gap-3 px-5 py-3 rounded-xl border text-sm font-bold transition flex-shrink-0 cursor-pointer ${
+                selectedDistricts.length > 0
+                  ? "bg-blue-600/10 border-blue-500 text-blue-400"
+                  : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"
+              }`}
+            >
+              <span>地區 {selectedDistricts.length > 0 ? `(${selectedDistricts.length})` : "(全區)"}</span>
+              <span className="text-[10px]">▼</span>
+            </button>
           </div>
+        </ListingFilterBar>
 
-          <button
-            type="button"
-            onClick={() => setIsSportModalOpen(true)}
-            className={`w-full md:w-auto flex items-center justify-between gap-3 px-5 py-3 rounded-xl border text-sm font-bold transition flex-shrink-0 cursor-pointer ${
-              selectedSports.length > 0
-                ? "bg-blue-600/10 border-blue-500 text-blue-400"
-                : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"
-            }`}
-          >
-            <span>項目 {selectedSports.length > 0 ? `(${selectedSports.length})` : "(全部)"}</span>
-            <span className="text-[10px]">▼</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setIsLocationModalOpen(true)}
-            className={`w-full md:w-auto flex items-center justify-between gap-3 px-5 py-3 rounded-xl border text-sm font-bold transition flex-shrink-0 cursor-pointer ${
-              selectedDistricts.length > 0
-                ? "bg-blue-600/10 border-blue-500 text-blue-400"
-                : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"
-            }`}
-          >
-            <span>地區 {selectedDistricts.length > 0 ? `(${selectedDistricts.length})` : "(全區)"}</span>
-            <span className="text-[10px]">▼</span>
-          </button>
-        </div>
-
-        <div className="flex flex-col gap-2.5 mb-6 px-1">
+        <div className="hidden md:flex flex-col gap-2.5 mt-4 px-1">
           <div className="flex items-center gap-2 overflow-x-auto pb-0.5 [&::-webkit-scrollbar]:hidden">
             <span className="text-[10px] font-bold text-zinc-500 uppercase shrink-0 w-8">模式</span>
             {REG_TYPE_OPTIONS.map((opt) => (
@@ -227,6 +280,7 @@ export default function EventsLobbyPage() {
             ))}
           </div>
         </div>
+        </ScrollRevealFilterShell>
 
         <div className="mb-4 px-1">
           <span className="text-sm font-bold text-zinc-500">
@@ -344,6 +398,16 @@ export default function EventsLobbyPage() {
           </div>
         )}
       </div>
+
+      <MobileFilterSheet
+        isOpen={mobileFilters.isOpen}
+        categories={mobileFilterCategories}
+        values={mobileFilters.draft}
+        onChange={mobileFilters.setDraft}
+        onCancel={mobileFilters.cancel}
+        onApply={applyMobileFilters}
+        accent="blue"
+      />
 
       <SportFilterModal
         isOpen={isSportModalOpen}

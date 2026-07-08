@@ -10,6 +10,12 @@ const SYMBOLS: Record<ProfileGender, string> = {
   female: "♀",
 };
 
+/** Fine-tune unicode gender symbols so they sit visually centered in the circle. */
+const SYMBOL_NUDGE: Record<ProfileGender, string> = {
+  male: "translate-y-[0.5px]",
+  female: "-translate-y-[0.5px]",
+};
+
 const SIZE_CLASSES = {
   xs: "w-[18px] h-[18px] text-[9px]",
   sm: "w-5 h-5 text-[10px]",
@@ -30,11 +36,16 @@ export function GenderBadge({ gender, size = "sm", className = "" }: GenderBadge
 
   return (
     <span
-      className={`inline-flex items-center justify-center rounded-full border font-black leading-none shrink-0 ${BADGE_STYLES[normalized]} ${SIZE_CLASSES[size]} ${className}`}
+      className={`inline-grid place-items-center rounded-full border font-black leading-none shrink-0 box-border p-0 ${BADGE_STYLES[normalized]} ${SIZE_CLASSES[size]} ${className}`}
       title={PROFILE_GENDER_LABELS[normalized]}
       aria-label={PROFILE_GENDER_LABELS[normalized]}
     >
-      {SYMBOLS[normalized]}
+      <span
+        className={`block leading-none select-none ${SYMBOL_NUDGE[normalized]}`}
+        aria-hidden
+      >
+        {SYMBOLS[normalized]}
+      </span>
     </span>
   );
 }
@@ -55,7 +66,7 @@ export function GenderAvatarBadge({
     <GenderBadge
       gender={normalized}
       size={size}
-      className={`absolute top-0 right-0 z-10 translate-x-[20%] -translate-y-[20%] shadow-md ring-2 ring-slate-950 pointer-events-none ${className}`}
+      className={`absolute top-0 right-0 z-10 translate-x-1/4 -translate-y-1/4 shadow-md ring-2 ring-slate-950 pointer-events-none ${className}`}
     />
   );
 }

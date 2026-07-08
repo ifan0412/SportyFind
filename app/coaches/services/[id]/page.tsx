@@ -19,6 +19,7 @@ import {
 import { RichBody } from "@/components/content/RichBody";
 import { SportCategoryBadge } from "@/components/sports/SportCategoryBadge";
 import { formatCoachServicePrice } from "@/lib/coach-pricing";
+import { ENQUIRY_MESSAGE_MAX, clampEnquiryMessage } from "@/lib/service-enquiry";
 
 export default function CoachServiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: serviceId } = use(params);
@@ -139,6 +140,8 @@ export default function CoachServiceDetailPage({ params }: { params: Promise<{ i
     e.preventDefault();
     if (!currentUser) return router.push("/auth");
     if (!inquireMsg.trim()) return alert("請填寫詢問內容！");
+    const message = clampEnquiryMessage(inquireMsg.trim());
+    if (!message) return alert("請填寫詢問內容！");
 
     setIsSubmittingInquiry(true);
     try {
@@ -146,7 +149,7 @@ export default function CoachServiceDetailPage({ params }: { params: Promise<{ i
         service_id: serviceId, 
         coach_id: service.coach_id, 
         student_id: currentUser.id, 
-        message: inquireMsg.trim(),
+        message,
       });
       if (error) throw error;
 
@@ -456,11 +459,13 @@ export default function CoachServiceDetailPage({ params }: { params: Promise<{ i
               <textarea
                 rows={4}
                 required
+                maxLength={ENQUIRY_MESSAGE_MAX}
                 placeholder="例：教練好！目前想加強接發球技術，請問週末有空檔嗎？"
                 value={inquireMsg}
-                onChange={(e) => setInquireMsg(e.target.value)}
+                onChange={(e) => setInquireMsg(clampEnquiryMessage(e.target.value))}
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-orange-500"
               />
+              <p className="text-[10px] text-zinc-500 text-right">{inquireMsg.length}/{ENQUIRY_MESSAGE_MAX}</p>
               <div className="flex justify-end gap-3">
                 <button type="button" onClick={() => setIsInquireOpen(false)} className="px-5 py-2.5 rounded-xl bg-slate-800 text-zinc-300 font-bold text-xs cursor-pointer">取消</button>
                 <button type="submit" disabled={isSubmittingInquiry} className="px-5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-black text-xs transition cursor-pointer flex items-center gap-1.5">

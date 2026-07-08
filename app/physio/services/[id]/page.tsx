@@ -20,6 +20,7 @@ import { RichBody } from "@/components/content/RichBody";
 import { formatPhysioServicePrice } from "@/lib/coach-pricing";
 import { PhysioServiceTypeBadges } from "@/components/physio/PhysioServiceTypePicker";
 import { normalizePhysioServiceTypes } from "@/lib/physio-service-types";
+import { ENQUIRY_MESSAGE_MAX, clampEnquiryMessage } from "@/lib/service-enquiry";
 
 export default function PhysioServiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: serviceId } = use(params);
@@ -137,6 +138,8 @@ export default function PhysioServiceDetailPage({ params }: { params: Promise<{ 
     e.preventDefault();
     if (!currentUser) return router.push("/auth");
     if (!inquireMsg.trim()) return alert("請填寫詢問內容！");
+    const message = clampEnquiryMessage(inquireMsg.trim());
+    if (!message) return alert("請填寫詢問內容！");
 
     setIsSubmittingInquiry(true);
     try {
@@ -144,9 +147,14 @@ export default function PhysioServiceDetailPage({ params }: { params: Promise<{ 
         service_id: serviceId,
         physio_id: service.physio_id,
         patient_id: currentUser.id,
-        message: inquireMsg.trim(),
+        message,
       });
       if (error) throw error;
+
+      const { error: rpcError } = await supabase.rpc("notify_physio_enquiry", {
+        p_service_id: serviceId,
+      });
+      if (rpcError) console.error("通知發送失敗:", rpcError.message);
 
       alert("🎉 預約諮詢已成功發送！");
       setHasEnquired(true);
@@ -435,11 +443,13 @@ export default function PhysioServiceDetailPage({ params }: { params: Promise<{ 
               <textarea
                 rows={4}
                 required
+                maxLength={ENQUIRY_MESSAGE_MAX}
                 placeholder="例：治療師好！最近膝蓋不適，想預約運動傷患評估，請問本週有空檔嗎？"
                 value={inquireMsg}
-                onChange={(e) => setInquireMsg(e.target.value)}
+                onChange={(e) => setInquireMsg(clampEnquiryMessage(e.target.value))}
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-green-500"
               />
+              <p className="text-[10px] text-zinc-500 text-right">{inquireMsg.length}/{ENQUIRY_MESSAGE_MAX}</p>
               <div className="flex justify-end gap-3">
                 <button type="button" onClick={() => setIsInquireOpen(false)} className="px-5 py-2.5 rounded-xl bg-slate-800 text-zinc-300 font-bold text-xs cursor-pointer">取消</button>
                 <button type="submit" disabled={isSubmittingInquiry} className="px-5 py-2.5 rounded-xl bg-green-600 hover:bg-green-500 text-white font-black text-xs transition cursor-pointer flex items-center gap-1.5">

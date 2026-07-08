@@ -12,6 +12,16 @@ import { LISTING_PAGE_MAX_WIDTH } from "@/lib/listing-sections";
 import { stripHtml } from "@/lib/content/body";
 import type { ContentPost } from "@/lib/types/content";
 import { Loader2, Search } from "lucide-react";
+import { ListingFilterBar } from "@/components/filters/ListingFilterBar";
+import { ScrollRevealFilterShell } from "@/components/filters/ScrollRevealFilterShell";
+import { MobileFilterSheet } from "@/components/filters/MobileFilterSheet";
+import { useMobileFilterDraft } from "@/components/filters/useMobileFilterDraft";
+import {
+  countActiveMobileFilters,
+  multiSelectCategory,
+  sportFilterCategory,
+} from "@/components/filters/filter-helpers";
+import type { MobileFilterValues } from "@/components/filters/types";
 
 export default function ContentListingClient() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
@@ -73,6 +83,28 @@ export default function ContentListingClient() {
 
   const categoryOptions = CONTENT_CATEGORIES.map((c) => ({ id: c.id, label: c.label }));
 
+  const mobileFilterCategories = useMemo(
+    () => [
+      multiSelectCategory("categories", "功能分類", categoryOptions),
+      sportFilterCategory("sports", "運動項目"),
+    ],
+    [categoryOptions]
+  );
+
+  const appliedMobileFilters: MobileFilterValues = useMemo(
+    () => ({ categories: selectedCategories, sports: selectedSports }),
+    [selectedCategories, selectedSports]
+  );
+
+  const mobileFilters = useMobileFilterDraft(appliedMobileFilters);
+
+  const applyMobileFilters = () => {
+    const d = mobileFilters.draft;
+    setSelectedCategories(Array.isArray(d.categories) ? d.categories : []);
+    setSelectedSports(Array.isArray(d.sports) ? d.sports : []);
+    mobileFilters.close();
+  };
+
   return (
     <div className="bg-slate-950 min-h-screen text-zinc-200 font-sans selection:bg-yellow-500/30 pb-24">
       <div className={`${LISTING_PAGE_MAX_WIDTH} mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10`}>
@@ -80,44 +112,56 @@ export default function ContentListingClient() {
 
         <ListingPageHeader section="content" />
 
-        <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-800 p-4 md:p-5 rounded-3xl mb-8 shadow-lg flex flex-col md:flex-row gap-4 items-center">
-          <div className="relative w-full md:flex-1">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-            <input
-              type="search"
-              placeholder="搜尋文章標題或內容..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-700 rounded-xl py-3 pl-10 pr-4 text-sm text-white focus:border-yellow-500 outline-none"
-            />
+        <ScrollRevealFilterShell className="mb-8">
+        <ListingFilterBar
+          searchValue={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="搜尋文章標題或內容..."
+          onFilterOpen={mobileFilters.open}
+          hasActiveFilters={countActiveMobileFilters(mobileFilterCategories, appliedMobileFilters) > 0}
+          accent="yellow"
+          className="bg-slate-900/80 backdrop-blur-xl border border-slate-800 p-3 rounded-3xl mb-6 shadow-lg"
+        >
+          <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-800 p-4 md:p-5 rounded-3xl mb-8 shadow-lg flex flex-col md:flex-row gap-4 items-center">
+            <div className="relative w-full md:flex-1">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+              <input
+                type="search"
+                placeholder="搜尋文章標題或內容..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-700 rounded-xl py-3 pl-10 pr-4 text-sm text-white focus:border-yellow-500 outline-none"
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsCategoryModalOpen(true)}
+              className={`w-full md:w-auto flex items-center justify-between gap-3 px-5 py-3 rounded-xl border text-sm font-bold transition flex-shrink-0 cursor-pointer ${
+                selectedCategories.length > 0
+                  ? "bg-yellow-600/10 border-yellow-500 text-yellow-400"
+                  : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"
+              }`}
+            >
+              <span>功能分類 {selectedCategories.length > 0 ? `(${selectedCategories.length})` : "(全部)"}</span>
+              <span className="text-[10px]">▼</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsSportModalOpen(true)}
+              className={`w-full md:w-auto flex items-center justify-between gap-3 px-5 py-3 rounded-xl border text-sm font-bold transition flex-shrink-0 cursor-pointer ${
+                selectedSports.length > 0
+                  ? "bg-blue-600/10 border-blue-500 text-blue-400"
+                  : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"
+              }`}
+            >
+              <span>運動項目 {selectedSports.length > 0 ? `(${selectedSports.length})` : "(全部)"}</span>
+              <span className="text-[10px]">▼</span>
+            </button>
           </div>
-
-          <button
-            type="button"
-            onClick={() => setIsCategoryModalOpen(true)}
-            className={`w-full md:w-auto flex items-center justify-between gap-3 px-5 py-3 rounded-xl border text-sm font-bold transition flex-shrink-0 cursor-pointer ${
-              selectedCategories.length > 0
-                ? "bg-yellow-600/10 border-yellow-500 text-yellow-400"
-                : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"
-            }`}
-          >
-            <span>功能分類 {selectedCategories.length > 0 ? `(${selectedCategories.length})` : "(全部)"}</span>
-            <span className="text-[10px]">▼</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setIsSportModalOpen(true)}
-            className={`w-full md:w-auto flex items-center justify-between gap-3 px-5 py-3 rounded-xl border text-sm font-bold transition flex-shrink-0 cursor-pointer ${
-              selectedSports.length > 0
-                ? "bg-blue-600/10 border-blue-500 text-blue-400"
-                : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"
-            }`}
-          >
-            <span>運動項目 {selectedSports.length > 0 ? `(${selectedSports.length})` : "(全部)"}</span>
-            <span className="text-[10px]">▼</span>
-          </button>
-        </div>
+        </ListingFilterBar>
+        </ScrollRevealFilterShell>
 
         {loading ? (
           <div className="py-20 flex justify-center text-zinc-500">
@@ -135,6 +179,16 @@ export default function ContentListingClient() {
           </div>
         )}
       </div>
+
+      <MobileFilterSheet
+        isOpen={mobileFilters.isOpen}
+        categories={mobileFilterCategories}
+        values={mobileFilters.draft}
+        onChange={mobileFilters.setDraft}
+        onCancel={mobileFilters.cancel}
+        onApply={applyMobileFilters}
+        accent="yellow"
+      />
 
       <CategoryFilterModal
         isOpen={isCategoryModalOpen}

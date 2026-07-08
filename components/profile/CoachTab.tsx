@@ -93,6 +93,16 @@ function CoachEnquiriesInbox({ fallbackCoachId }: { fallbackCoachId?: string }) 
     setLeads(prev => prev.map(l => l.id === id ? { ...l, status: newStatus } : l));
   };
 
+  const handleDeleteLead = async (id: string) => {
+    if (!confirm("確定要刪除此諮詢單嗎？此動作無法復原。")) return;
+    const { error } = await supabase.from("coach_enquiries").delete().eq("id", id);
+    if (error) {
+      alert("刪除失敗: " + error.message);
+      return;
+    }
+    setLeads(prev => prev.filter(l => l.id !== id));
+  };
+
   return (
     <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-6 animate-fadeIn">
       <div className="border-b border-slate-800 pb-4 flex items-center justify-between">
@@ -139,7 +149,15 @@ function CoachEnquiriesInbox({ fallbackCoachId }: { fallbackCoachId?: string }) 
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 shrink-0 self-end sm:self-center">
+              <div className="flex items-center gap-2 shrink-0 self-end sm:self-center flex-wrap justify-end">
+                {lead.service_id && (
+                  <Link
+                    href={`/dashboard/coach?service=${lead.service_id}`}
+                    className="px-3 py-2 rounded-xl bg-slate-900 hover:bg-orange-500/15 border border-slate-700 hover:border-orange-500/40 text-zinc-300 hover:text-orange-300 font-bold text-xs transition flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <BookOpen className="w-3.5 h-3.5" /> 前往課程
+                  </Link>
+                )}
                 {lead.status === "contacted" ? (
                   <button onClick={() => toggleContacted(lead.id, lead.status)} className="px-3.5 py-2 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-emerald-400 hover:bg-slate-800 hover:text-zinc-300 font-bold text-xs transition flex items-center gap-1.5 cursor-pointer" title="點擊改回未標記">
                     <CheckCircle2 className="w-4 h-4" /> <span>已標記聯絡</span>
@@ -150,6 +168,9 @@ function CoachEnquiriesInbox({ fallbackCoachId }: { fallbackCoachId?: string }) 
                     標記為已聯絡
                   </button>
                 )}
+                <button onClick={() => handleDeleteLead(lead.id)} className="p-2 rounded-xl bg-slate-900 hover:bg-red-500/20 text-zinc-400 hover:text-red-400 transition cursor-pointer" title="刪除諮詢單">
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
             </div>
           ))
@@ -179,7 +200,7 @@ function CoachServicesManager() {
   const [uploadingMedia, setUploadingMedia] = useState(false);
   const [cropQueue, setCropQueue] = useState<File[]>([]);
   const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
-  const [pendingServiceIds, setPendingServiceIds] = useState<Set<string>>(new Set());
+  const [uncontactedServiceIds, setUncontactedServiceIds] = useState<Set<string>>(new Set());
   const titleSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const persistServiceField = useCallback(
@@ -212,14 +233,14 @@ function CoachServicesManager() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return setLoading(false);
   
-    const [{ data: servicesData }, { data: pendingLeads }] = await Promise.all([
+    const [{ data: servicesData }, { data: uncontactedLeads }] = await Promise.all([
       supabase.from("coach_services").select("*").eq("coach_id", user.id).order("created_at", { ascending: false }),
-      supabase.from("coach_enquiries").select("service_id").eq("coach_id", user.id).eq("status", "pending")
+      supabase.from("coach_enquiries").select("service_id").eq("coach_id", user.id).neq("status", "contacted")
     ]);
   
     setServices(servicesData || []);
-    const ids = new Set<string>((pendingLeads || []).map((l: any) => l.service_id));
-    setPendingServiceIds(ids);
+    const ids = new Set<string>((uncontactedLeads || []).map((l: any) => l.service_id));
+    setUncontactedServiceIds(ids);
     setLoading(false);
   }, [supabase]);
 
@@ -272,10 +293,6 @@ function CoachServicesManager() {
     }
   };
 
-  // ✅ When coach clicks into a card:
-  // 1. Remove red dot from local state immediately
-  // 2. Mark all pending enquiries for this service as "seen" in the DB
-  //    so the dot never comes back on refresh unless a NEW enquiry arrives
   const handleOpenDetail = async (srv: any) => {
     setSelectedService(srv);
     setEditForm({
@@ -286,20 +303,6 @@ function CoachServicesManager() {
     });
     setIsEditingInfo(false);
     setDetailTab("info");
-  
-    // Remove red dot immediately in UI
-    setPendingServiceIds(prev => {
-      const next = new Set(prev);
-      next.delete(srv.id);
-      return next;
-    });
-  
-    // Write "seen" to DB so dot doesn't return on refresh
-    await supabase
-      .from("coach_enquiries")
-      .update({ status: "seen" })
-      .eq("service_id", srv.id)
-      .eq("status", "pending");
   };
 
   const handleSaveCourseInfo = async (publish: boolean) => {
@@ -463,8 +466,7 @@ function CoachServicesManager() {
               onClick={() => handleOpenDetail(srv)}
               className="relative bg-slate-900/90 border border-slate-800 hover:border-orange-500/50 rounded-3xl p-6 flex flex-col justify-between transition duration-300 group hover:-translate-y-1 shadow-md hover:shadow-2xl cursor-pointer overflow-hidden"
             >
-              {/* Red dot — only shows when there are unread pending enquiries */}
-              {pendingServiceIds.has(srv.id) && (
+              {uncontactedServiceIds.has(srv.id) && (
                 <span className="absolute top-4 right-4 w-3 h-3 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)] z-10 animate-pulse" />
               )}
             

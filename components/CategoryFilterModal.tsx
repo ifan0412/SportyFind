@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useBodyScrollLock } from "@/lib/use-body-scroll-lock";
 
 export interface CategoryFilterOption {
   id: string;
@@ -39,7 +40,18 @@ export function CategoryFilterModal({
   accent = "blue",
 }: CategoryFilterModalProps) {
   const [tempSelected, setTempSelected] = useState<string[]>([]);
+  const [isMobile, setIsMobile] = useState(false);
   const colors = accentMap[accent];
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+
+  useBodyScrollLock(isOpen && isMobile);
 
   useEffect(() => {
     if (isOpen) setTempSelected(selected);

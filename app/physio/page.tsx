@@ -19,6 +19,16 @@ import {
   profileMatchesDistrictFilter,
 } from "@/lib/hk-locations";
 import { MapPin, User as UserIcon } from "lucide-react";
+import { ListingFilterBar } from "@/components/filters/ListingFilterBar";
+import { ScrollRevealFilterShell } from "@/components/filters/ScrollRevealFilterShell";
+import { MobileFilterSheet } from "@/components/filters/MobileFilterSheet";
+import { useMobileFilterDraft } from "@/components/filters/useMobileFilterDraft";
+import {
+  countActiveMobileFilters,
+  locationFilterCategory,
+  physioServiceTypeCategory,
+} from "@/components/filters/filter-helpers";
+import type { MobileFilterValues } from "@/components/filters/types";
 
 interface PhysioProfile {
   id: string;
@@ -56,6 +66,28 @@ export default function PhysioPage() {
   const [selectedDistricts, setSelectedDistricts] = useState<string[]>([]);
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
   const locationOptions = useMemo(() => districtsForFilterModal(), []);
+
+  const mobileFilterCategories = useMemo(
+    () => [
+      locationFilterCategory(locationOptions, "districts", "地區"),
+      physioServiceTypeCategory(),
+    ],
+    [locationOptions]
+  );
+
+  const appliedMobileFilters: MobileFilterValues = useMemo(
+    () => ({ districts: selectedDistricts, serviceTypes: selectedServiceTypes }),
+    [selectedDistricts, selectedServiceTypes]
+  );
+
+  const mobileFilters = useMobileFilterDraft(appliedMobileFilters);
+
+  const applyMobileFilters = () => {
+    const d = mobileFilters.draft;
+    setSelectedDistricts(Array.isArray(d.districts) ? d.districts : []);
+    setSelectedServiceTypes(Array.isArray(d.serviceTypes) ? d.serviceTypes : []);
+    mobileFilters.close();
+  };
 
   useEffect(() => {
     const fetchPhysios = async () => {
@@ -129,18 +161,22 @@ export default function PhysioPage() {
     fetchPhysios();
   }, [supabase]);
 
-  const filteredPhysios = physios.filter((p) => {
-    const matchSearch =
-      (p.full_name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (p.clinic_name || "").toLowerCase().includes(searchTerm.toLowerCase());
-    const districts = normalizeDistrictIds(p.physio_districts, p.physio_region);
-    const matchLocation = profileMatchesDistrictFilter(districts, p.physio_region, selectedDistricts);
-    const types = serviceTypesByPhysio[p.id] || [];
-    const matchType =
-      selectedServiceTypes.length === 0 ||
-      selectedServiceTypes.some((t) => types.includes(t));
-    return matchSearch && matchLocation && matchType;
-  });
+  const filteredPhysios = useMemo(() => {
+    const q = searchTerm.toLowerCase();
+    return physios.filter((p) => {
+      const matchSearch =
+        !q ||
+        (p.full_name || "").toLowerCase().includes(q) ||
+        (p.clinic_name || "").toLowerCase().includes(q);
+      const districts = normalizeDistrictIds(p.physio_districts, p.physio_region);
+      const matchLocation = profileMatchesDistrictFilter(districts, p.physio_region, selectedDistricts);
+      const types = serviceTypesByPhysio[p.id] || [];
+      const matchType =
+        selectedServiceTypes.length === 0 ||
+        selectedServiceTypes.some((t) => types.includes(t));
+      return matchSearch && matchLocation && matchType;
+    });
+  }, [physios, searchTerm, selectedDistricts, selectedServiceTypes, serviceTypesByPhysio]);
 
   return (
     <div className="bg-slate-950 min-h-screen text-zinc-200 font-sans selection:bg-green-500/30 pb-24 relative">
@@ -149,20 +185,32 @@ export default function PhysioPage() {
 
         <ListingPageHeader section="physio" />
 
-        <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-800 p-4 md:p-5 rounded-3xl mb-8 shadow-lg flex flex-col md:flex-row gap-4 items-center">
-          <div className="relative w-full md:flex-1">
-            <span className="absolute left-3 top-3 text-zinc-500">🔍</span>
-            <input type="text" placeholder="搜尋專家名稱、診所..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-xl py-3 pl-10 pr-4 text-sm text-white focus:outline-none focus:border-green-500 transition" />
+        <ScrollRevealFilterShell className="mb-8">
+        <ListingFilterBar
+          searchValue={searchTerm}
+          onSearchChange={setSearchTerm}
+          searchPlaceholder="搜尋專家或診所..."
+          onFilterOpen={mobileFilters.open}
+          hasActiveFilters={countActiveMobileFilters(mobileFilterCategories, appliedMobileFilters) > 0}
+          accent="green"
+          className="bg-slate-900/80 backdrop-blur-xl border border-slate-800 p-3 rounded-3xl mb-6 shadow-lg"
+        >
+          <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-800 p-4 md:p-5 rounded-3xl mb-8 shadow-lg flex flex-col md:flex-row gap-4 items-center">
+            <div className="relative w-full md:flex-1">
+              <span className="absolute left-3 top-3 text-zinc-500">🔍</span>
+              <input type="text" placeholder="搜尋專家名稱、診所..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-xl py-3 pl-10 pr-4 text-sm text-white focus:outline-none focus:border-green-500 transition" />
+            </div>
+
+            <button type="button" onClick={() => setIsLocationModalOpen(true)} className={`w-full md:w-auto flex items-center justify-between gap-3 px-5 py-3 rounded-xl border text-sm font-bold transition flex-shrink-0 ${selectedDistricts.length > 0 ? "bg-green-600/10 border-green-500 text-green-400 shadow-[0_0_10px_rgba(34,197,94,0.2)]" : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"}`}>
+              <span>地區 {selectedDistricts.length > 0 ? `(${selectedDistricts.length})` : "(全區)"}</span><span className="text-[10px]">▼</span>
+            </button>
+
+            <button type="button" onClick={() => setIsServiceTypeModalOpen(true)} className={`w-full md:w-auto flex items-center justify-between gap-3 px-5 py-3 rounded-xl border text-sm font-bold transition flex-shrink-0 ${selectedServiceTypes.length > 0 ? "bg-green-600/10 border-green-500 text-green-400 shadow-[0_0_10px_rgba(34,197,94,0.2)]" : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"}`}>
+              <span>診療類別 {selectedServiceTypes.length > 0 ? `(${selectedServiceTypes.length})` : "(全部)"}</span><span className="text-[10px]">▼</span>
+            </button>
           </div>
-
-          <button type="button" onClick={() => setIsLocationModalOpen(true)} className={`w-full md:w-auto flex items-center justify-between gap-3 px-5 py-3 rounded-xl border text-sm font-bold transition flex-shrink-0 ${selectedDistricts.length > 0 ? "bg-green-600/10 border-green-500 text-green-400 shadow-[0_0_10px_rgba(34,197,94,0.2)]" : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"}`}>
-            <span>地區 {selectedDistricts.length > 0 ? `(${selectedDistricts.length})` : "(全區)"}</span><span className="text-[10px]">▼</span>
-          </button>
-
-          <button type="button" onClick={() => setIsServiceTypeModalOpen(true)} className={`w-full md:w-auto flex items-center justify-between gap-3 px-5 py-3 rounded-xl border text-sm font-bold transition flex-shrink-0 ${selectedServiceTypes.length > 0 ? "bg-green-600/10 border-green-500 text-green-400 shadow-[0_0_10px_rgba(34,197,94,0.2)]" : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"}`}>
-            <span>診療類別 {selectedServiceTypes.length > 0 ? `(${selectedServiceTypes.length})` : "(全部)"}</span><span className="text-[10px]">▼</span>
-          </button>
-        </div>
+        </ListingFilterBar>
+        </ScrollRevealFilterShell>
 
         <div>
           <div className="mb-4 px-1 flex justify-between items-center"><span className="text-sm font-bold text-zinc-500">顯示 <span className="text-white">{filteredPhysios.length}</span> 位專家</span></div>
@@ -241,6 +289,16 @@ export default function PhysioPage() {
           )}
         </div>
       </div>
+
+      <MobileFilterSheet
+        isOpen={mobileFilters.isOpen}
+        categories={mobileFilterCategories}
+        values={mobileFilters.draft}
+        onChange={mobileFilters.setDraft}
+        onCancel={mobileFilters.cancel}
+        onApply={applyMobileFilters}
+        accent="green"
+      />
 
       <LocationFilterModal
         isOpen={isLocationModalOpen}

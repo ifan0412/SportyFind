@@ -38,8 +38,17 @@ import {
   coachPricingModeLabel,
 } from "@/lib/coach-pricing";
 
+const ENQUIRY_DOT_CLASS =
+  "absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)] z-10 animate-pulse";
+
 // ─── Enquiries Inbox ──────────────────────────────────────────────────────────
-function CoachEnquiriesInbox({ coachId }: { coachId: string }) {
+function CoachEnquiriesInbox({
+  coachId,
+  onEnquiriesChanged,
+}: {
+  coachId: string;
+  onEnquiriesChanged?: () => void;
+}) {
   const [leads, setLeads] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const supabase = createSupabaseBrowserClient();
@@ -69,6 +78,8 @@ function CoachEnquiriesInbox({ coachId }: { coachId: string }) {
     const { error } = await supabase.from("coach_enquiries").update({ status: newStatus }).eq("id", id);
     if (error) { alert("狀態更新失敗: " + error.message); return; }
     setLeads(prev => prev.map(l => l.id === id ? { ...l, status: newStatus } : l));
+    onEnquiriesChanged?.();
+    window.dispatchEvent(new CustomEvent("sync-coach-enquiries"));
   };
 
   const handleDeleteLead = async (id: string) => {
@@ -76,6 +87,7 @@ function CoachEnquiriesInbox({ coachId }: { coachId: string }) {
     const { error } = await supabase.from("coach_enquiries").delete().eq("id", id);
     if (error) { alert("刪除失敗: " + error.message); return; }
     setLeads(prev => prev.filter(l => l.id !== id));
+    window.dispatchEvent(new CustomEvent("sync-coach-enquiries"));
   };
 
   return (
@@ -111,7 +123,15 @@ function CoachEnquiriesInbox({ coachId }: { coachId: string }) {
                   <span className="text-[10px] text-zinc-500 mt-1.5 block">送出時間：{new Date(lead.created_at).toLocaleString("zh-HK", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
                 </div>
               </div>
-              <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+              <div className="flex items-center gap-2 shrink-0 self-end sm:self-center flex-wrap justify-end">
+                {lead.service_id && (
+                  <Link
+                    href={`/dashboard/coach?service=${lead.service_id}`}
+                    className="px-3 py-2 rounded-xl bg-slate-900 hover:bg-orange-500/15 border border-slate-700 hover:border-orange-500/40 text-zinc-300 hover:text-orange-300 font-bold text-xs transition flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <BookOpen className="w-3.5 h-3.5" /> 前往課程
+                  </Link>
+                )}
                 {lead.status === "contacted" ? (
                   <button onClick={() => toggleContacted(lead.id, lead.status)} className="px-3.5 py-2 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-emerald-400 hover:bg-slate-800 hover:text-zinc-300 font-bold text-xs transition flex items-center gap-1.5 cursor-pointer">
                     <CheckCircle2 className="w-4 h-4" /> 已標記聯絡 <RotateCcw className="w-3 h-3 text-zinc-400" />
@@ -132,7 +152,15 @@ function CoachEnquiriesInbox({ coachId }: { coachId: string }) {
 }
 
 // ─── Services Manager ─────────────────────────────────────────────────────────
-function CoachServicesManager({ coachId }: { coachId: string }) {
+function CoachServicesManager({
+  coachId,
+  uncontactedServiceIds,
+  onEnquiriesChanged,
+}: {
+  coachId: string;
+  uncontactedServiceIds: Set<string>;
+  onEnquiriesChanged: () => void;
+}) {
   const supabase = createSupabaseBrowserClient();
   const searchParams = useSearchParams();
   const returnTo = useProfileReturnTo();
@@ -149,7 +177,6 @@ function CoachServicesManager({ coachId }: { coachId: string }) {
   const [courseLeads, setCourseLeads] = useState<any[]>([]);
   const [loadingSubData, setLoadingSubData] = useState(false);
   const [uploadingMedia, setUploadingMedia] = useState(false);
-  const [pendingServiceIds, setPendingServiceIds] = useState<Set<string>>(new Set());
   const titleSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const persistServiceField = useCallback(
@@ -179,16 +206,23 @@ function CoachServicesManager({ coachId }: { coachId: string }) {
 
   const fetchServices = useCallback(async () => {
     setLoading(true);
-    const [{ data: servicesData }, { data: pendingLeads }] = await Promise.all([
-      supabase.from("coach_services").select("*").eq("coach_id", coachId).order("sort_order", { ascending: true }).order("created_at", { ascending: true }),
-      supabase.from("coach_enquiries").select("service_id").eq("coach_id", coachId).eq("status", "pending")
-    ]);
+    const { data: servicesData } = await supabase
+      .from("coach_services")
+      .select("*")
+      .eq("coach_id", coachId)
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: true });
     setServices(servicesData || []);
-    setPendingServiceIds(new Set((pendingLeads || []).map((l: any) => l.service_id)));
     setLoading(false);
   }, [coachId, supabase]);
 
   useEffect(() => { fetchServices(); }, [fetchServices]);
+
+  useEffect(() => {
+    const onSync = () => { fetchServices(); onEnquiriesChanged(); };
+    window.addEventListener("sync-coach-enquiries", onSync);
+    return () => window.removeEventListener("sync-coach-enquiries", onSync);
+  }, [fetchServices, onEnquiriesChanged]);
 
   const handleOpenDetail = useCallback(async (srv: any) => {
     setSelectedService(srv);
@@ -200,13 +234,7 @@ function CoachServicesManager({ coachId }: { coachId: string }) {
     });
     setIsEditingInfo(false);
     setDetailTab("info");
-    setPendingServiceIds((prev) => {
-      const next = new Set(prev);
-      next.delete(srv.id);
-      return next;
-    });
-    await supabase.from("coach_enquiries").update({ status: "seen" }).eq("service_id", srv.id).eq("status", "pending");
-  }, [supabase]);
+  }, []);
 
   useEffect(() => {
     if (!deepLinkServiceId || loading) return;
@@ -372,13 +400,17 @@ function CoachServicesManager({ coachId }: { coachId: string }) {
     const { error } = await supabase.from("coach_enquiries").update({ status: newStatus }).eq("id", id);
     if (error) { alert("狀態更新失敗: " + error.message); return; }
     setCourseLeads(prev => prev.map(l => l.id === id ? { ...l, status: newStatus } : l));
+    onEnquiriesChanged();
+    window.dispatchEvent(new CustomEvent("sync-coach-enquiries"));
   };
 
   const handleDeleteLead = async (id: string) => {
     if (!confirm("確定要刪除此諮詢單嗎？此動作無法復原。")) return;
     const { error } = await supabase.from("coach_enquiries").delete().eq("id", id);
     if (error) { alert("刪除失敗: " + error.message); return; }
-    setCourseLeads(prev => prev.filter(l => l.id !== id));
+    setCourseLeads((prev) => prev.filter((l) => l.id !== id));
+    onEnquiriesChanged();
+    window.dispatchEvent(new CustomEvent("sync-coach-enquiries"));
   };
 
   const handleUploadPhoto = async (files: FileList | null) => {
@@ -471,7 +503,7 @@ function CoachServicesManager({ coachId }: { coachId: string }) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {services.map(srv => (
               <div key={srv.id} onClick={() => handleOpenDetail(srv)} className="relative bg-slate-900/90 border border-slate-800 hover:border-orange-500/50 rounded-3xl p-6 flex flex-col justify-between transition duration-300 group hover:-translate-y-1 shadow-md hover:shadow-2xl cursor-pointer overflow-hidden">
-                {pendingServiceIds.has(srv.id) && <span className="absolute top-4 right-4 w-3 h-3 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)] z-10 animate-pulse" />}
+                {uncontactedServiceIds.has(srv.id) && <span className="absolute top-4 right-4 w-3 h-3 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)] z-10 animate-pulse" />}
                 <div className="absolute top-4 left-4 z-10 flex items-center gap-1.5">
                   <button type="button" onClick={(e) => { e.stopPropagation(); handleMoveService(srv.id, "up"); }} className="px-2 py-1 rounded-lg bg-slate-950/90 border border-slate-700 text-zinc-300 text-[10px] font-black">↑</button>
                   <button type="button" onClick={(e) => { e.stopPropagation(); handleMoveService(srv.id, "down"); }} className="px-2 py-1 rounded-lg bg-slate-950/90 border border-slate-700 text-zinc-300 text-[10px] font-black">↓</button>
@@ -547,12 +579,15 @@ function CoachServicesManager({ coachId }: { coachId: string }) {
     <button
       key={t.id}
       onClick={() => setDetailTab(t.id)}
-      className={`flex flex-col items-center justify-center py-2 px-1 rounded-lg text-center transition cursor-pointer ${
+      className={`relative flex flex-col items-center justify-center py-2 px-1 rounded-lg text-center transition cursor-pointer ${
         detailTab === t.id
           ? "bg-orange-600 text-white shadow-md"
           : "text-zinc-500 hover:text-white hover:bg-slate-800/50"
       }`}
     >
+      {t.id === "leads" && uncontactedServiceIds.has(selectedService.id) && (
+        <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500 ring-2 ring-slate-950 pointer-events-none" aria-hidden />
+      )}
       <span className="text-[12px] font-black leading-tight">{t.label}</span>
     </button>
   ))}
@@ -911,6 +946,19 @@ function CoachDashboardContent() {
 
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [uncontactedEnquiryCount, setUncontactedEnquiryCount] = useState(0);
+  const [uncontactedServiceIds, setUncontactedServiceIds] = useState<Set<string>>(new Set());
+
+  const refreshCoachEnquiryDots = useCallback(async (coachId: string) => {
+    const { data } = await supabase
+      .from("coach_enquiries")
+      .select("service_id, status")
+      .eq("coach_id", coachId)
+      .neq("status", "contacted");
+    const rows = data ?? [];
+    setUncontactedEnquiryCount(rows.length);
+    setUncontactedServiceIds(new Set(rows.map((r) => r.service_id)));
+  }, [supabase]);
 
   const [subTab, setSubTab] = useState<"settings" | "services" | "inbox">(() => {
     const s = searchParams.get("subtab");
@@ -933,9 +981,28 @@ function CoachDashboardContent() {
       if (!prof?.is_coach) { router.push("/profile"); return; }
       setProfile(prof);
       setLoading(false);
+      refreshCoachEnquiryDots(prof.id);
     };
     init();
-  }, [supabase, router]);
+  }, [supabase, router, refreshCoachEnquiryDots]);
+
+  useEffect(() => {
+    if (!profile?.id) return;
+    const onSync = () => refreshCoachEnquiryDots(profile.id);
+    window.addEventListener("sync-coach-enquiries", onSync);
+    const channel = supabase
+      .channel(`coach-dashboard-enquiries-${profile.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "coach_enquiries", filter: `coach_id=eq.${profile.id}` },
+        onSync
+      )
+      .subscribe();
+    return () => {
+      window.removeEventListener("sync-coach-enquiries", onSync);
+      supabase.removeChannel(channel);
+    };
+  }, [profile?.id, supabase, refreshCoachEnquiryDots]);
 
   if (loading) return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-zinc-500 font-mono text-sm">載入教練後台中...</div>;
   if (!profile) return null;
@@ -973,8 +1040,10 @@ function CoachDashboardContent() {
             { id: "services", icon: <BookOpen className="w-4 h-4 shrink-0" />, label: "獨立課程管理" },
             { id: "inbox",    icon: <Inbox    className="w-4 h-4 shrink-0" />, label: "潛在學生收件匣" },
           ] as const).map(t => (
-            <button key={t.id} onClick={() => setSubTab(t.id)} className={`py-3 px-4 rounded-xl text-xs md:text-sm font-black flex items-center justify-center gap-2 transition cursor-pointer ${subTab === t.id ? "bg-orange-600 text-white shadow-md" : "text-zinc-400 hover:text-white hover:bg-slate-800/50"}`}>
+            <button key={t.id} onClick={() => setSubTab(t.id)} className={`relative py-3 px-4 rounded-xl text-xs md:text-sm font-black flex items-center justify-center gap-2 transition cursor-pointer ${subTab === t.id ? "bg-orange-600 text-white shadow-md" : "text-zinc-400 hover:text-white hover:bg-slate-800/50"}`}>
               {t.icon}<span className="truncate">{t.label}</span>
+              {t.id === "services" && uncontactedServiceIds.size > 0 && <span className={ENQUIRY_DOT_CLASS} />}
+              {t.id === "inbox" && uncontactedEnquiryCount > 0 && <span className={ENQUIRY_DOT_CLASS} />}
             </button>
           ))}
         </div>
@@ -993,8 +1062,19 @@ function CoachDashboardContent() {
     }}
   />
 )}
-        {subTab === "services" && <CoachServicesManager coachId={profile.id} />}
-        {subTab === "inbox"    && <CoachEnquiriesInbox coachId={profile.id} />}
+        {subTab === "services" && (
+          <CoachServicesManager
+            coachId={profile.id}
+            uncontactedServiceIds={uncontactedServiceIds}
+            onEnquiriesChanged={() => refreshCoachEnquiryDots(profile.id)}
+          />
+        )}
+        {subTab === "inbox" && (
+          <CoachEnquiriesInbox
+            coachId={profile.id}
+            onEnquiriesChanged={() => refreshCoachEnquiryDots(profile.id)}
+          />
+        )}
       </div>
     </div>
   );

@@ -21,6 +21,16 @@ import { QualificationBadges } from "@/components/qualifications/QualificationBa
 import { SportCategoryBadge } from "@/components/sports/SportCategoryBadge";
 import { formatCoachServicePrice } from "@/lib/coach-pricing";
 import { MapPin, User as UserIcon } from "lucide-react";
+import { ListingFilterBar } from "@/components/filters/ListingFilterBar";
+import { ScrollRevealFilterShell } from "@/components/filters/ScrollRevealFilterShell";
+import { MobileFilterSheet } from "@/components/filters/MobileFilterSheet";
+import { useMobileFilterDraft } from "@/components/filters/useMobileFilterDraft";
+import {
+  countActiveMobileFilters,
+  locationFilterCategory,
+  sportFilterCategory,
+} from "@/components/filters/filter-helpers";
+import type { MobileFilterValues } from "@/components/filters/types";
 
 interface CoachServiceRow {
   id: string;
@@ -60,6 +70,28 @@ export default function CoachesPage() {
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
 
   const locationOptions = useMemo(() => districtsForFilterModal(), []);
+
+  const mobileFilterCategories = useMemo(
+    () => [
+      sportFilterCategory("sports", "專項"),
+      locationFilterCategory(locationOptions, "districts", "地區"),
+    ],
+    [locationOptions]
+  );
+
+  const appliedMobileFilters: MobileFilterValues = useMemo(
+    () => ({ sports: selectedSports, districts: selectedDistricts }),
+    [selectedSports, selectedDistricts]
+  );
+
+  const mobileFilters = useMobileFilterDraft(appliedMobileFilters);
+
+  const applyMobileFilters = () => {
+    const d = mobileFilters.draft;
+    setSelectedSports(Array.isArray(d.sports) ? d.sports : []);
+    setSelectedDistricts(Array.isArray(d.districts) ? d.districts : []);
+    mobileFilters.close();
+  };
 
   useEffect(() => {
     const fetchCourses = async () => {
@@ -108,18 +140,19 @@ export default function CoachesPage() {
   }, [supabase]);
 
 
-  const filteredServices = services.filter((srv) => {
-    const matchSearch =
-      (srv.title || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (srv.profiles?.full_name || "").toLowerCase().includes(searchTerm.toLowerCase());
-
-    const matchSport = sportMatchesFilter(srv.sport_category, selectedSports);
-
-    const districts = normalizeDistrictIds(srv.districts, srv.location);
-    const matchLocation = serviceMatchesDistrictFilter(districts, srv.location, selectedDistricts);
-
-    return matchSearch && matchSport && matchLocation;
-  });
+  const filteredServices = useMemo(() => {
+    const q = searchTerm.toLowerCase();
+    return services.filter((srv) => {
+      const matchSearch =
+        !q ||
+        (srv.title || "").toLowerCase().includes(q) ||
+        (srv.profiles?.full_name || "").toLowerCase().includes(q);
+      const matchSport = sportMatchesFilter(srv.sport_category, selectedSports);
+      const districts = normalizeDistrictIds(srv.districts, srv.location);
+      const matchLocation = serviceMatchesDistrictFilter(districts, srv.location, selectedDistricts);
+      return matchSearch && matchSport && matchLocation;
+    });
+  }, [services, searchTerm, selectedSports, selectedDistricts]);
 
   return (
     <div className="bg-slate-950 min-h-screen text-zinc-200 font-sans selection:bg-orange-500/30 pb-24 relative">
@@ -128,44 +161,56 @@ export default function CoachesPage() {
 
         <ListingPageHeader section="coaches" />
 
-        <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-800 p-4 md:p-5 rounded-3xl mb-8 shadow-lg flex flex-col md:flex-row gap-4 items-center">
-          <div className="relative w-full md:flex-1">
-            <span className="absolute left-3.5 top-3.5 text-zinc-500">🔍</span>
-            <input
-              type="text"
-              placeholder="搜尋課程名稱或教練名字..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-700 rounded-xl py-3 pl-10 pr-4 text-sm text-white focus:outline-none focus:border-orange-500 transition"
-            />
+        <ScrollRevealFilterShell className="mb-8">
+        <ListingFilterBar
+          searchValue={searchTerm}
+          onSearchChange={setSearchTerm}
+          searchPlaceholder="搜尋課程或教練..."
+          onFilterOpen={mobileFilters.open}
+          hasActiveFilters={countActiveMobileFilters(mobileFilterCategories, appliedMobileFilters) > 0}
+          accent="orange"
+          className="bg-slate-900/80 backdrop-blur-xl border border-slate-800 p-3 rounded-3xl mb-6 shadow-lg"
+        >
+          <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-800 p-4 md:p-5 rounded-3xl mb-8 shadow-lg flex flex-col md:flex-row gap-4 items-center">
+            <div className="relative w-full md:flex-1">
+              <span className="absolute left-3.5 top-3.5 text-zinc-500">🔍</span>
+              <input
+                type="text"
+                placeholder="搜尋課程名稱或教練名字..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-700 rounded-xl py-3 pl-10 pr-4 text-sm text-white focus:outline-none focus:border-orange-500 transition"
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsSportModalOpen(true)}
+              className={`w-full md:w-auto flex items-center justify-between gap-3 px-5 py-3 rounded-xl border text-sm font-bold transition flex-shrink-0 cursor-pointer ${
+                selectedSports.length > 0
+                  ? "bg-orange-600/10 border-orange-500 text-orange-400"
+                  : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"
+              }`}
+            >
+              <span>專項 {selectedSports.length > 0 ? `(${selectedSports.length})` : "(全部)"}</span>
+              <span className="text-[10px]">▼</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsLocationModalOpen(true)}
+              className={`w-full md:w-auto flex items-center justify-between gap-3 px-5 py-3 rounded-xl border text-sm font-bold transition flex-shrink-0 cursor-pointer ${
+                selectedDistricts.length > 0
+                  ? "bg-orange-600/10 border-orange-500 text-orange-400"
+                  : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"
+              }`}
+            >
+              <span>地區 {selectedDistricts.length > 0 ? `(${selectedDistricts.length})` : "(全港)"}</span>
+              <span className="text-[10px]">▼</span>
+            </button>
           </div>
-
-          <button
-            type="button"
-            onClick={() => setIsSportModalOpen(true)}
-            className={`w-full md:w-auto flex items-center justify-between gap-3 px-5 py-3 rounded-xl border text-sm font-bold transition flex-shrink-0 cursor-pointer ${
-              selectedSports.length > 0
-                ? "bg-orange-600/10 border-orange-500 text-orange-400"
-                : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"
-            }`}
-          >
-            <span>專項 {selectedSports.length > 0 ? `(${selectedSports.length})` : "(全部)"}</span>
-            <span className="text-[10px]">▼</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setIsLocationModalOpen(true)}
-            className={`w-full md:w-auto flex items-center justify-between gap-3 px-5 py-3 rounded-xl border text-sm font-bold transition flex-shrink-0 cursor-pointer ${
-              selectedDistricts.length > 0
-                ? "bg-orange-600/10 border-orange-500 text-orange-400"
-                : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"
-            }`}
-          >
-            <span>地區 {selectedDistricts.length > 0 ? `(${selectedDistricts.length})` : "(全港)"}</span>
-            <span className="text-[10px]">▼</span>
-          </button>
-        </div>
+        </ListingFilterBar>
+        </ScrollRevealFilterShell>
 
         <div>
           <div className="mb-4 px-1">
@@ -286,6 +331,16 @@ export default function CoachesPage() {
           )}
         </div>
       </div>
+
+      <MobileFilterSheet
+        isOpen={mobileFilters.isOpen}
+        categories={mobileFilterCategories}
+        values={mobileFilters.draft}
+        onChange={mobileFilters.setDraft}
+        onCancel={mobileFilters.cancel}
+        onApply={applyMobileFilters}
+        accent="orange"
+      />
 
       <SportFilterModal
         isOpen={isSportModalOpen}

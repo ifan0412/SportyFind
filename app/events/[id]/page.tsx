@@ -65,6 +65,7 @@ export default function EventDetailPage() {
     displayName: string;
     action: "approve" | "reject";
     companionCount: number;
+    previousStatus: string;
   } | null>(null);
 
   const fetchEventDetails = useCallback(async () => {
@@ -441,6 +442,7 @@ export default function EventDetailPage() {
     setActionLoading(true);
     try {
       const approvalMode = getEventApprovalMode(event);
+      let notifyHost = false;
 
       if (rejectedIndivReg) {
         const newStatus =
@@ -460,6 +462,7 @@ export default function EventDetailPage() {
           })
           .eq("id", rejectedIndivReg.id);
         if (error) throw error;
+        notifyHost = true;
         alert(
           approvalMode === "approval"
             ? "🎉 參賽申請已重新送出，請等候主辦審核！"
@@ -483,10 +486,16 @@ export default function EventDetailPage() {
           alert(data.message);
           return;
         }
+        const joinedStatus = String(data?.status || "").toLowerCase();
+        if (["pending", "going", "waitlist", "waiting"].includes(joinedStatus)) {
+          notifyHost = true;
+        }
         alert(data?.message || "🎉 報名送出成功！");
       }
 
-      try { await supabase.rpc("notify_event_registration", { p_event_id: eventId }); } catch (e) {}
+      if (notifyHost) {
+        try { await supabase.rpc("notify_event_registration", { p_event_id: eventId }); } catch (e) {}
+      }
       setJoinAlias("");
       setJoinNote("");
       await fetchEventDetails();
@@ -624,7 +633,8 @@ export default function EventDetailPage() {
     regId: string,
     newStatus: string,
     targetUserId?: string | null,
-    companionCount = 0
+    companionCount = 0,
+    previousStatus = ""
   ) => {
     setActionLoading(true);
     try {
@@ -651,7 +661,11 @@ export default function EventDetailPage() {
 
       if (newStatus === approveStatus && targetUserId) {
         try {
-          await supabase.rpc("notify_event_accepted", { p_event_id: eventId, p_user_id: targetUserId });
+          if (isWaitlistRegStatus(previousStatus)) {
+            await supabase.rpc("notify_event_joined", { p_event_id: eventId, p_user_id: targetUserId });
+          } else {
+            await supabase.rpc("notify_event_accepted", { p_event_id: eventId, p_user_id: targetUserId });
+          }
         } catch (e) {}
       }
 
@@ -689,6 +703,7 @@ export default function EventDetailPage() {
       displayName,
       action,
       companionCount: reg.companion_count || 0,
+      previousStatus: String(reg.status || ""),
     });
   };
 
@@ -1208,7 +1223,8 @@ export default function EventDetailPage() {
                     hostAction.regId,
                     hostAction.newStatus,
                     hostAction.targetUserId,
-                    hostAction.companionCount
+                    hostAction.companionCount,
+                    hostAction.previousStatus
                   )
                 }
                 className={`px-5 py-2.5 rounded-xl disabled:bg-slate-800 text-white font-black text-xs transition cursor-pointer ${

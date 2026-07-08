@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useBodyScrollLock } from "@/lib/use-body-scroll-lock";
 import { SPORT_CATEGORIES } from "@/lib/sports-categories";
 
 interface SportFilterModalProps {
@@ -19,6 +20,17 @@ export function SportFilterModal({
   onApply,
 }: SportFilterModalProps) {
   const [tempSelected, setTempSelected] = useState<string[]>([]);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+
+  useBodyScrollLock(isOpen && isMobile);
 
   useEffect(() => {
     if (isOpen) setTempSelected(selectedSports);

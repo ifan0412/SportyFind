@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { useAuth } from "@/components/SupabaseProvider";
 
 const SESSION_KEY = "sf_session_id";
 
@@ -18,6 +19,7 @@ function getSessionId(): string {
 
 export function PageViewTracker() {
   const pathname = usePathname();
+  const { user } = useAuth();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const lastTracked = useRef("");
 
@@ -27,18 +29,21 @@ export function PageViewTracker() {
     lastTracked.current = pathname;
 
     const track = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      await supabase.from("site_page_views").insert({
-        path: pathname,
-        session_id: getSessionId(),
-        user_id: user?.id ?? null,
-        referrer: typeof document !== "undefined" ? document.referrer?.slice(0, 500) || null : null,
-        user_agent: typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 300) : null,
-      });
+      try {
+        await supabase.from("site_page_views").insert({
+          path: pathname,
+          session_id: getSessionId(),
+          user_id: user?.id ?? null,
+          referrer: typeof document !== "undefined" ? document.referrer?.slice(0, 500) || null : null,
+          user_agent: typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 300) : null,
+        });
+      } catch {
+        // analytics must not break the page
+      }
     };
 
-    track().catch(() => {});
-  }, [pathname, supabase]);
+    track();
+  }, [pathname, supabase, user?.id]);
 
   return null;
 }
