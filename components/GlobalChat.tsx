@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useAuth } from "@/components/SupabaseProvider";
-import { MessageCircle, X, ChevronLeft, Send, Loader2 } from "lucide-react";
+import { MessageCircle, X, ChevronLeft, Send, Loader2, Smile } from "lucide-react";
+import EmojiPicker, { Theme, type EmojiClickData } from "emoji-picker-react";
 import Link from "next/link";
 import {
   CHAT_BUBBLE_ME,
@@ -39,6 +40,28 @@ interface Message {
   isError?: boolean;
 }
 
+const URL_REGEX = /(https?:\/\/[^\s]+)/gi;
+
+function renderMessageContent(content: string) {
+  const parts = content.split(URL_REGEX);
+  return parts.map((part, index) => {
+    if (part.match(URL_REGEX)) {
+      return (
+        <a
+          key={`link-${index}`}
+          href={part}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-300 underline break-all hover:text-blue-200"
+        >
+          {part}
+        </a>
+      );
+    }
+    return <span key={`text-${index}`}>{part}</span>;
+  });
+}
+
 export function GlobalChat() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const { user: authUser } = useAuth();
@@ -51,7 +74,11 @@ export function GlobalChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [emojiOpen, setEmojiOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
+  const emojiButtonRef = useRef<HTMLButtonElement>(null);
   const activeChatRef = useRef<Friend | null>(null);
   const isOpenRef = useRef(false);
   const friendIdsRef = useRef<string[]>([]);
@@ -307,6 +334,22 @@ export function GlobalChat() {
     loadChatMessages(currentUserId, activeChat);
   }, [activeChat?.id, currentUserId, loadChatMessages]);
 
+  useEffect(() => {
+    const onClickOutside = (event: MouseEvent) => {
+      if (!emojiOpen) return;
+      const target = event.target as Node;
+      if (
+        (emojiPickerRef.current && emojiPickerRef.current.contains(target)) ||
+        (emojiButtonRef.current && emojiButtonRef.current.contains(target))
+      ) {
+        return;
+      }
+      setEmojiOpen(false);
+    };
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, [emojiOpen]);
+
   const handleOpenChat = (friend: Friend) => {
     setSummaries((prev) => clearUnreadForPeer(prev, friend.id));
     const cached = messagesCacheRef.current[friend.id];
@@ -317,9 +360,15 @@ export function GlobalChat() {
 
   const handleBackToList = () => {
     setActiveChat(null);
+    setEmojiOpen(false);
     if (currentUserId) {
       refreshSummaries(currentUserId, friendIdsRef.current);
     }
+  };
+
+  const handleAddEmoji = (emojiData: EmojiClickData) => {
+    setNewMessage((prev) => `${prev}${emojiData.emoji}`);
+    inputRef.current?.focus();
   };
 
   const handleSend = async (e: React.FormEvent) => {
@@ -382,7 +431,7 @@ export function GlobalChat() {
   return (
     <div className="hidden md:flex fixed bottom-6 right-6 z-[100] flex-col items-end">
       {isOpen && (
-        <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-[min(100vw-2rem,28rem)] sm:w-96 h-[min(100vh-8rem,520px)] mb-4 flex flex-col overflow-hidden animate-fadeIn">
+        <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-[min(100vw-2rem,28rem)] sm:w-96 h-[min(100vh-6rem,600px)] mb-4 flex flex-col overflow-hidden animate-fadeIn">
           <div className="bg-slate-800 p-3 flex justify-between items-center border-b border-slate-700 shrink-0">
             {activeChat ? (
               <div className="flex items-center gap-2">
@@ -448,9 +497,9 @@ export function GlobalChat() {
                     return (
                       <div key={msg.id} className={isMe ? CHAT_BUBBLE_ROW_ME : CHAT_BUBBLE_ROW_THEM}>
                         <div
-                          className={`${isMe ? CHAT_BUBBLE_ME : CHAT_BUBBLE_THEM} ${msg.isSending ? "opacity-60" : "opacity-100"}`}
+                          className={`${isMe ? CHAT_BUBBLE_ME : CHAT_BUBBLE_THEM} ${msg.isSending ? "opacity-60" : "opacity-100"} whitespace-pre-wrap break-words`}
                         >
-                          {msg.content}
+                          {renderMessageContent(msg.content)}
                         </div>
                         <span className="text-[9px] text-slate-500 mt-1 px-1">
                           {msg.isSending
@@ -468,14 +517,45 @@ export function GlobalChat() {
                 )}
               </div>
 
-              <form onSubmit={handleSend} className="p-3 border-t border-slate-800 bg-slate-900 flex gap-2 shrink-0">
+              <form onSubmit={handleSend} className="relative p-3 border-t border-slate-800 bg-slate-900 flex gap-2 shrink-0">
+                {emojiOpen && (
+                  <div className="absolute bottom-full left-2 right-2 mb-2 z-20 flex justify-center pointer-events-none">
+                    <div
+                      ref={emojiPickerRef}
+                      className="pointer-events-auto rounded-xl border border-slate-700 bg-slate-900 p-1 shadow-2xl overflow-hidden"
+                    >
+                      <EmojiPicker
+                        className="chat-emoji-picker"
+                        theme={Theme.DARK}
+                        skinTonesDisabled
+                        width={268}
+                        height={272}
+                        onEmojiClick={handleAddEmoji}
+                        lazyLoadEmojis
+                        previewConfig={{ showPreview: false }}
+                      />
+                    </div>
+                  </div>
+                )}
                 <input
+                  ref={inputRef}
                   type="text"
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
                   placeholder="輸入訊息..."
                   className="flex-1 min-w-0 bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500 transition"
                 />
+                <div className="relative shrink-0">
+                  <button
+                    ref={emojiButtonRef}
+                    type="button"
+                    onClick={() => setEmojiOpen((open) => !open)}
+                    className="w-11 h-11 bg-slate-950 border border-slate-700 hover:border-slate-500 text-zinc-300 hover:text-white flex items-center justify-center rounded-xl transition-colors"
+                    aria-label="開啟表情符號"
+                  >
+                    <Smile className="w-4 h-4" />
+                  </button>
+                </div>
                 <button
                   type="submit"
                   disabled={!newMessage.trim()}

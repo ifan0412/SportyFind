@@ -121,6 +121,13 @@ function InboxPageContent() {
   }, [fetchInbox]);
 
   useEffect(() => {
+    document.body.dataset.inboxMobile = "true";
+    return () => {
+      delete document.body.dataset.inboxMobile;
+    };
+  }, []);
+
+  useEffect(() => {
     const onFriendshipSync = () => {
       fetchInbox();
     };
@@ -232,7 +239,7 @@ function InboxPageContent() {
   };
 
   return (
-    <div className="bg-slate-950 min-h-[calc(100dvh-3.5rem)] md:min-h-[calc(100dvh-3.5rem)] pb-4 md:pb-0">
+    <div className="bg-slate-950 h-[calc(100dvh-3.5rem-4rem-env(safe-area-inset-bottom))] md:h-[calc(100dvh-3.5rem)] overflow-hidden">
       <div className="md:hidden flex items-center justify-between px-4 h-12 border-b border-slate-800 bg-slate-950">
         <h1 className="text-sm font-black text-white">訊息收件匣</h1>
         <button
@@ -245,8 +252,8 @@ function InboxPageContent() {
         </button>
       </div>
 
-      <div className="py-4 px-3 sm:py-6 sm:px-8">
-      <div className="max-w-6xl mx-auto flex flex-col md:flex-row gap-4 md:gap-6 h-[calc(100dvh-10rem)] md:h-[80vh]">
+      <div className="h-[calc(100%-3rem)] md:h-full px-3 py-3 sm:px-6 sm:py-4 overflow-hidden">
+      <div className="max-w-6xl mx-auto flex flex-col md:flex-row gap-4 md:gap-6 h-full">
         <div
           className={`w-full md:w-1/3 bg-slate-900 border border-slate-800 rounded-3xl p-4 flex flex-col shadow-xl ${
             showMobileChat ? "hidden md:flex" : "flex h-full"

@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { Send, Loader2, AlertCircle, RefreshCw, Check, X } from "lucide-react";
+import { Send, Loader2, AlertCircle, RefreshCw, Check, X, Smile } from "lucide-react";
+import EmojiPicker, { Theme, type EmojiClickData } from "emoji-picker-react";
 import {
   CHAT_BUBBLE_ME,
   CHAT_BUBBLE_ROW_ME,
@@ -33,6 +34,27 @@ interface ChatBoxProps {
 }
 
 const PAGE_SIZE = 50;
+const URL_REGEX = /(https?:\/\/[^\s]+)/gi;
+
+function renderMessageContent(content: string) {
+  const parts = content.split(URL_REGEX);
+  return parts.map((part, index) => {
+    if (part.match(URL_REGEX)) {
+      return (
+        <a
+          key={`link-${index}`}
+          href={part}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-300 underline break-all hover:text-blue-200"
+        >
+          {part}
+        </a>
+      );
+    }
+    return <span key={`text-${index}`}>{part}</span>;
+  });
+}
 
 export function ChatBox({
   currentUserId,
@@ -52,6 +74,7 @@ export function ChatBox({
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [isSendingLocked, setIsSendingLocked] = useState(false);
+  const [emojiOpen, setEmojiOpen] = useState(false);
 
   // ── Anti-Spam State Machine ──
   const [friendshipId, setFriendshipId] = useState<string | null>(null);
@@ -59,6 +82,8 @@ export function ChatBox({
   const [isSenderState, setIsSenderState] = useState<boolean>(initialIsSender);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
   const messagesLengthRef = useRef(0);
   const onRejectedRef = useRef(onRejected);
   onRejectedRef.current = onRejected;
@@ -437,6 +462,23 @@ export function ChatBox({
     }
   };
 
+  useEffect(() => {
+    const onClickOutside = (event: MouseEvent) => {
+      if (!emojiOpen) return;
+      const target = event.target as Node;
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(target)) {
+        setEmojiOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, [emojiOpen]);
+
+  const handleAddEmoji = (emojiData: EmojiClickData) => {
+    setNewMessage((prev) => `${prev}${emojiData.emoji}`);
+    inputRef.current?.focus();
+  };
+
   // ── Render ──
   if (isLoading) {
     return (
@@ -518,10 +560,10 @@ export function ChatBox({
                       ${isMe ? CHAT_BUBBLE_ME : CHAT_BUBBLE_THEM}
                       ${msg.isSending ? "opacity-60" : "opacity-100"}
                       ${msg.isError ? "!bg-red-900/40 !border-red-700" : ""}
-                      transition-opacity duration-200
+                      transition-opacity duration-200 whitespace-pre-wrap break-words
                     `}
                   >
-                    {msg.content}
+                    {renderMessageContent(msg.content)}
                   </div>
                 </div>
                 <span className="text-[9px] text-slate-500 mt-1 font-medium px-1">
@@ -584,8 +626,9 @@ export function ChatBox({
 
         {/* State 4: Active Input Bar (Allowed for 'accepted', 'none', or Receiver of 'pending') */}
         {(status === "accepted" || status === "none" || (status === "pending" && !isSenderState)) && (
-          <form onSubmit={handleSendMessage} className="flex gap-2">
+          <form onSubmit={handleSendMessage} className="relative flex gap-2">
             <input
+              ref={inputRef}
               type="text"
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
@@ -594,6 +637,30 @@ export function ChatBox({
               maxLength={2000}
               className="flex-1 min-w-0 bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-sm sm:text-[15px] text-white focus:outline-none focus:border-blue-500 transition-all"
             />
+            <div ref={emojiPickerRef} className="relative shrink-0">
+              <button
+                type="button"
+                onClick={() => setEmojiOpen((open) => !open)}
+                className="w-12 h-12 bg-slate-900 border border-slate-800 hover:border-slate-600 text-zinc-300 hover:text-white flex items-center justify-center rounded-xl transition-colors"
+                aria-label="開啟表情符號"
+              >
+                <Smile className="w-5 h-5" />
+              </button>
+              {emojiOpen && (
+                <div className="absolute bottom-14 right-0 z-20 rounded-xl border border-slate-700 bg-slate-900 p-1 shadow-2xl">
+                  <EmojiPicker
+                    className="chat-emoji-picker"
+                    theme={Theme.DARK}
+                    skinTonesDisabled
+                    width={320}
+                    height={360}
+                    onEmojiClick={handleAddEmoji}
+                    lazyLoadEmojis
+                    previewConfig={{ showPreview: false }}
+                  />
+                </div>
+              )}
+            </div>
             <button
               type="submit"
               disabled={!newMessage.trim() || isSendingLocked}

@@ -330,3 +330,47 @@
   height: 0;
   pointer-events: none;
 }
+
+@media (max-width: 767px) {
+  body[data-inbox-mobile="true"] footer {
+    display: none;
+  }
+}
+
+/* Compact emoji picker for chat (floating + inbox) */
+.chat-emoji-picker.EmojiPickerReact {
+  --epr-horizontal-padding: 8px;
+  --epr-header-padding: 6px var(--epr-horizontal-padding);
+  --epr-search-input-height: 28px;
+  --epr-search-input-padding: 0 24px;
+  --epr-search-input-border-radius: 6px;
+  --epr-category-navigation-button-size: 24px;
+  --epr-category-label-height: 26px;
+  --epr-emoji-size: 22px;
+  --epr-emoji-padding: 2px;
+}
+
+.chat-emoji-picker .epr-search-container input {
+  font-size: 13px;
+}
+
+.chat-emoji-picker .epr-icn-search {
+  width: 14px;
+  height: 14px;
+  background-size: 14px;
+}
+
+.chat-emoji-picker .epr-btn-clear-search {
+  width: 22px;
+  height: 22px;
+}
+
+.chat-emoji-picker .epr-icn-clear-search {
+  width: 16px;
+  height: 16px;
+  background-size: 16px;
+}
+
+.chat-emoji-picker .epr-category-nav button {
+  padding: 2px;
+}
