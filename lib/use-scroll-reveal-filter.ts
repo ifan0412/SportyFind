@@ -1,13 +1,19 @@
 "use client";
 
 import { useEffect, useRef, type RefObject } from "react";
+import {
+  APP_CHROME_HEIGHT,
+  measureAppChromeBottom,
+  onAppChromeSync,
+  requestAppChromeSync,
+} from "@/lib/app-chrome-offset";
 
-/** Matches Navbar `h-14` (56px). */
-export const LISTING_FILTER_TOP_OFFSET = 56;
+/** @deprecated Use APP_CHROME_HEIGHT from app-chrome-offset */
+export const LISTING_FILTER_TOP_OFFSET = APP_CHROME_HEIGHT;
 
 /**
  * Drives scroll-reveal filter chrome imperatively (no React state on scroll).
- * Hide progress tracks scroll-down 1:1; scroll-up snaps the bar fully back in.
+ * Pin threshold is document-based; pinned `top` tracks the live mobile header.
  */
 export function useScrollRevealFilter(
   anchorRef: RefObject<HTMLElement | null>,
@@ -17,6 +23,7 @@ export function useScrollRevealFilter(
   const pinnedRef = useRef(false);
   const hideOffsetRef = useRef(0);
   const lastScrollY = useRef(0);
+  const pinThresholdRef = useRef(0);
   const rafRef = useRef(0);
 
   useEffect(() => {
@@ -27,12 +34,25 @@ export function useScrollRevealFilter(
 
     const barHeight = () => bar.offsetHeight;
 
+    const measurePinThreshold = () => {
+      const rect = anchor.getBoundingClientRect();
+      pinThresholdRef.current = window.scrollY + rect.top - APP_CHROME_HEIGHT;
+    };
+
     const syncSpacerHeight = () => {
       if (!pinnedRef.current) {
         spacer.style.height = "0px";
         return;
       }
       spacer.style.height = `${bar.offsetHeight}px`;
+    };
+
+    const syncPinnedTop = () => {
+      if (!pinnedRef.current) {
+        bar.style.top = "";
+        return;
+      }
+      bar.style.top = `${measureAppChromeBottom()}px`;
     };
 
     const applyHideOffset = (offset: number) => {
@@ -69,8 +89,10 @@ export function useScrollRevealFilter(
 
       if (pinned) {
         syncSpacerHeight();
+        syncPinnedTop();
       } else {
         spacer.style.height = "0px";
+        bar.style.top = "";
         resetHide();
       }
     };
@@ -79,22 +101,22 @@ export function useScrollRevealFilter(
       const y = window.scrollY;
       const delta = y - lastScrollY.current;
 
-      const rect = anchor.getBoundingClientRect();
-      const shouldPin = y > 0 && rect.top < LISTING_FILTER_TOP_OFFSET;
+      // Stable document threshold — do not use live header bottom for pin/unpin.
+      const shouldPin = y > Math.max(pinThresholdRef.current, 0);
       applyPinned(shouldPin);
 
-      if (pinnedRef.current && y >= LISTING_FILTER_TOP_OFFSET) {
+      if (pinnedRef.current) {
+        syncPinnedTop();
+
         if (delta > 0) {
-          // Follow scroll-down 1:1 — no CSS transition.
           bar.dataset.revealing = "false";
           const maxHide = barHeight();
           const next = Math.min(hideOffsetRef.current + delta, maxHide);
           applyHideOffset(next);
         } else if (delta < 0) {
-          // Any upward scroll fully reveals with a slide-in animation.
           revealAtOnce();
         }
-      } else if (pinnedRef.current) {
+      } else {
         resetHide();
       }
 
@@ -105,13 +127,18 @@ export function useScrollRevealFilter(
     bar.dataset.revealing = "false";
     bar.style.transform = "translate3d(0,0,0)";
 
+    measurePinThreshold();
+
     const resizeObserver = new ResizeObserver(() => {
+      measurePinThreshold();
       if (pinnedRef.current && hideOffsetRef.current > 0) {
         applyHideOffset(Math.min(hideOffsetRef.current, barHeight()));
       }
       syncSpacerHeight();
+      syncPinnedTop();
     });
     resizeObserver.observe(bar);
+    resizeObserver.observe(anchor);
 
     const onScroll = () => {
       if (rafRef.current) return;
@@ -121,12 +148,25 @@ export function useScrollRevealFilter(
       });
     };
 
+    const onResize = () => {
+      measurePinThreshold();
+      update();
+    };
+
+    const offChromeSync = onAppChromeSync(() => {
+      if (pinnedRef.current) syncPinnedTop();
+    });
+
     window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onResize);
     lastScrollY.current = window.scrollY;
     update();
+    requestAppChromeSync();
 
     return () => {
       window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onResize);
+      offChromeSync();
       resizeObserver.disconnect();
       if (rafRef.current) window.cancelAnimationFrame(rafRef.current);
     };

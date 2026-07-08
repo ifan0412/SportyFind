@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { ChatBox } from "@/components/ChatBox";
 import { ConversationPreview } from "@/components/chat/ConversationPreview";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, X } from "lucide-react";
 import {
   applyMessageInsert,
   clearUnreadForPeer,
@@ -25,6 +25,7 @@ interface InboxContact {
 
 function InboxPageContent() {
   const supabase = createSupabaseBrowserClient();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const targetId = searchParams.get("to");
 
@@ -231,14 +232,27 @@ function InboxPageContent() {
   };
 
   return (
-    <div className="bg-slate-950 min-h-[calc(100dvh-3.5rem)] py-4 px-3 sm:py-6 sm:px-8">
-      <div className="max-w-6xl mx-auto flex flex-col md:flex-row gap-4 md:gap-6 h-[calc(100dvh-6rem)] md:h-[80vh]">
+    <div className="bg-slate-950 min-h-[calc(100dvh-3.5rem)] md:min-h-[calc(100dvh-3.5rem)] pb-4 md:pb-0">
+      <div className="md:hidden flex items-center justify-between px-4 h-12 border-b border-slate-800 bg-slate-950">
+        <h1 className="text-sm font-black text-white">訊息收件匣</h1>
+        <button
+          type="button"
+          onClick={() => router.push("/")}
+          aria-label="關閉收件匣"
+          className="flex items-center justify-center w-9 h-9 rounded-md text-slate-400 hover:bg-slate-800 hover:text-white"
+        >
+          <X className="size-5" />
+        </button>
+      </div>
+
+      <div className="py-4 px-3 sm:py-6 sm:px-8">
+      <div className="max-w-6xl mx-auto flex flex-col md:flex-row gap-4 md:gap-6 h-[calc(100dvh-10rem)] md:h-[80vh]">
         <div
           className={`w-full md:w-1/3 bg-slate-900 border border-slate-800 rounded-3xl p-4 flex flex-col shadow-xl ${
             showMobileChat ? "hidden md:flex" : "flex h-full"
           } md:h-full`}
         >
-          <h2 className="text-xl font-black text-white mb-4 px-2">訊息收件匣</h2>
+          <h2 className="hidden md:block text-xl font-black text-white mb-4 px-2">訊息收件匣</h2>
           <div className="flex-1 overflow-y-auto space-y-1 [&::-webkit-scrollbar]:hidden">
             {sortedConversations.length === 0 ? (
               <p className="text-zinc-500 text-sm font-bold text-center mt-10">尚無任何對話紀錄</p>
@@ -292,6 +306,7 @@ function InboxPageContent() {
             </div>
           )}
         </div>
+      </div>
       </div>
     </div>
   );

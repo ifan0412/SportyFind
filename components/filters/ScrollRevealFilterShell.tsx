@@ -41,7 +41,7 @@ export function ScrollRevealFilterShell({
         className={cn(
           "group/bar z-40",
           "data-[pinned=true]:will-change-transform",
-          "data-[pinned=true]:fixed data-[pinned=true]:left-0 data-[pinned=true]:right-0 data-[pinned=true]:top-14",
+          "data-[pinned=true]:fixed data-[pinned=true]:left-0 data-[pinned=true]:right-0",
           // Transition only when sliding back in on scroll-up.
           "data-[revealing=true]:transition-transform data-[revealing=true]:duration-200",
           "data-[revealing=true]:ease-[cubic-bezier(0.32,0.72,0,1)]",

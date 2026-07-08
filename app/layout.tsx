@@ -7,6 +7,7 @@ import SupabaseProvider from "@/components/SupabaseProvider";
 import "./globals.css";
 import Providers from "./providers";
 import { GlobalChat } from "@/components/GlobalChat";
+import { MobileBottomNav } from "@/components/mobile/MobileBottomNav";
 
 // 2. 字體設定
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
@@ -42,13 +43,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {/* 💡 這裡才是重點！呼叫我們做好的強大 Navbar 元件 */}
           <Navbar />
           
-          <main className="flex-1 bg-slate-950 py-6">
+          <main className="flex-1 bg-slate-950 py-6 pb-20 md:pb-6">
             <Providers>{children}</Providers>
           </main>
 
           <Footer />
-          
-          {/* ✅ 將浮動聊天視窗放在 main 之外，確保它跨頁面常駐，不會被切換頁面干擾 */}
+
+          <MobileBottomNav />
           <GlobalChat />
           
         </SupabaseProvider>

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { usePathname } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useAuth } from "@/components/SupabaseProvider";
 import { MessageCircle, X, ChevronLeft, Send, Loader2 } from "lucide-react";
@@ -43,8 +42,6 @@ interface Message {
 export function GlobalChat() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const { user: authUser } = useAuth();
-  const pathname = usePathname();
-  const isInboxPage = pathname === "/inbox" || pathname.startsWith("/inbox/");
 
   const [isOpen, setIsOpen] = useState(false);
   const currentUserId = authUser?.id ?? null;
@@ -383,11 +380,7 @@ export function GlobalChat() {
   if (!currentUserId) return null;
 
   return (
-    <div
-      className={`fixed bottom-6 right-6 z-[100] flex-col items-end ${
-        isInboxPage ? "hidden md:flex" : "flex"
-      }`}
-    >
+    <div className="hidden md:flex fixed bottom-6 right-6 z-[100] flex-col items-end">
       {isOpen && (
         <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-[min(100vw-2rem,28rem)] sm:w-96 h-[min(100vh-8rem,520px)] mb-4 flex flex-col overflow-hidden animate-fadeIn">
           <div className="bg-slate-800 p-3 flex justify-between items-center border-b border-slate-700 shrink-0">
