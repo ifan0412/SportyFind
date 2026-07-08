@@ -374,3 +374,28 @@
 .chat-emoji-picker .epr-category-nav button {
   padding: 2px;
 }
+
+/* Mobile inbox: larger tap targets sized for ~6-per-row via JS-set CSS vars */
+@media (max-width: 767px) {
+  .chat-emoji-picker.EmojiPickerReact {
+    --epr-horizontal-padding: 6px;
+    --epr-header-padding: 8px var(--epr-horizontal-padding);
+    --epr-search-input-height: 32px;
+    --epr-category-navigation-button-size: 28px;
+    --epr-category-label-height: 30px;
+    /* Fallback before JS measures chat width (~6 per row on ~360px). */
+    --epr-emoji-size: 48px;
+    --epr-emoji-padding: 4px;
+    border-radius: 12px;
+  }
+
+  .chat-emoji-picker .epr-search-container input {
+    font-size: 14px;
+  }
+
+  .chat-emoji-picker .epr-icn-search {
+    width: 16px;
+    height: 16px;
+    background-size: 16px;
+  }
+}

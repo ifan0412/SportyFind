@@ -75,6 +75,8 @@ export function ChatBox({
   const [hasMore, setHasMore] = useState(true);
   const [isSendingLocked, setIsSendingLocked] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [mobileEmojiVars, setMobileEmojiVars] = useState<React.CSSProperties>({});
 
   // ── Anti-Spam State Machine ──
   const [friendshipId, setFriendshipId] = useState<string | null>(null);
@@ -83,6 +85,8 @@ export function ChatBox({
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const emojiButtonRef = useRef<HTMLButtonElement>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
   const messagesLengthRef = useRef(0);
   const onRejectedRef = useRef(onRejected);
@@ -466,17 +470,65 @@ export function ChatBox({
     const onClickOutside = (event: MouseEvent) => {
       if (!emojiOpen) return;
       const target = event.target as Node;
-      if (emojiPickerRef.current && !emojiPickerRef.current.contains(target)) {
-        setEmojiOpen(false);
+      if (
+        (emojiPickerRef.current && emojiPickerRef.current.contains(target)) ||
+        (emojiButtonRef.current && emojiButtonRef.current.contains(target))
+      ) {
+        return;
       }
+      setEmojiOpen(false);
     };
     document.addEventListener("mousedown", onClickOutside);
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, [emojiOpen]);
 
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const syncMobile = () => setIsMobile(mq.matches);
+    syncMobile();
+    mq.addEventListener("change", syncMobile);
+    return () => mq.removeEventListener("change", syncMobile);
+  }, []);
+
+  useEffect(() => {
+    const measure = () => {
+      if (!window.matchMedia("(max-width: 767px)").matches) {
+        setMobileEmojiVars({});
+        return;
+      }
+      // Chatbox content: form width + horizontal padding (p-3 = 12px each side).
+      const formWidth = formRef.current?.clientWidth ?? Math.min(window.innerWidth - 24, 400);
+      const chatboxInnerWidth = formWidth + 24;
+      const contentWidth = Math.max(chatboxInnerWidth - 12 /* epr horizontal padding * 2 */, 240);
+      const fullSize = Math.floor(contentWidth / 6);
+      const padding = 4;
+      const emojiSize = Math.max(fullSize - padding * 2, 28);
+      setMobileEmojiVars({
+        ["--epr-emoji-size" as string]: `${emojiSize}px`,
+        ["--epr-emoji-padding" as string]: `${padding}px`,
+      });
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [emojiOpen]);
+
+  const toggleEmojiPicker = () => {
+    setEmojiOpen((open) => {
+      const next = !open;
+      if (next) {
+        // Keep the phone keyboard closed when opening the emoji picker on mobile.
+        inputRef.current?.blur();
+      }
+      return next;
+    });
+  };
+
   const handleAddEmoji = (emojiData: EmojiClickData) => {
     setNewMessage((prev) => `${prev}${emojiData.emoji}`);
-    inputRef.current?.focus();
+    if (!isMobile) {
+      inputRef.current?.focus();
+    }
   };
 
   // ── Render ──
@@ -626,7 +678,38 @@ export function ChatBox({
 
         {/* State 4: Active Input Bar (Allowed for 'accepted', 'none', or Receiver of 'pending') */}
         {(status === "accepted" || status === "none" || (status === "pending" && !isSenderState)) && (
-          <form onSubmit={handleSendMessage} className="relative flex gap-2">
+          <form ref={formRef} onSubmit={handleSendMessage} className="relative flex gap-2">
+            {emojiOpen && (
+              <div
+                className={
+                  isMobile
+                    ? "absolute bottom-full left-0 right-0 -mx-3 mb-2 z-20 pointer-events-none"
+                    : "absolute bottom-full right-0 mb-2 z-20 pointer-events-none"
+                }
+              >
+                <div
+                  ref={emojiPickerRef}
+                  className={
+                    isMobile
+                      ? "pointer-events-auto w-full rounded-none border-y border-slate-700 bg-slate-900 p-1 shadow-2xl overflow-hidden"
+                      : "pointer-events-auto rounded-xl border border-slate-700 bg-slate-900 p-1 shadow-2xl overflow-hidden"
+                  }
+                >
+                  <EmojiPicker
+                    className="chat-emoji-picker"
+                    theme={Theme.DARK}
+                    skinTonesDisabled
+                    autoFocusSearch={false}
+                    style={isMobile ? mobileEmojiVars : undefined}
+                    width={isMobile ? "100%" : 320}
+                    height={isMobile ? 320 : 360}
+                    onEmojiClick={handleAddEmoji}
+                    lazyLoadEmojis
+                    previewConfig={{ showPreview: false }}
+                  />
+                </div>
+              </div>
+            )}
             <input
               ref={inputRef}
               type="text"
@@ -637,29 +720,20 @@ export function ChatBox({
               maxLength={2000}
               className="flex-1 min-w-0 bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-sm sm:text-[15px] text-white focus:outline-none focus:border-blue-500 transition-all"
             />
-            <div ref={emojiPickerRef} className="relative shrink-0">
+            <div className="relative shrink-0">
               <button
+                ref={emojiButtonRef}
                 type="button"
-                onClick={() => setEmojiOpen((open) => !open)}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  inputRef.current?.blur();
+                }}
+                onClick={toggleEmojiPicker}
                 className="w-12 h-12 bg-slate-900 border border-slate-800 hover:border-slate-600 text-zinc-300 hover:text-white flex items-center justify-center rounded-xl transition-colors"
                 aria-label="開啟表情符號"
               >
                 <Smile className="w-5 h-5" />
               </button>
-              {emojiOpen && (
-                <div className="absolute bottom-14 right-0 z-20 rounded-xl border border-slate-700 bg-slate-900 p-1 shadow-2xl">
-                  <EmojiPicker
-                    className="chat-emoji-picker"
-                    theme={Theme.DARK}
-                    skinTonesDisabled
-                    width={320}
-                    height={360}
-                    onEmojiClick={handleAddEmoji}
-                    lazyLoadEmojis
-                    previewConfig={{ showPreview: false }}
-                  />
-                </div>
-              )}
             </div>
             <button
               type="submit"

@@ -528,6 +528,7 @@ export function GlobalChat() {
                         className="chat-emoji-picker"
                         theme={Theme.DARK}
                         skinTonesDisabled
+                        autoFocusSearch={false}
                         width={268}
                         height={272}
                         onEmojiClick={handleAddEmoji}
