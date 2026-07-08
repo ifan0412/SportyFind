@@ -317,7 +317,25 @@ export default function CreateTeamPage() {
               <div key={field.key}>
                 <label className={labelCls}>{field.label}</label>
                 {field.type === "text" && (
-                  <input className={inputCls} placeholder={field.placeholder} value={(formData.sport_metadata[field.key] as string) ?? ""} onChange={(e) => setMeta(field.key, e.target.value)} />
+                  <div>
+                    <input
+                      className={inputCls}
+                      placeholder={field.placeholder}
+                      maxLength={field.maxLength}
+                      value={(formData.sport_metadata[field.key] as string) ?? ""}
+                      onChange={(e) => {
+                        const next = field.maxLength
+                          ? e.target.value.slice(0, field.maxLength)
+                          : e.target.value;
+                        setMeta(field.key, next);
+                      }}
+                    />
+                    {field.maxLength ? (
+                      <p className="mt-1.5 text-[10px] text-zinc-500 font-bold text-right">
+                        {String((formData.sport_metadata[field.key] as string) ?? "").length}/{field.maxLength}
+                      </p>
+                    ) : null}
+                  </div>
                 )}
                 {field.type === "select" && (
                   <select className={inputCls} value={(formData.sport_metadata[field.key] as string) ?? ""} onChange={(e) => setMeta(field.key, e.target.value)}>

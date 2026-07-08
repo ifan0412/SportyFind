@@ -5,7 +5,7 @@ import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { BackButton } from "@/components/BackButton";
 import { ListingPageHeader } from "@/components/listing/ListingPageHeader";
-import { LISTING_PAGE_MAX_WIDTH } from "@/lib/listing-sections";
+import { LISTING_PAGE_MAX_WIDTH, LISTING_PAGE_SHELL_PADDING } from "@/lib/listing-sections";
 import { SportFilterModal } from "@/components/SportFilterModal";
 import { sportMatchesFilter } from "@/lib/sports-categories";
 import {
@@ -215,7 +215,7 @@ function NetworkPageContent() {
 
   return (
     <div className="bg-slate-950 min-h-screen text-zinc-200 font-sans selection:bg-blue-500/30 pb-24 relative">
-      <div className={`${LISTING_PAGE_MAX_WIDTH} mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10`}>
+      <div className={`${LISTING_PAGE_MAX_WIDTH} mx-auto px-4 sm:px-6 lg:px-8 ${LISTING_PAGE_SHELL_PADDING}`}>
         <BackButton label="返回首頁" href="/" />
 
         <ListingPageHeader section="network" />

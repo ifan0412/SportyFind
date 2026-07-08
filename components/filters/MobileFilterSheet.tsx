@@ -131,7 +131,7 @@ export function MobileFilterSheet({
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col bg-slate-950 md:hidden">
+    <div className="fixed inset-0 z-[110] flex flex-col bg-slate-950 md:hidden">
       <div className="shrink-0 px-4 py-3.5 border-b border-slate-800 flex items-center justify-between safe-area-top">
         <h2 className="text-lg font-black text-white">{title}</h2>
       </div>

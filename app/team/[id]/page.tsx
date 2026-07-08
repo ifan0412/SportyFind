@@ -22,6 +22,10 @@ import {
 } from "@/lib/gender";
 import type { SportCategory, RecruitmentStatus } from "@/types/team";
 import { SPORT_CATEGORIES } from "@/lib/sports-categories";
+import {
+  buildTeamListingHref,
+  readTeamDetailBack,
+} from "@/lib/team-listing-state";
 import { GenderAvatarBadge } from "@/components/profile/GenderBadge";
 
 interface TeamData {
@@ -67,7 +71,6 @@ interface Achievement {
 const SPORT_OPTIONS = SPORT_CATEGORIES.map((s) => ({
   value: s.id as SportCategory,
   emoji: s.emoji,
-  label: s.labelZh,
   labelZh: s.labelZh,
 }));
 
@@ -142,6 +145,8 @@ export default function TeamDetailPage() {
   const [joinState, setJoinState] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [joinError, setJoinError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"about" | "media" | "members">("about");
+  const [backHref, setBackHref] = useState("/team");
+  const [backLabel, setBackLabel] = useState("← 返回團隊列表");
 
   useEffect(() => {
     if (!id) return;
@@ -178,6 +183,17 @@ export default function TeamDetailPage() {
   const isAdmin   = myMembership?.role === "admin";
   const isMember  = !!myMembership && myMembership.role !== "pending";
   const isPending = myMembership?.role === "pending";
+
+  useEffect(() => {
+    const fromAdminPreview = readTeamDetailBack() === "profile";
+    if (isAdmin && fromAdminPreview) {
+      setBackHref("/profile?tab=teams");
+      setBackLabel("← 返回我的團隊");
+      return;
+    }
+    setBackHref(buildTeamListingHref());
+    setBackLabel("← 返回團隊列表");
+  }, [isAdmin]);
 
   const adminsAndLeads = members.filter((m) => ["admin", "coach", "captain"].includes(m.role));
   const regularMembers = members.filter((m) => m.role === "player");
@@ -241,7 +257,7 @@ export default function TeamDetailPage() {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center gap-4">
         <p className="text-zinc-400 font-bold">找不到團隊</p>
-        <Link href="/team" className="text-sm text-blue-400 hover:underline">← 返回團隊列表</Link>
+        <Link href={backHref} className="text-sm text-blue-400 hover:underline">{backLabel}</Link>
       </div>
     );
   }
@@ -290,10 +306,10 @@ export default function TeamDetailPage() {
       <div className="w-full max-w-4xl md:max-w-5xl mx-auto px-4 sm:px-6 relative z-10">
         <div className="-mt-36 md:-mt-52 mb-6 relative z-30">
           <Link
-            href="/team"
+            href={backHref}
             className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-950/60 hover:bg-slate-900 border border-slate-800/80 text-sm font-black text-purple-400 hover:text-purple-300 backdrop-blur-md transition shadow-lg"
           >
-            ← 返回團隊列表
+            {backLabel}
           </Link>
         </div>
 
@@ -314,7 +330,7 @@ export default function TeamDetailPage() {
               <div className="flex flex-wrap items-center gap-2 mt-3">
                 {sport && (
                   <span className="bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-black px-3 py-1 rounded-full">
-                    {sport.emoji} {sport.labelZh} {sport.label}
+                    {sport.emoji} {sport.labelZh}
                   </span>
                 )}
                 <RecruitBadge status={team.recruitment_status} />

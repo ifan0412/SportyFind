@@ -48,7 +48,7 @@ export default function HomePage() {
       category: "coaches",
       href: "/coaches",
       title: "專業教練",
-      subtitle: "探索教練",
+      subtitle: "尋找指導｜提升技術",
       icon: GraduationCap,
     },
     {

@@ -11,6 +11,7 @@ import {
   Calendar,
   X,
   Settings2,
+  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { isSiteAdmin } from "@/lib/admin";
@@ -21,6 +22,7 @@ import { useProfileNav } from "@/lib/hooks/useProfileNav";
 import { useScrollHideHeader } from "@/lib/use-scroll-hide-header";
 import { ProfileNavMenu } from "@/components/NavbarProfileMenu";
 import { NotificationPanel } from "@/components/notifications/NotificationPanel";
+import { MobileSettingsSheet } from "@/components/mobile/MobileSettingsSheet";
 import { getNotificationHref } from "@/components/notifications/notification-routing";
 import type { Notification } from "@/components/notifications/notification-types";
 
@@ -163,6 +165,7 @@ export function Navbar() {
 
   const [isClient, setIsClient] = useState(false);
   const [mobileNotifOpen, setMobileNotifOpen] = useState(false);
+  const [mobileSettingsOpen, setMobileSettingsOpen] = useState(false);
   const { user, signOut } = useAuth();
   const profileNav = useProfileNav(user?.id);
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -185,6 +188,11 @@ export function Navbar() {
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  useEffect(() => {
+    setMobileNotifOpen(false);
+    setMobileSettingsOpen(false);
+  }, [pathname]);
 
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
@@ -353,6 +361,7 @@ export function Navbar() {
 
   const showAdmin = isClient && isSiteAdmin(user?.email);
   const unreadCount = notifications.filter((n) => !n.is_read).length;
+  const showMobileSettings = Boolean(isClient && user);
 
   return (
     <>
@@ -367,43 +376,83 @@ export function Navbar() {
           "data-[revealing=true]:ease-[cubic-bezier(0.32,0.72,0,1)]"
         )}
       >
-        <nav className="flex h-14 w-full items-center justify-between px-4">
-          <Link href="/" className="flex items-center gap-2.5 transition-opacity hover:opacity-80">
+        <nav className="relative grid h-14 w-full grid-cols-[2.25rem_1fr_2.25rem] items-center px-4">
+          <div className="flex justify-start">
+            {showMobileSettings ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileSettingsOpen((open) => !open);
+                  setMobileNotifOpen(false);
+                }}
+                aria-label="設定"
+                aria-expanded={mobileSettingsOpen}
+                className={cn(
+                  "flex items-center justify-center w-9 h-9 rounded-md transition-colors",
+                  mobileSettingsOpen
+                    ? "bg-slate-800 text-white"
+                    : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                )}
+              >
+                <Settings className="size-5" />
+              </button>
+            ) : (
+              <span className="w-9" aria-hidden />
+            )}
+          </div>
+
+          <Link
+            href="/"
+            className="flex items-center justify-center gap-2 transition-opacity hover:opacity-80 min-w-0"
+          >
             <Image
               src="/icon-512.png"
               alt="SportyFind Logo"
               width={32}
               height={32}
-              className="size-8 rounded-md object-contain"
+              className="size-8 rounded-md object-contain shrink-0"
               priority
             />
-            <span className="text-sm font-black tracking-tight text-white">
+            <span className="text-sm font-black tracking-tight text-white truncate">
               SPORTY<span className="text-blue-400">FIND</span>
             </span>
           </Link>
 
-          {isClient && user ? (
-            <button
-              type="button"
-              onClick={() => setMobileNotifOpen(true)}
-              aria-label="通知"
-              className="relative flex items-center justify-center w-9 h-9 rounded-md text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
-            >
-              <Bell className="size-5" />
-              {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center px-0.5 shadow-lg">
-                  {unreadCount > 9 ? "9+" : unreadCount}
-                </span>
-              )}
-            </button>
-          ) : isClient ? (
-            <Link
-              href="/auth"
-              className="rounded-xl px-3 py-1.5 text-xs font-black bg-red-600 hover:bg-red-500 text-white transition"
-            >
-              登入
-            </Link>
-          ) : null}
+          <div className="flex justify-end">
+            {isClient && user ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileNotifOpen((open) => !open);
+                  setMobileSettingsOpen(false);
+                }}
+                aria-label="通知"
+                aria-expanded={mobileNotifOpen}
+                className={cn(
+                  "relative flex items-center justify-center w-9 h-9 rounded-md transition-colors",
+                  mobileNotifOpen
+                    ? "bg-slate-800 text-white"
+                    : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                )}
+              >
+                <Bell className="size-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center px-0.5 shadow-lg">
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
+                )}
+              </button>
+            ) : isClient ? (
+              <Link
+                href="/auth"
+                className="rounded-xl px-3 py-1.5 text-xs font-black bg-red-600 hover:bg-red-500 text-white transition"
+              >
+                登入
+              </Link>
+            ) : (
+              <span className="w-9" aria-hidden />
+            )}
+          </div>
         </nav>
       </header>
       <div className="h-14 shrink-0 md:hidden" aria-hidden />
@@ -445,7 +494,8 @@ export function Navbar() {
 
           <ul className="flex flex-nowrap items-center gap-0.5 min-w-0">
             {navLinks.map(({ href, label, icon: Icon }) => {
-              const isActive = pathname === href || pathname.startsWith(`${href}/`);
+              const hrefPath = href.split("?")[0];
+              const isActive = pathname === hrefPath || pathname.startsWith(`${hrefPath}/`);
               return (
                 <li key={href} className="shrink-0">
                   <Link
@@ -512,6 +562,14 @@ export function Navbar() {
         onClose={() => setMobileNotifOpen(false)}
         {...bellProps}
       />
+
+      {user ? (
+        <MobileSettingsSheet
+          open={mobileSettingsOpen}
+          onClose={() => setMobileSettingsOpen(false)}
+          user={user}
+        />
+      ) : null}
     </>
   );
 }

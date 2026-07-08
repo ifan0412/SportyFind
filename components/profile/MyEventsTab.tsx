@@ -54,7 +54,9 @@ export function MyEventsTab({ embedded = false, userId }: MyEventsTabProps) {
           id, status, companion_count, alias, note, registered_at,
           event:events (
             id, title, description, sport_category, start_time, end_time, location_name, location_address,
-            registration_type, max_capacity, fee
+            registration_type, max_capacity, fee,
+            organizer_team:teams!organizer_team_id (id, name_zh, name_en, logo_url),
+            creator_profile:profiles!creator_id (id, full_name, avatar_url)
           )
         `)
         .eq("user_id", uid)
@@ -77,7 +79,7 @@ export function MyEventsTab({ embedded = false, userId }: MyEventsTabProps) {
         .from("events")
         .select(`
           *,
-          organizer_team:teams!organizer_team_id (id, name_zh, name_en),
+          organizer_team:teams!organizer_team_id (id, name_zh, name_en, logo_url),
           registrations:event_registrations (id, status, companion_count)
         `);
 
@@ -129,7 +131,14 @@ export function MyEventsTab({ embedded = false, userId }: MyEventsTabProps) {
       });
   }, [hostedEvents, timeHorizon, nowMs]);
 
-  const getSportIcon = (cat: string) => getSportCategory(cat)?.emoji ?? "⚡";
+  const sportBadge = (cat: string) => {
+    const sport = getSportCategory(cat);
+    return (
+      <span className="bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-black px-3 py-1 rounded-full whitespace-nowrap">
+        {sport ? `${sport.emoji} ${sport.labelZh}` : "⚡ 運動"}
+      </span>
+    );
+  };
 
   const content = (
     <>
@@ -234,66 +243,93 @@ export function MyEventsTab({ embedded = false, userId }: MyEventsTabProps) {
           <div className="grid grid-cols-1 gap-4">
             {filteredJoined.map((item: any) => {
               const ev = item.event;
+              const organizerName = ev.organizer_team
+                ? (ev.organizer_team.name_zh || ev.organizer_team.name_en || "未命名球隊")
+                : (ev.creator_profile?.full_name || "個人主辦");
+              const organizerAvatarUrl =
+                ev.organizer_team?.logo_url || ev.creator_profile?.avatar_url || null;
+              const isTeamOrganizer = Boolean(ev.organizer_team);
+
               return (
                 <Link
                   key={item.id}
                   href={`/events/${ev.id}`}
-                  className="group bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-3xl p-5 sm:p-6 transition flex flex-col sm:flex-row sm:items-center justify-between gap-6"
+                  className="group relative bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-3xl p-5 sm:p-6 transition block"
                 >
-                  <div className="space-y-2.5 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="px-2.5 py-0.5 rounded-md text-xs bg-slate-950 border border-slate-800 font-black">
-                        {getSportIcon(ev.sport_category)}
-                      </span>
-                      {(() => {
-                        const normStatus = String(item.status || "").toLowerCase().trim();
-                        const isConfirmed = ["going", "confirmed", "accepted"].includes(normStatus);
-                        const isWaitlist = ["waitlist", "waiting", "queued"].includes(normStatus);
-                        if (isConfirmed) {
-                          return (
-                            <span className="px-3 py-0.5 rounded-full text-xs font-black bg-emerald-950 text-emerald-400 border border-emerald-500/30">
-                              ✅ 確認出席
-                            </span>
-                          );
-                        }
-                        if (isWaitlist) {
-                          return (
-                            <span className="px-3 py-0.5 rounded-full text-xs font-black bg-red-950 text-red-400 border border-red-500/30">
-                              ⏳ 候補名單
-                            </span>
-                          );
-                        }
-                        return (
-                          <span className="px-3 py-0.5 rounded-full text-xs font-black bg-slate-800 text-zinc-400">
-                            🛡️ 審核中
-                          </span>
-                        );
-                      })()}
-                      {item.companion_count > 0 && (
-                        <span className="px-2 py-0.5 rounded-md text-xs bg-blue-950 text-blue-300 font-bold">
-                          +{item.companion_count} 攜伴
-                        </span>
-                      )}
-                    </div>
-                    <h3 className="text-lg sm:text-xl font-black text-white group-hover:text-blue-400 transition truncate">
-                      {ev.title}
-                    </h3>
-                    <div className="flex flex-wrap items-center gap-4 text-xs text-zinc-400 font-bold">
-                      <span className="flex items-center gap-1.5 text-zinc-200">
-                        <Calendar className="w-4 h-4 text-blue-400" /> {formatEventPeriod(ev.start_time, ev.end_time)}
-                      </span>
-                      <span className="flex items-center gap-1.5">
-                        <MapPin className="w-4 h-4 text-red-400" /> {ev.location_name}
-                      </span>
+                  <div className="absolute top-5 right-5 sm:top-6 sm:right-6 text-right">
+                    <div className="text-[10px] text-zinc-500 font-bold">預估費用</div>
+                    <div className="text-sm font-black text-yellow-400">
+                      {ev.fee > 0 ? `HKD $${ev.fee}` : "免費"}
                     </div>
                   </div>
-                  <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-4 sm:pt-0 border-t sm:border-t-0 border-slate-800">
-                    <div className="text-right mr-2">
-                      <div className="text-[10px] text-zinc-500 font-bold">預估費用</div>
-                      <div className="text-sm font-black text-red-400">{ev.fee > 0 ? `HKD $${ev.fee}` : "免費"}</div>
+
+                  <div className="flex items-center gap-2 flex-wrap min-w-0 pr-24 mb-2">
+                    {sportBadge(ev.sport_category)}
+                    {(() => {
+                      const normStatus = String(item.status || "").toLowerCase().trim();
+                      const isConfirmed = ["going", "confirmed", "accepted"].includes(normStatus);
+                      const isWaitlist = ["waitlist", "waiting", "queued"].includes(normStatus);
+                      if (isConfirmed) {
+                        return (
+                          <span className="px-3 py-0.5 rounded-full text-xs font-black bg-emerald-950 text-emerald-400 border border-emerald-500/30">
+                            ✅ 確認出席
+                          </span>
+                        );
+                      }
+                      if (isWaitlist) {
+                        return (
+                          <span className="px-3 py-0.5 rounded-full text-xs font-black bg-red-950 text-red-400 border border-red-500/30">
+                            ⏳ 候補名單
+                          </span>
+                        );
+                      }
+                      return (
+                        <span className="px-3 py-0.5 rounded-full text-xs font-black bg-slate-800 text-zinc-400">
+                          🛡️ 審核中
+                        </span>
+                      );
+                    })()}
+                    {item.companion_count > 0 && (
+                      <span className="px-2 py-0.5 rounded-md text-xs bg-blue-950 text-blue-300 font-bold">
+                        +{item.companion_count} 攜伴
+                      </span>
+                    )}
+                  </div>
+
+                  <h3 className="text-lg sm:text-xl font-black text-white group-hover:text-blue-400 transition truncate mb-2.5 pr-20">
+                    {ev.title}
+                  </h3>
+
+                  <div className="flex flex-col items-start gap-1.5 text-[11px] text-zinc-400 font-bold mb-3">
+                    <span className="flex items-center gap-1.5 text-zinc-200">
+                      <MapPin className="w-3.5 h-3.5 text-red-400 shrink-0" /> {ev.location_name}
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5 text-blue-400 shrink-0" /> {formatEventPeriod(ev.start_time, ev.end_time)}
+                    </span>
+                    {timeHorizon === "upcoming" && (
+                      <CalendarExportButton event={ev} menuPlacement="down" />
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3 pt-4 border-t border-slate-800">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div
+                        className="w-7 h-7 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center shrink-0 overflow-hidden bg-cover bg-center"
+                        style={organizerAvatarUrl ? { backgroundImage: `url(${organizerAvatarUrl})` } : undefined}
+                      >
+                        {!organizerAvatarUrl && (
+                          isTeamOrganizer
+                            ? <Shield className="w-3.5 h-3.5 text-red-400" />
+                            : <span className="text-[10px] font-black text-blue-400">👤</span>
+                        )}
+                      </div>
+                      <span className="text-xs text-zinc-400 truncate">
+                        {isTeamOrganizer ? "🛡️ " : "👤 "}
+                        <span className="font-bold text-zinc-200">{organizerName}</span>
+                      </span>
                     </div>
-                    {timeHorizon === "upcoming" && <CalendarExportButton event={ev} />}
-                    <ChevronRight className="w-5 h-5 text-zinc-600 group-hover:text-white transition group-hover:translate-x-1 ml-1" />
+                    <ChevronRight className="w-5 h-5 text-zinc-600 group-hover:text-white transition group-hover:translate-x-1 shrink-0" />
                   </div>
                 </Link>
               );
@@ -327,51 +363,65 @@ export function MyEventsTab({ embedded = false, userId }: MyEventsTabProps) {
               ev.registrations?.filter((r: any) => ["waitlist", "waiting"].includes(String(r.status || "").toLowerCase()))
                 .length || 0;
             const orgName = ev.organizer_team?.name_zh || ev.organizer_team?.name_en || "個人獨立主辦";
+            const organizerAvatarUrl = ev.organizer_team?.logo_url || null;
+            const isTeamOrganizer = Boolean(ev.organizer_team);
 
             return (
               <Link
                 key={ev.id}
                 href={`/events/${ev.id}`}
-                className="group bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-3xl p-5 sm:p-6 transition flex flex-col sm:flex-row sm:items-center justify-between gap-6"
+                className="group bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-3xl p-5 sm:p-6 transition block"
               >
-                <div className="space-y-2.5 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="px-2.5 py-0.5 rounded-md text-xs bg-slate-950 border border-slate-800 font-black">
-                      {getSportIcon(ev.sport_category)}
-                    </span>
-                    <span className="px-2.5 py-0.5 rounded-md text-[10px] font-black bg-red-500/10 text-red-400 border border-red-500/20">
-                      👑 {orgName}
-                    </span>
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <div className="flex items-center gap-2 flex-wrap min-w-0">
+                    {sportBadge(ev.sport_category)}
                   </div>
-                  <h3 className="text-lg sm:text-xl font-black text-white group-hover:text-red-400 transition truncate">
-                    {ev.title}
-                  </h3>
-                  <div className="flex flex-wrap items-center gap-4 text-xs text-zinc-400 font-bold">
-                    <span className="flex items-center gap-1.5 text-zinc-200">
-                      <Calendar className="w-4 h-4 text-blue-400" /> {formatEventPeriod(ev.start_time, ev.end_time)}
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <MapPin className="w-4 h-4 text-red-400" /> {ev.location_name}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-4 sm:pt-0 border-t sm:border-t-0 border-slate-800">
-                  <div className="bg-slate-950 px-4 py-2 rounded-2xl border border-slate-800/80 flex items-center gap-3 text-right mr-1">
-                    <div>
+                  <div className="shrink-0 flex flex-col items-end gap-1.5">
+                    {timeHorizon === "upcoming" && (
+                      <CalendarExportButton event={ev} menuPlacement="down" />
+                    )}
+                    <div className="bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800/80 text-right">
                       <div className="text-[10px] font-bold text-zinc-500">出席進度</div>
                       <div className="text-sm font-black text-white">
                         {goingCount} {ev.max_capacity ? `/ ${ev.max_capacity}` : "人"}
+                        {waitlistCount > 0 && (
+                          <span className="text-red-400 text-xs ml-1.5">· 候補 +{waitlistCount}</span>
+                        )}
                       </div>
                     </div>
-                    {waitlistCount > 0 && (
-                      <div className="border-l border-slate-800 pl-3 text-red-400">
-                        <div className="text-[10px] font-bold">候補</div>
-                        <div className="text-sm font-black">+{waitlistCount}</div>
-                      </div>
-                    )}
                   </div>
-                  {timeHorizon === "upcoming" && <CalendarExportButton event={ev} />}
-                  <ChevronRight className="w-5 h-5 text-zinc-600 group-hover:text-white transition group-hover:translate-x-1 ml-1" />
+                </div>
+
+                <h3 className="text-lg sm:text-xl font-black text-white group-hover:text-red-400 transition truncate mb-2.5">
+                  {ev.title}
+                </h3>
+                <div className="flex flex-col items-start gap-1.5 text-[11px] text-zinc-400 font-bold mb-4">
+                  <span className="flex items-center gap-1.5 text-zinc-200">
+                    <MapPin className="w-3.5 h-3.5 text-red-400 shrink-0" /> {ev.location_name}
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-blue-400 shrink-0" /> {formatEventPeriod(ev.start_time, ev.end_time)}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between gap-3 pt-4 border-t border-slate-800">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div
+                      className="w-7 h-7 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center shrink-0 overflow-hidden bg-cover bg-center"
+                      style={organizerAvatarUrl ? { backgroundImage: `url(${organizerAvatarUrl})` } : undefined}
+                    >
+                      {!organizerAvatarUrl && (
+                        isTeamOrganizer
+                          ? <Shield className="w-3.5 h-3.5 text-red-400" />
+                          : <span className="text-[10px] font-black text-red-400">👑</span>
+                      )}
+                    </div>
+                    <span className="text-xs text-zinc-400 truncate">
+                      {isTeamOrganizer ? "🛡️ " : "👑 "}
+                      <span className="font-bold text-zinc-200">{orgName}</span>
+                    </span>
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-zinc-600 group-hover:text-white transition group-hover:translate-x-1 shrink-0" />
                 </div>
               </Link>
             );

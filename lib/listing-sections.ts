@@ -75,5 +75,8 @@ export const LISTING_SECTIONS: Record<ListingSectionId, ListingSectionConfig> = 
 /** Shared listing page content width — matches coaches / team / events. */
 export const LISTING_PAGE_MAX_WIDTH = "max-w-[1400px]";
 
+/** Tighter top padding on mobile to sit closer to the app header. */
+export const LISTING_PAGE_SHELL_PADDING = "py-3 md:py-10";
+
 /** Article detail width — matches team public profile. */
 export const ARTICLE_PAGE_MAX_WIDTH = "max-w-4xl md:max-w-5xl";

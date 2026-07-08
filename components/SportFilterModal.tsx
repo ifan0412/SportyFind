@@ -45,7 +45,7 @@ export function SportFilterModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col md:items-center md:justify-center md:p-4">
+    <div className="fixed inset-0 z-[110] flex flex-col md:items-center md:justify-center md:p-4 md:z-50">
       <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
       <div className="relative z-10 flex flex-col w-full h-full md:h-auto md:max-h-[85vh] md:max-w-lg md:rounded-3xl bg-slate-900 shadow-2xl overflow-hidden">
         <div className="px-5 py-3.5 border-b border-slate-800 flex justify-between items-center shrink-0">

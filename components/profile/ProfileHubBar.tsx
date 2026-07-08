@@ -49,7 +49,7 @@ export function ProfileHubTopActions({ userId, onShare }: Pick<ProfileHubBarProp
 /** Flat sticky row — mobile / tablet only (render inside ProfileHubMobileBar) */
 export function ProfileHubIconRow({ activeTab, onTab }: Pick<ProfileHubBarProps, "activeTab" | "onTab">) {
   return (
-    <div className="grid grid-cols-6 gap-1 w-full">
+    <div className="grid grid-cols-5 gap-1 w-full">
       {PROFILE_HUB_TABS.map(({ id, icon: Icon, label }) => (
         <button
           key={id}

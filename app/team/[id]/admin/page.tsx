@@ -8,7 +8,7 @@ import { profileLink } from "@/lib/profile-links";
 import { RichTextEditor } from "@/components/admin/RichTextEditor";
 import { TeamMetadataFieldsForm } from "@/components/team/TeamMetadataFieldsForm";
 import { TeamMediaManager } from "@/components/team/TeamMediaManager";
-import { regionsToLocationString, cleanTeamMetadata } from "@/lib/team-metadata-fields";
+import { regionsToLocationString, cleanTeamMetadata, normalizeTeamMetadata } from "@/lib/team-metadata-fields";
 import {
   type GenderRequirement,
   GENDER_REQUIREMENT_OPTIONS,
@@ -21,6 +21,7 @@ import {
 import type { SportCategory } from "@/types/team";
 import { BIO_CHAR_SUGGESTED_MAX, BIO_CHAR_SUGGESTED_RANGE, plainTextLength } from "@/lib/content/body";
 import { GenderAvatarBadge } from "@/components/profile/GenderBadge";
+import { setTeamDetailBack } from "@/lib/team-listing-state";
 
 type AdminTab = "roster" | "details" | "media" | "settings";
 
@@ -96,7 +97,11 @@ export default function TeamAdminDashboard() {
       setEditFb(teamRes.data.social_links?.fb || "");
       setEditThreads(teamRes.data.social_links?.threads || "");
       setEditEstYear(teamRes.data.est_year ? String(teamRes.data.est_year) : "");
-      setEditSportMetadata((teamRes.data.sport_metadata as Record<string, string | boolean | string[]>) || {});
+      setEditSportMetadata(
+        normalizeTeamMetadata(
+          (teamRes.data.sport_metadata as Record<string, string | boolean | string[]>) || {}
+        )
+      );
     } catch (err) {
       setIsAuthorized(false);
     } finally {
@@ -308,7 +313,13 @@ export default function TeamAdminDashboard() {
       <div className="text-4xl">🔒</div>
       <h1 className="text-xl font-black text-white">無權限訪問群組後台</h1>
       <p className="text-sm text-zinc-400">只有該群組的核心管理員方能登入本設定大本營。</p>
-      <Link href={`/team/${id}`} className="bg-slate-800 hover:bg-slate-700 text-white font-bold text-sm px-6 py-2.5 rounded-xl transition">回到公開頁面</Link>
+      <Link
+        href={`/team/${id}`}
+        onClick={() => setTeamDetailBack("profile")}
+        className="bg-slate-800 hover:bg-slate-700 text-white font-bold text-sm px-6 py-2.5 rounded-xl transition"
+      >
+        回到公開頁面
+      </Link>
     </div>
   );
 
@@ -328,7 +339,11 @@ export default function TeamAdminDashboard() {
       <div className="w-full max-w-4xl md:max-w-5xl mx-auto px-4 sm:px-6 py-8 md:py-12">
         
         <div className="flex items-center justify-between mb-8">
-          <Link href={`/team/${id}`} className="text-sm font-black text-purple-500 hover:text-purple-400 transition relative z-30">
+          <Link
+            href={`/team/${id}`}
+            onClick={() => setTeamDetailBack("profile")}
+            className="text-sm font-black text-purple-500 hover:text-purple-400 transition relative z-30"
+          >
             ← 前往團隊公開頁面查看預覽
           </Link>
           <span className="bg-purple-500/10 border border-purple-500/20 text-purple-400 text-xs font-black px-3 py-1 rounded-full uppercase tracking-widest">後台中央管理層</span>

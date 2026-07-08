@@ -12,6 +12,7 @@ import { SPORT_CATEGORIES, normalizeSportCategory } from "@/lib/sports-categorie
 import { HKDistrictPicker } from "@/components/location/HKDistrictPicker";
 import { normalizeDistrictIds, normalizeSubdistrictIds } from "@/lib/hk-locations";
 import { type GenderRequirement, GENDER_REQUIREMENT_OPTIONS } from "@/lib/gender";
+import { RichTextEditor } from "@/components/admin/RichTextEditor";
 
 interface TeamOption {
   id: string;
@@ -711,12 +712,12 @@ export default function CreateEventPage() {
             {/* 8. 活動備註/介紹 */}
             <div>
               <label className="block text-xs font-black text-zinc-300 mb-2">活動介紹與報名須知</label>
-              <textarea
-                rows={4}
-                placeholder="請說明程度要求（例：D1/D2 聯賽程度）、球具自備說明或取消退費規範..."
+              <RichTextEditor
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm text-white focus:outline-none focus:border-blue-500 transition"
+                onChange={setDescription}
+                placeholder="請說明程度要求（例：D1/D2 聯賽程度）、球具自備說明或取消退費規範…"
+                variant="compact"
+                minHeight="160px"
               />
             </div>
 

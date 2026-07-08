@@ -21,15 +21,21 @@ export type TeamRole = 'admin' | 'coach' | 'captain' | 'player';
 export interface CompetitiveMetadata {
   team_gender?: "men" | "women" | "mixed";
   home_court?: string;
+  /** Merged league + division, e.g. "Super League · 甲一" */
+  league_division?: string;
+  /** @deprecated use league_division */
   league_name?: string;
+  /** @deprecated use league_division */
   division_level?: string;
-  team_colors?: string;
+  card_bio?: string;
   location_regions?: string[];
   training_frequency?: string;
 }
 
 // --- 拍類運動 (網球、羽球、匹克球) ---
 export interface RacketMetadata {
+  team_gender?: "men" | "women" | "mixed";
+  card_bio?: string;
   avg_skill_level?: string;   // e.g., "NTRP 3.0-4.0", "初中級"
   play_style?: 'singles' | 'doubles' | 'mixed' | 'all';
   court_surface?: string;     // e.g., "硬地", "室內木地板"
@@ -38,6 +44,8 @@ export interface RacketMetadata {
 
 // --- 體能與耐力型 (健身、路跑) ---
 export interface EnduranceMetadata {
+  team_gender?: "men" | "women" | "mixed";
+  card_bio?: string;
   primary_focus?: string;     // e.g., "健力三項", "馬拉松配速"
   home_base?: string;         // e.g., "Anytime Fitness 尖沙咀", "跑馬地"
   avg_pace?: string;          // e.g., "5:30/km"

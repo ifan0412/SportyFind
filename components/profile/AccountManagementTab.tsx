@@ -139,7 +139,7 @@ export function AccountManagementTab({ userEmail, identities }: AccountManagemen
       <div>
         <h2 className="text-lg md:text-xl font-black text-white flex items-center gap-2">
           <Shield className="w-5 h-5 text-blue-400" />
-          帳戶管理
+          我的帳戶設定
         </h2>
         <p className="text-xs text-zinc-500 mt-1">管理登入安全與帳戶設定。</p>
       </div>

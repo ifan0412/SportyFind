@@ -43,7 +43,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {/* 💡 這裡才是重點！呼叫我們做好的強大 Navbar 元件 */}
           <Navbar />
           
-          <main className="flex-1 bg-slate-950 py-6 pb-20 md:pb-6">
+          <main className="flex-1 bg-slate-950 py-2 pb-20 md:py-6 md:pb-6">
             <Providers>{children}</Providers>
           </main>
 

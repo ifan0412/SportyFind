@@ -12,7 +12,7 @@ import { SportFilterModal } from "@/components/SportFilterModal";
 import { LocationFilterModal } from "@/components/LocationFilterModal";
 import { BackButton } from "@/components/BackButton";
 import { ListingPageHeader } from "@/components/listing/ListingPageHeader";
-import { LISTING_PAGE_MAX_WIDTH } from "@/lib/listing-sections";
+import { LISTING_PAGE_MAX_WIDTH, LISTING_PAGE_SHELL_PADDING } from "@/lib/listing-sections";
 import {
   districtsForFilterModal,
   formatDistrictList,
@@ -173,7 +173,7 @@ export default function EventsLobbyPage() {
 
   return (
     <div className="bg-slate-950 min-h-screen text-zinc-200 font-sans selection:bg-red-500/30 pb-24 relative">
-      <div className={`${LISTING_PAGE_MAX_WIDTH} mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10`}>
+      <div className={`${LISTING_PAGE_MAX_WIDTH} mx-auto px-4 sm:px-6 lg:px-8 ${LISTING_PAGE_SHELL_PADDING}`}>
         <BackButton label="返回首頁" href="/" />
 
         <div className="mb-6 md:mb-8 flex flex-col lg:flex-row lg:items-start justify-between gap-1 lg:gap-4">
@@ -331,7 +331,7 @@ export default function EventsLobbyPage() {
                 >
                   <div className="space-y-4">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-blue-950 text-blue-400 border border-blue-500/30">
+                      <span className="bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-black px-3 py-1 rounded-full">
                         {(() => {
                           const sport = getSportCategory(ev.sport_category);
                           return sport ? `${sport.emoji} ${sport.labelZh}` : "⚡ 運動";

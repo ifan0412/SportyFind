@@ -8,6 +8,7 @@ export interface TeamMetaField {
   type: MetaFieldType;
   placeholder?: string;
   options?: { value: string; label: string }[];
+  maxLength?: number;
 }
 
 export const TEAM_REGION_OPTIONS = [
@@ -32,11 +33,16 @@ const TEAM_GENDER_FIELD: TeamMetaField = {
   options: [...TEAM_GENDER_OPTIONS],
 };
 
+export const TEAM_CARD_BIO_MAX = 50;
+
 const COMPETITIVE_FIELDS: TeamMetaField[] = [
   { key: "home_court", label: "主場 / 集合場館 (Home Court)", type: "text", placeholder: "例如：九龍灣體育館" },
-  { key: "league_name", label: "聯賽 / 組別 (League)", type: "text", placeholder: "例如：Super League" },
-  { key: "division_level", label: "級別 (Division)", type: "text", placeholder: "例如：Div 1 / 甲組" },
-  { key: "team_colors", label: "隊伍代表色 (Team Colors)", type: "text", placeholder: "例如：Blue / 藍色" },
+  {
+    key: "league_division",
+    label: "聯賽 / 級別 (League & Division)",
+    type: "text",
+    placeholder: "例如：Super League · 甲一",
+  },
   { key: "location_regions", label: "活動地區 (Regions)", type: "multiselect", options: TEAM_REGION_OPTIONS },
   { key: "training_frequency", label: "訓練頻率", type: "text", placeholder: "例如：Saturday / 每週六" },
 ];
@@ -66,6 +72,14 @@ const ENDURANCE_FIELDS: TeamMetaField[] = [
 ];
 
 export function getTeamMetaFields(sport: SportCategory | ""): TeamMetaField[] {
+  const cardBioField: TeamMetaField = {
+    key: "card_bio",
+    label: "卡片簡介 (Card Bio)",
+    type: "text",
+    placeholder: "一句話介紹隊伍，顯示於列表卡片",
+    maxLength: TEAM_CARD_BIO_MAX,
+  };
+
   let specific: TeamMetaField[] = [];
   if (sport === "volleyball" || sport === "basketball" || sport === "soccer") {
     specific = COMPETITIVE_FIELDS;
@@ -74,15 +88,18 @@ export function getTeamMetaFields(sport: SportCategory | ""): TeamMetaField[] {
   } else if (sport === "gym" || sport === "running") {
     specific = ENDURANCE_FIELDS;
   }
-  return [TEAM_GENDER_FIELD, ...specific];
+
+  const withoutDuplicateBio = specific.filter((f) => f.key !== "card_bio");
+  return [TEAM_GENDER_FIELD, cardBioField, ...withoutDuplicateBio];
 }
 
 export const TEAM_META_LABELS: Record<string, string> = {
   team_gender: "隊伍性別",
   home_court: "主場 / 場館",
+  league_division: "聯賽 / 級別",
   league_name: "聯賽 / 組別",
   division_level: "級別",
-  team_colors: "隊伍代表色",
+  card_bio: "卡片簡介",
   location_regions: "活動地區",
   training_frequency: "訓練頻率",
   avg_skill_level: "技術水平",
@@ -108,6 +125,12 @@ export const TEAM_PLAY_STYLE_LABELS: Record<string, string> = {
   all: "皆可 All",
 };
 
+const TEAM_GENDER_ICONS: Record<string, string> = {
+  men: "♂",
+  women: "♀",
+  mixed: "⚥",
+};
+
 const EMPTY_STRINGS = new Set(["", "n/a", "na", "none", "null", "-", "—"]);
 
 export function isTeamMetaValueEmpty(value: unknown): boolean {
@@ -120,6 +143,35 @@ export function isTeamMetaValueEmpty(value: unknown): boolean {
   if (typeof value === "boolean") return !value;
   if (typeof value === "number" && Number.isNaN(value)) return true;
   return false;
+}
+
+/** Migrate legacy competitive keys before save/display. */
+export function normalizeTeamMetadata(
+  metadata: Record<string, string | boolean | string[]>
+): Record<string, string | boolean | string[]> {
+  const out: Record<string, string | boolean | string[]> = { ...metadata };
+
+  if (isTeamMetaValueEmpty(out.league_division)) {
+    const league = typeof out.league_name === "string" ? out.league_name.trim() : "";
+    const division = typeof out.division_level === "string" ? out.division_level.trim() : "";
+    const merged = [league, division].filter(Boolean).join(" · ");
+    if (merged) out.league_division = merged;
+  }
+  delete out.league_name;
+  delete out.division_level;
+  delete out.team_colors;
+
+  if (typeof out.card_bio === "string") {
+    out.card_bio = out.card_bio.trim().slice(0, TEAM_CARD_BIO_MAX);
+  }
+
+  return out;
+}
+
+export function getTeamCardBio(metadata: Record<string, unknown> | null | undefined): string {
+  const raw = metadata?.card_bio;
+  if (typeof raw !== "string") return "";
+  return raw.trim().slice(0, TEAM_CARD_BIO_MAX);
 }
 
 export function formatTeamMetaValue(key: string, value: string | boolean | number | string[]): string {
@@ -138,8 +190,9 @@ export function regionsToLocationString(regions: string[]): string | null {
 export function cleanTeamMetadata(
   metadata: Record<string, string | boolean | string[]>
 ): Record<string, string | boolean | string[]> {
+  const normalized = normalizeTeamMetadata(metadata);
   const out: Record<string, string | boolean | string[]> = {};
-  for (const [key, value] of Object.entries(metadata)) {
+  for (const [key, value] of Object.entries(normalized)) {
     if (isTeamMetaValueEmpty(value)) continue;
     if (typeof value === "string") {
       out[key] = value.trim();
@@ -155,31 +208,40 @@ export function cleanTeamMetadata(
 
 export type TeamDisplayTag = { icon: string; label: string };
 
-/** Compact tags for team list cards (no bio). */
+/** Compact tags for team list cards (no bio / location / sport — those are rendered separately). */
 export function buildTeamCardTags(
   metadata: Record<string, unknown> | null | undefined
 ): TeamDisplayTag[] {
   const m = metadata ?? {};
   const tags: TeamDisplayTag[] = [];
 
-  const push = (icon: string, key: string, label?: string) => {
-    const raw = m[key];
-    if (isTeamMetaValueEmpty(raw)) return;
-    if (typeof raw === "string") {
-      tags.push({ icon, label: label ?? formatTeamMetaValue(key, raw) });
-    } else if (Array.isArray(raw)) {
-      tags.push({ icon, label: raw.join("、") });
-    }
-  };
+  const gender = m.team_gender;
+  if (typeof gender === "string" && !isTeamMetaValueEmpty(gender)) {
+    tags.push({
+      icon: TEAM_GENDER_ICONS[gender] ?? "👤",
+      label: TEAM_GENDER_LABELS[gender] ?? gender,
+    });
+  }
 
-  push("👤", "team_gender");
-  push("🏅", "division_level");
-  push("🏆", "league_name");
-  push("📅", "training_frequency");
-  push("🏟️", "home_court");
-  push("🎨", "team_colors");
+  const league =
+    typeof m.league_division === "string" && !isTeamMetaValueEmpty(m.league_division)
+      ? m.league_division.trim()
+      : [m.league_name, m.division_level]
+          .filter((v): v is string => typeof v === "string" && !isTeamMetaValueEmpty(v))
+          .join(" · ");
+  if (league) tags.push({ icon: "🏅", label: league });
 
-  return tags.slice(0, 5);
+  const training = m.training_frequency;
+  if (typeof training === "string" && !isTeamMetaValueEmpty(training)) {
+    tags.push({ icon: "📅", label: training });
+  }
+
+  const home = m.home_court;
+  if (typeof home === "string" && !isTeamMetaValueEmpty(home)) {
+    tags.push({ icon: "🏟️", label: home });
+  }
+
+  return tags.slice(0, 4);
 }
 
 export function metadataSearchText(metadata: Record<string, unknown> | null | undefined): string {
@@ -195,7 +257,11 @@ export function listFilledTeamMetaEntries(
   metadata: Record<string, unknown> | null | undefined
 ): [string, string | boolean | number | string[]][] {
   if (!metadata) return [];
-  return Object.entries(metadata).filter(
-    ([, v]) => !isTeamMetaValueEmpty(v)
+  const normalized = normalizeTeamMetadata(
+    metadata as Record<string, string | boolean | string[]>
+  );
+  const hidden = new Set(["card_bio", "league_name", "division_level", "team_colors"]);
+  return Object.entries(normalized).filter(
+    ([key, v]) => !hidden.has(key) && !isTeamMetaValueEmpty(v)
   ) as [string, string | boolean | number | string[]][];
 }

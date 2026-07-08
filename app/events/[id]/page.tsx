@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { 
   Calendar, MapPin, Users, Shield, Trophy, AlertTriangle, 
-  UserCheck, ArrowLeft, Loader2, User as UserIcon, Trash2, Share2, Check
+  UserCheck, ArrowLeft, Loader2, User as UserIcon, Trash2, Share2, Check, Pencil
 } from "lucide-react";
 import Link from "next/link";
 import EventLobbyBoard from "@/components/EventLobbyBoard";
@@ -17,10 +17,14 @@ import {
   getEventApprovalMode,
   getVisibleRegistrations,
   isConfirmedRegStatus,
+  isEventAcceptingGuests,
   isPendingRegStatus,
   isWaitlistRegStatus,
   normalizeRegStatus,
+  resolveNewJoinStatus,
 } from "@/lib/event-registration";
+import { RichTextEditor } from "@/components/admin/RichTextEditor";
+import { RichBody } from "@/components/content/RichBody";
 import {
   genderMeetsRequirement,
   genderRequirementRejectMessage,
@@ -46,6 +50,9 @@ export default function EventDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [editDescription, setEditDescription] = useState("");
+  const [isSavingDescription, setIsSavingDescription] = useState(false);
 
   // 報名互動表單狀態
   const [companionCount, setCompanionCount] = useState(0);
@@ -183,6 +190,8 @@ export default function EventDetailPage() {
       (event.organizer_team_id && myManagedTeams.some(t => t.id === event.organizer_team_id))
     )
   );
+  const isCreator = Boolean(currentUser && event.creator_id === currentUser.id);
+  const acceptingGuests = isEventAcceptingGuests(event);
 
   const activeIndivReg = registrations.find(r => 
     r.user_id === currentUser?.id && 
@@ -426,6 +435,43 @@ export default function EventDetailPage() {
     }
   };
 
+  const handleSaveDescription = async () => {
+    if (!isCreator) return;
+    setIsSavingDescription(true);
+    try {
+      const { error } = await supabase
+        .from("events")
+        .update({ description: editDescription.trim() || null })
+        .eq("id", eventId);
+      if (error) throw error;
+      setEvent((prev: any) => ({ ...prev, description: editDescription.trim() || null }));
+      setIsEditingDescription(false);
+      alert("活動介紹已更新！");
+    } catch (err: any) {
+      alert("儲存失敗: " + (err.message || "未知錯誤"));
+    } finally {
+      setIsSavingDescription(false);
+    }
+  };
+
+  const handleToggleAcceptingGuests = async () => {
+    if (!isOrganizer) return;
+    setActionLoading(true);
+    try {
+      const nextValue = !acceptingGuests;
+      const { error } = await supabase
+        .from("events")
+        .update({ accepting_guests: nextValue })
+        .eq("id", eventId);
+      if (error) throw error;
+      setEvent((prev: any) => ({ ...prev, accepting_guests: nextValue }));
+    } catch (err: any) {
+      alert("更新失敗: " + (err.message || "未知錯誤"));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleIndividualJoin = async () => {
     if (!currentUser) return router.push("/auth");
 
@@ -445,12 +491,10 @@ export default function EventDetailPage() {
       let notifyHost = false;
 
       if (rejectedIndivReg) {
-        const newStatus =
-          approvalMode === "approval"
-            ? "pending"
-            : isFull
-              ? "waitlist"
-              : "going";
+        const newStatus = resolveNewJoinStatus(event, {
+          filledCount: currentFilledCount,
+          slotsNeeded: 1 + companionCount,
+        });
         const { error } = await supabase
           .from("event_registrations")
           .update({
@@ -464,7 +508,11 @@ export default function EventDetailPage() {
         if (error) throw error;
         notifyHost = true;
         alert(
-          approvalMode === "approval"
+          !acceptingGuests
+            ? approvalMode === "approval"
+              ? "主辦已暫停接受報名，申請已列入審核名單！"
+              : "主辦已暫停接受報名，已排入候補名單！"
+            : approvalMode === "approval"
             ? "🎉 參賽申請已重新送出，請等候主辦審核！"
             : newStatus === "waitlist"
               ? "⏳ 已排入候補名單！"
@@ -774,6 +822,12 @@ export default function EventDetailPage() {
                 {approvalMode === "approval" ? "主辦審核" : "先到先得"}
               </span>
             )}
+
+            {!acceptingGuests && (
+              <span className="px-3 py-1 rounded-full text-xs font-black bg-red-950/50 text-red-300 border border-red-500/30">
+                主辦已暫停接受報名
+              </span>
+            )}
           </div>
 
           <h1 className="text-2xl sm:text-4xl font-black tracking-tight mb-2">{event.title}</h1>
@@ -823,7 +877,66 @@ export default function EventDetailPage() {
             )}
           </div>
 
-          {event.description && <div className="text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap bg-slate-950/30 p-4 rounded-2xl border border-slate-800/40">{event.description}</div>}
+          <div className="space-y-3">
+            {isEditingDescription ? (
+              <div className="bg-slate-950/30 p-4 rounded-2xl border border-slate-800/40 space-y-3">
+                <RichTextEditor
+                  value={editDescription}
+                  onChange={setEditDescription}
+                  placeholder="撰寫活動介紹、程度要求、報名須知…"
+                  variant="compact"
+                  minHeight="180px"
+                />
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    disabled={isSavingDescription}
+                    onClick={() => {
+                      setIsEditingDescription(false);
+                      setEditDescription(event.description || "");
+                    }}
+                    className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-zinc-300 text-xs font-bold transition cursor-pointer"
+                  >
+                    取消
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isSavingDescription}
+                    onClick={handleSaveDescription}
+                    className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 text-white text-xs font-black transition flex items-center gap-1.5 cursor-pointer"
+                  >
+                    {isSavingDescription ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                    儲存介紹
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                {event.description ? (
+                  <div className="text-sm text-zinc-300 leading-relaxed bg-slate-950/30 p-4 rounded-2xl border border-slate-800/40">
+                    <RichBody html={event.description} />
+                  </div>
+                ) : isCreator ? (
+                  <div className="text-sm text-zinc-500 italic bg-slate-950/30 p-4 rounded-2xl border border-slate-800/40">
+                    尚無活動介紹
+                  </div>
+                ) : null}
+                {isCreator && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditDescription(event.description || "");
+                      setIsEditingDescription(true);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold text-zinc-300 hover:text-white transition cursor-pointer"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                    編輯活動介紹
+                  </button>
+                )}
+              </>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -840,6 +953,25 @@ export default function EventDetailPage() {
                     <span className="text-xs font-black text-blue-400 uppercase tracking-wider block">您是本活動主辦人</span>
                     <p className="text-xs text-zinc-300">您可以在右側名單審核參賽球隊或管理球員狀態。</p>
                   </div>
+
+                  <button
+                    type="button"
+                    disabled={actionLoading}
+                    onClick={handleToggleAcceptingGuests}
+                    className={`w-full py-3 rounded-xl text-xs font-black transition flex items-center justify-center gap-2 active:scale-95 cursor-pointer ${
+                      acceptingGuests
+                        ? "bg-red-600 hover:bg-red-500 text-white shadow-lg"
+                        : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg"
+                    }`}
+                  >
+                    {actionLoading ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : acceptingGuests ? (
+                      "暫停接受報名"
+                    ) : (
+                      "重新開放報名"
+                    )}
+                  </button>
                   
                   <button
                     type="button"
@@ -899,6 +1031,13 @@ export default function EventDetailPage() {
                   </div>
                 ) : (
                   <div className="space-y-4">
+                    {!acceptingGuests && (
+                      <div className="p-3 bg-red-950/40 border border-red-500/30 rounded-2xl text-xs text-red-300 font-bold flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+                        <span>主辦已暫停接受報名，新報名將排入{approvalMode === "approval" ? "審核" : "候補"}名單。</span>
+                      </div>
+                    )}
+
                     {rejectedIndivReg && (
                       <div className="p-3 bg-red-950/60 border border-red-500/40 rounded-2xl text-xs text-red-300 font-bold flex items-center gap-2">
                         <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
@@ -967,6 +1106,8 @@ export default function EventDetailPage() {
                     >
                       {actionLoading ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : !acceptingGuests ? (
+                        approvalMode === "approval" ? "送出參賽申請（審核名單）" : "排入候補名單"
                       ) : approvalMode === "approval" ? (
                         "送出參賽申請"
                       ) : isFull ? (

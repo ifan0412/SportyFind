@@ -12,9 +12,14 @@ interface EventCalendarProps {
     location_name: string;
     location_address?: string;
   };
+  /** Where the options menu opens relative to the button. */
+  menuPlacement?: "up" | "down";
 }
 
-export default function CalendarExportButton({ event }: EventCalendarProps) {
+export default function CalendarExportButton({
+  event,
+  menuPlacement = "down",
+}: EventCalendarProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -110,7 +115,11 @@ export default function CalendarExportButton({ event }: EventCalendarProps) {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 bottom-full mb-2 w-52 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl py-1.5 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div
+          className={`absolute right-0 w-52 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl py-1.5 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 ${
+            menuPlacement === "up" ? "bottom-full mb-2" : "top-full mt-2"
+          }`}
+        >
           <button
             type="button"
             onClick={downloadIcsFile}

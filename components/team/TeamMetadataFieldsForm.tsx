@@ -2,7 +2,7 @@
 
 import type { SportCategory } from "@/types/team";
 import { SPORT_CATEGORIES } from "@/lib/sports-categories";
-import { getTeamMetaFields } from "@/lib/team-metadata-fields";
+import { getTeamMetaFields, TEAM_CARD_BIO_MAX } from "@/lib/team-metadata-fields";
 
 const inputCls =
   "w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-500 transition";
@@ -72,12 +72,25 @@ export function TeamMetadataFieldsForm({
             <div key={field.key}>
               <label className={labelCls}>{field.label}</label>
               {field.type === "text" && (
-                <input
-                  className={inputCls}
-                  placeholder={field.placeholder}
-                  value={(metadata[field.key] as string) ?? ""}
-                  onChange={(e) => setMeta(field.key, e.target.value)}
-                />
+                <div>
+                  <input
+                    className={inputCls}
+                    placeholder={field.placeholder}
+                    maxLength={field.maxLength}
+                    value={(metadata[field.key] as string) ?? ""}
+                    onChange={(e) => {
+                      const next = field.maxLength
+                        ? e.target.value.slice(0, field.maxLength)
+                        : e.target.value;
+                      setMeta(field.key, next);
+                    }}
+                  />
+                  {field.maxLength ? (
+                    <p className="mt-1.5 text-[10px] text-zinc-500 font-bold text-right">
+                      {String((metadata[field.key] as string) ?? "").length}/{field.maxLength || TEAM_CARD_BIO_MAX}
+                    </p>
+                  ) : null}
+                </div>
               )}
               {field.type === "select" && (
                 <select

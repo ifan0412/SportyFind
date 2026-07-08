@@ -22,7 +22,7 @@ export function ListingPageHeader({
   const desc = subtitle ?? config.subtitle;
 
   return (
-    <header className={`mb-6 md:mb-8 text-left mt-2 ${className}`}>
+    <header className={`mb-4 md:mb-8 text-left mt-0 ${className}`}>
       <div className="flex flex-row items-center gap-3 sm:gap-4 mb-3">
         <div
           className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center text-white shadow-lg bg-gradient-to-br ${config.gradient} ${config.shadow} shrink-0`}

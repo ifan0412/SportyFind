@@ -12,6 +12,7 @@ import {
   normalizeDistrictIds,
   normalizeSubdistrictIds,
 } from "@/lib/hk-locations";
+import { LISTING_PAGE_SHELL_PADDING } from "@/lib/listing-sections";
 import { RichBody } from "@/components/content/RichBody";
 import { SportCategoryBadge } from "@/components/sports/SportCategoryBadge";
 import { stripHtml, truncatePlainBio, serviceDescriptionPreview } from "@/lib/content/body";
@@ -289,12 +290,15 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
     } finally { setFriendLoading(false); }
   };
 
-  const FriendButton = () => {
+  const FriendButton = ({ compact = false }: { compact?: boolean }) => {
     if (!currentUserId || currentUserId === id) return null;
+    const btnClass = compact
+      ? "w-full py-2.5 px-4 rounded-full text-sm font-black transition-all duration-300 cursor-pointer"
+      : "w-full mt-4 py-2.5 px-6 rounded-full text-sm font-black transition-all duration-300 cursor-pointer";
     if (friendshipStatus === "accepted") {
       if (showUnfriendConfirm) {
         return (
-          <div className="mt-4 bg-slate-900 border border-slate-700 rounded-2xl p-4 shadow-xl text-center animate-fadeIn">
+          <div className={`${compact ? "" : "mt-4 "}bg-slate-900 border border-slate-700 rounded-2xl p-4 shadow-xl text-center animate-fadeIn`}>
             <p className="text-sm text-zinc-300 font-bold mb-4">確定要解除好友關係？</p>
             <div className="flex gap-2">
               <button onClick={handleCancelOrUnfriend} disabled={friendLoading} className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-black transition cursor-pointer">
@@ -307,12 +311,12 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
           </div>
         );
       }
-      return <button onClick={() => setShowUnfriendConfirm(true)} className="w-full mt-4 py-2.5 px-6 rounded-full text-sm font-black bg-blue-600/20 border border-blue-500/30 text-blue-400 hover:bg-red-500/20 hover:border-red-500/30 hover:text-red-400 transition-all duration-300 cursor-pointer">✓ 已加好友</button>;
+      return <button onClick={() => setShowUnfriendConfirm(true)} className={`${btnClass} bg-blue-600/20 border border-blue-500/30 text-blue-400 hover:bg-red-500/20 hover:border-red-500/30 hover:text-red-400`}>✓ 已加好友</button>;
     }
-    if (friendshipStatus === "pending_sent") return <button onClick={handleCancelOrUnfriend} disabled={friendLoading} className="w-full mt-4 py-2.5 px-6 rounded-full text-sm font-black bg-slate-800 border border-slate-700 text-zinc-400 hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-400 transition-all duration-300 cursor-pointer">{friendLoading ? "處理中..." : "⏳ 已發送請求（點擊取消）"}</button>;
+    if (friendshipStatus === "pending_sent") return <button onClick={handleCancelOrUnfriend} disabled={friendLoading} className={`${btnClass} bg-slate-800 border border-slate-700 text-zinc-400 hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-400`}>{friendLoading ? "處理中..." : "⏳ 已發送請求（點擊取消）"}</button>;
     if (friendshipStatus === "pending_received") {
       return (
-        <div className="mt-4 space-y-2">
+        <div className={`${compact ? "" : "mt-4 "}space-y-2`}>
           <p className="text-xs text-zinc-500 font-bold text-center">對方向你發送了好友請求</p>
           <div className="flex gap-2">
             <button onClick={handleAcceptRequest} disabled={friendLoading} className="flex-1 py-2.5 rounded-full text-sm font-black bg-blue-600 hover:bg-blue-500 text-white transition-all duration-300 shadow-[0_0_15px_rgba(37,99,235,0.3)] cursor-pointer">{friendLoading ? "處理中..." : "✓ 接受"}</button>
@@ -321,8 +325,14 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
         </div>
       );
     }
-    return <button onClick={handleSendRequest} disabled={friendLoading} className="w-full mt-4 py-2.5 px-6 rounded-full text-sm font-black bg-blue-600 hover:bg-blue-500 text-white transition-all duration-300 shadow-[0_0_15px_rgba(37,99,235,0.3)] cursor-pointer">{friendLoading ? "處理中..." : "+ 加好友"}</button>;
+    return <button onClick={handleSendRequest} disabled={friendLoading} className={`${btnClass} bg-blue-600 hover:bg-blue-500 text-white shadow-[0_0_15px_rgba(37,99,235,0.3)]`}>{friendLoading ? "處理中..." : "+ 加好友"}</button>;
   };
+
+  const showSideBySideActions =
+    currentUserId &&
+    currentUserId !== id &&
+    !showUnfriendConfirm &&
+    friendshipStatus !== "pending_received";
 
   if (isLoading) return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-zinc-500 font-mono">載入名片中...</div>;
   if (isNotFound || !profile) return <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-center"><h1 className="text-4xl font-black text-white mb-2">404</h1><p className="text-zinc-500 mb-6">查無此名片或已關閉</p><Link href="/network" className="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold">返回</Link></div>;
@@ -339,10 +349,10 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
 
   return (
     <div className="bg-slate-950 min-h-screen text-zinc-200 font-sans selection:bg-blue-500/30">
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className={`max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 ${LISTING_PAGE_SHELL_PADDING}`}>
         <BackButton label={returnTo ? "返回上一頁" : "返回"} href={returnTo || undefined} />
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mt-4">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mt-1 lg:mt-4">
           <div className="lg:col-span-4 xl:col-span-3 space-y-6">
             <div className="bg-slate-900/40 backdrop-blur-xl border border-slate-800/60 rounded-3xl p-6 sticky top-20 shadow-2xl text-center">
               <div className="relative w-32 h-32 mx-auto mb-6 overflow-visible">
@@ -373,22 +383,38 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
                 {hasPublicPhysio && <span className="bg-green-500/10 text-green-400 text-[10px] font-black px-3 py-1 rounded-full border border-green-500/20">⚕️ 運動/物理治療</span>}
               </div>
               
-              <p className="text-sm text-zinc-300 leading-relaxed text-left bg-slate-900/30 p-4 rounded-2xl border border-slate-800/50 mb-6">
+              <p className="text-sm text-zinc-300 leading-relaxed text-center bg-slate-900/30 p-4 rounded-2xl border border-slate-800/50 mb-6">
                 {truncatePlainBio(profile.bio || "") || "這位運動員很低調，還沒有留下詳細的自介。"}
               </p>
               <div className="mt-4 flex items-center justify-center gap-2 text-xs text-zinc-500 font-medium">
                 <span>📍 {formatDistrictList(normalizeDistrictIds(profile.districts, profile.location), 2) || profile.location || "地點未公開"}</span>
               </div>
 
-              <FriendButton />
-
-              {currentUserId && currentUserId !== id && (
-                <button
-                  onClick={() => router.push(`/inbox?to=${id}&role=${activeRole}`)}
-                  className="w-full mt-2.5 py-3 px-6 rounded-full text-sm font-black bg-blue-600 hover:bg-blue-500 text-white transition-all duration-300 shadow-[0_0_15px_rgba(37,99,235,0.3)] cursor-pointer flex items-center justify-center gap-2"
-                >
-                  <MessageSquare className="w-4 h-4" /> 站內訊息
-                </button>
+              {showSideBySideActions ? (
+                <div className="mt-4 flex gap-2">
+                  <div className="flex-1 min-w-0">
+                    <FriendButton compact />
+                  </div>
+                  <button
+                    onClick={() => router.push(`/inbox?to=${id}&role=${activeRole}`)}
+                    className="flex-1 min-w-0 py-2.5 px-4 rounded-full text-sm font-black bg-blue-600 hover:bg-blue-500 text-white transition-all duration-300 shadow-[0_0_15px_rgba(37,99,235,0.3)] cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    <MessageSquare className="w-4 h-4 shrink-0" />
+                    <span className="truncate">站內訊息</span>
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <FriendButton />
+                  {currentUserId && currentUserId !== id && (
+                    <button
+                      onClick={() => router.push(`/inbox?to=${id}&role=${activeRole}`)}
+                      className="w-full mt-2.5 py-3 px-6 rounded-full text-sm font-black bg-blue-600 hover:bg-blue-500 text-white transition-all duration-300 shadow-[0_0_15px_rgba(37,99,235,0.3)] cursor-pointer flex items-center justify-center gap-2"
+                    >
+                      <MessageSquare className="w-4 h-4" /> 站內訊息
+                    </button>
+                  )}
+                </>
               )}
             </div>
           </div>

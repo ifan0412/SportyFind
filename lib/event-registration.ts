@@ -41,6 +41,40 @@ export function getEventApprovalMode(event: {
   return event.approval_mode === "approval" ? "approval" : "fcfs";
 }
 
+export function isEventAcceptingGuests(event: {
+  accepting_guests?: boolean | null;
+}): boolean {
+  return event.accepting_guests !== false;
+}
+
+/** Status assigned to a brand-new join or re-apply after rejection/cancel. */
+export function resolveNewJoinStatus(
+  event: {
+    accepting_guests?: boolean | null;
+    registration_type?: string | null;
+    approval_mode?: string | null;
+    max_capacity?: number | null;
+  },
+  opts: { filledCount: number; slotsNeeded: number }
+): "pending" | "waitlist" | "going" {
+  const approvalMode = getEventApprovalMode(event);
+
+  if (!isEventAcceptingGuests(event)) {
+    return approvalMode === "approval" ? "pending" : "waitlist";
+  }
+
+  if (approvalMode === "approval") return "pending";
+
+  if (
+    event.max_capacity != null &&
+    opts.filledCount + opts.slotsNeeded > event.max_capacity
+  ) {
+    return "waitlist";
+  }
+
+  return "going";
+}
+
 export function getVisibleRegistrations<T extends { status?: string | null; user_id?: string | null }>(
   registrations: T[],
   opts: {

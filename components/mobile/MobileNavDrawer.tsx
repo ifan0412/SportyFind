@@ -51,7 +51,8 @@ export function MobileNavDrawer({
       <div className="absolute inset-0 bg-slate-950 border-t border-slate-800 overflow-y-auto shadow-2xl">
         <ul className="mx-auto w-full space-y-2 px-4 py-6 sm:px-6">
           {navLinks.map(({ href, label, icon: Icon }) => {
-            const isActive = pathname === href || pathname.startsWith(`${href}/`);
+            const hrefPath = href.split("?")[0];
+            const isActive = pathname === hrefPath || pathname.startsWith(`${hrefPath}/`);
             return (
               <li key={href}>
                 <Link

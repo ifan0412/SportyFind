@@ -19,10 +19,10 @@ const HUB_ITEMS: {
     accent: "hover:border-blue-500/40 hover:bg-blue-500/5 group-hover:text-blue-400",
   },
   {
-    id: "account",
+    id: "settings",
     icon: Settings,
-    label: "帳戶管理",
-    desc: "電郵、密碼與登入方式",
+    label: "設定",
+    desc: "帳戶、密碼與登入方式",
     accent: "hover:border-slate-500/40 hover:bg-slate-500/5 group-hover:text-zinc-200",
   },
   {

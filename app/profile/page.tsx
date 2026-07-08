@@ -12,7 +12,6 @@ import { DashboardTab } from "@/components/profile/DashboardTab";
 import { FeedTab } from "@/components/profile/FeedTab";
 import { ExpertiseTab } from "@/components/profile/ExpertiseTab";
 import { HighlightsTab } from "@/components/profile/HighlightsTab";
-import { AccountManagementTab } from "@/components/profile/AccountManagementTab";
 import { ProfileRolePreview, type AthleteSubTab, type ProfileRole } from "@/components/profile/ProfileRolePreview";
 import { getSportSchema } from "@/constants/sportsSchema";
 import { getSportCategory, normalizeSportCategory, type SportCategoryId } from "@/lib/sports-categories";
@@ -33,7 +32,9 @@ import { type ProfileGender } from "@/lib/gender";
 import { GenderAvatarBadge } from "@/components/profile/GenderBadge";
 import { ProfileHubTopActions, ProfileHubMobileBar } from "@/components/profile/ProfileHubBar";
 import { ProfileHubTabNav, type ProfileHubTabId } from "@/components/profile/ProfileHubTabNav";
+import { ProfileSettingsList } from "@/components/profile/ProfileSettingsList";
 import { ProfileEditTab } from "@/components/profile/ProfileEditTab";
+import { LISTING_PAGE_SHELL_PADDING } from "@/lib/listing-sections";
 import { MyEventsTab } from "@/components/profile/MyEventsTab";
 
 interface Profile {
@@ -120,7 +121,7 @@ const TEAM_SPORT_ZH: Record<string, string> = Object.fromEntries(
   ])
 );
 
-type PrivateTabId = "home" | "dashboard" | "edit" | "friends" | "teams" | "account" | "events";
+type PrivateTabId = "home" | "dashboard" | "edit" | "friends" | "teams" | "settings" | "events";
 
 const DEFAULT_FORM = {
   first_name: "", last_name: "", handle: "", full_name: "", headline: "", location: "", country: "", region: "", bio: "", athlete_bio: "", avatar_url: "", status_tag: "committed", display_sports: [] as string[],
@@ -232,7 +233,12 @@ function ProfilePageContent() {
     const tabQuery = searchParams?.get("tab");
     const viewQuery = searchParams?.get("view");
 
-    if (tabQuery && ["dashboard", "edit", "friends", "teams", "account", "events"].includes(tabQuery)) {
+    if (tabQuery === "account") {
+      router.replace("/profile/settings/account");
+      return;
+    }
+
+    if (tabQuery && ["dashboard", "edit", "friends", "teams", "settings", "events"].includes(tabQuery)) {
       setPrivateTab(tabQuery as PrivateTabId);
     } else if (viewQuery === "coach") {
       setPrivateTab("home");
@@ -247,7 +253,7 @@ function ProfilePageContent() {
     } else {
       setPrivateTab("home");
     }
-  }, [searchParams]);
+  }, [searchParams, router]);
 
   const showPlayer = profile?.is_player !== false || editForm.is_player;
   const showCoach = !!(profile?.is_coach || editForm.is_coach);
@@ -693,9 +699,11 @@ function ProfilePageContent() {
 
   return (
     <div className="bg-slate-950 min-h-screen text-zinc-200 font-sans selection:bg-blue-500/30">
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <BackButton label="返回首頁" />
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-8 mt-4">
+      <div className={`max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 ${LISTING_PAGE_SHELL_PADDING}`}>
+        <div className="hidden lg:block">
+          <BackButton label="返回首頁" />
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-8 mt-1 lg:mt-4">
 
           {/* ── Profile card ── */}
           <div className="order-1 lg:col-span-4 xl:col-span-3">
@@ -726,7 +734,7 @@ function ProfilePageContent() {
                   {profile?.is_coach && <span className="bg-amber-500/10 text-amber-400 text-[10px] font-black px-3 py-1 rounded-full border border-amber-500/20">🎓 教練</span>}
                   {profile?.is_physio && <span className="bg-emerald-500/10 text-emerald-400 text-[10px] font-black px-3 py-1 rounded-full border border-emerald-500/20">⚕️ 物理治療</span>}
                 </div>
-                <p className="text-sm text-zinc-300 leading-relaxed text-left bg-slate-900/30 p-4 rounded-2xl border border-slate-800/50">{stripHtml(profile?.bio || "") || "寫下一段關於你的歷程..."}</p>
+                <p className="text-sm text-zinc-300 leading-relaxed text-center bg-slate-900/30 p-4 rounded-2xl border border-slate-800/50">{stripHtml(profile?.bio || "") || "寫下一段關於你的歷程..."}</p>
               </div>
             </div>
           </div>
@@ -816,8 +824,8 @@ function ProfilePageContent() {
                       <FriendsTab currentUserId={user.id} />
                     </div>
                   )}
-                  {privateTab === "account" && user && (
-                    <AccountManagementTab userEmail={user.email} identities={user.identities} />
+                  {privateTab === "settings" && (
+                    <ProfileSettingsList onNavigate={(href) => router.push(href)} />
                   )}
                   {privateTab === "events" && user && (
                     <MyEventsTab embedded userId={user.id} />
