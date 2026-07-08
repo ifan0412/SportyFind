@@ -33,3 +33,12 @@ export function truncatePlainBio(text: string, max = PROFILE_CARD_BIO_MAX): stri
   if (plain.length <= max) return plain;
   return `${plain.slice(0, max - 1)}…`;
 }
+
+/** Plain-text preview for rich-text service descriptions on listing cards */
+export function serviceDescriptionPreview(
+  html: string | null | undefined,
+  fallback: string
+): string {
+  const plain = stripHtml(html || "");
+  return plain || fallback;
+}

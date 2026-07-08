@@ -11,9 +11,9 @@ const SYMBOLS: Record<ProfileGender, string> = {
 };
 
 const SIZE_CLASSES = {
-  xs: "w-5 h-5 text-[10px]",
-  sm: "w-6 h-6 text-xs",
-  md: "w-7 h-7 text-sm",
+  xs: "w-[18px] h-[18px] text-[9px]",
+  sm: "w-5 h-5 text-[10px]",
+  md: "w-6 h-6 text-xs",
 } as const;
 
 export type GenderBadgeSize = keyof typeof SIZE_CLASSES;
@@ -39,7 +39,10 @@ export function GenderBadge({ gender, size = "sm", className = "" }: GenderBadge
   );
 }
 
-/** Pin badge on avatar corner (top-right). */
+/**
+ * Pin gender badge on avatar upper-right rim.
+ * Parent must be `relative` with explicit avatar dimensions and `overflow-visible`.
+ */
 export function GenderAvatarBadge({
   gender,
   size = "xs",
@@ -52,7 +55,7 @@ export function GenderAvatarBadge({
     <GenderBadge
       gender={normalized}
       size={size}
-      className={`absolute -top-0.5 -right-0.5 z-10 shadow-md ring-2 ring-slate-950 ${className}`}
+      className={`absolute top-0 right-0 z-10 translate-x-[20%] -translate-y-[20%] shadow-md ring-2 ring-slate-950 pointer-events-none ${className}`}
     />
   );
 }

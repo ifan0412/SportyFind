@@ -21,7 +21,6 @@ import { stripHtml, PROFILE_CARD_BIO_MAX } from "@/lib/content/body";
 import { SportCategoryPicker } from "@/components/sports/SportCategoryPicker";
 import { SportPositionPicker } from "@/components/sports/SportPositionPicker";
 import { normalizeSportMetadataForSave, sportFormDataFromMetadata, sportFormHasEmptyFields } from "@/lib/sport-positions";
-import { HKDistrictPicker } from "@/components/location/HKDistrictPicker";
 import {
   formatDistrictList,
   isHongKongCountry,
@@ -29,8 +28,12 @@ import {
   normalizeSubdistrictIds,
 } from "@/lib/hk-locations";
 import { mapHighlightGalleryFiles } from "@/lib/highlights-gallery";
-import { type ProfileGender, PROFILE_GENDER_OPTIONS } from "@/lib/gender";
+import { type ProfileGender } from "@/lib/gender";
 import { GenderAvatarBadge } from "@/components/profile/GenderBadge";
+import { ProfileHubTopActions, ProfileHubMobileBar } from "@/components/profile/ProfileHubBar";
+import { ProfileHubTabNav, type ProfileHubTabId } from "@/components/profile/ProfileHubTabNav";
+import { ProfileEditTab } from "@/components/profile/ProfileEditTab";
+import { MyEventsTab } from "@/components/profile/MyEventsTab";
 
 interface Profile {
   id: string;
@@ -116,7 +119,7 @@ const TEAM_SPORT_ZH: Record<string, string> = Object.fromEntries(
   ])
 );
 
-type PrivateTabId = "dashboard" | "friends" | "teams" | "account";
+type PrivateTabId = "home" | "dashboard" | "edit" | "friends" | "teams" | "account" | "events";
 
 const DEFAULT_FORM = {
   first_name: "", last_name: "", handle: "", full_name: "", headline: "", location: "", country: "", region: "", bio: "", athlete_bio: "", avatar_url: "", status_tag: "committed", display_sports: [] as string[],
@@ -193,10 +196,9 @@ function ProfilePageContent() {
   const [allSports, setAllSports] = useState<Sport[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const [privateTab, setPrivateTab] = useState<PrivateTabId | null>(null);
+  const [privateTab, setPrivateTab] = useState<PrivateTabId>("home");
   const [activeRole, setActiveRole] = useState<ProfileRole>("athlete");
   const [activeAthleteTab, setActiveAthleteTab] = useState<AthleteSubTab>("expertise");
-  const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [editForm, setEditForm] = useState<any>(DEFAULT_FORM);
   const [handleStatus, setHandleStatus] = useState<"idle" | "checking" | "available" | "taken">("idle");
@@ -222,19 +224,23 @@ function ProfilePageContent() {
   const [coachReviews, setCoachReviews] = useState<{ rating: number }[]>([]);
 
   useEffect(() => {
-    const tabParam = searchParams?.get("tab") || searchParams?.get("view");
-    if (tabParam && ["dashboard", "friends", "teams", "account"].includes(tabParam)) {
-      setPrivateTab(tabParam as PrivateTabId);
-    } else if (tabParam === "coach") {
-      setPrivateTab(null);
+    const tabQuery = searchParams?.get("tab");
+    const viewQuery = searchParams?.get("view");
+
+    if (tabQuery && ["dashboard", "edit", "friends", "teams", "account", "events"].includes(tabQuery)) {
+      setPrivateTab(tabQuery as PrivateTabId);
+    } else if (viewQuery === "coach") {
+      setPrivateTab("home");
       setActiveRole("coach");
-    } else if (tabParam === "physio") {
-      setPrivateTab(null);
+    } else if (viewQuery === "physio") {
+      setPrivateTab("home");
       setActiveRole("physio");
-    } else if (tabParam === "expertise" || tabParam === "highlights" || tabParam === "feed") {
-      setPrivateTab(null);
+    } else if (viewQuery === "expertise" || viewQuery === "highlights" || viewQuery === "feed") {
+      setPrivateTab("home");
       setActiveRole("athlete");
-      setActiveAthleteTab(tabParam as AthleteSubTab);
+      setActiveAthleteTab(viewQuery as AthleteSubTab);
+    } else {
+      setPrivateTab("home");
     }
   }, [searchParams]);
 
@@ -251,15 +257,29 @@ function ProfilePageContent() {
 
   const handlePrivateTabSwitch = useCallback((tab: PrivateTabId) => {
     setPrivateTab(tab);
+    if (tab === "home") {
+      router.replace("/profile", { scroll: false });
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+    router.replace(`/profile?tab=${tab}`, { scroll: false });
     if (window.innerWidth < 1024 && contentRef.current) {
       const y = contentRef.current.getBoundingClientRect().top + window.scrollY - 80;
       window.scrollTo({ top: y, behavior: "smooth" });
     }
-  }, []);
+  }, [router]);
 
   const handleReturnToPreview = useCallback(() => {
-    setPrivateTab(null);
-  }, []);
+    setPrivateTab("home");
+    router.replace("/profile", { scroll: false });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [router]);
+
+  const handleShareProfile = useCallback(() => {
+    if (!user?.id) return;
+    navigator.clipboard.writeText(`${window.location.origin}/p/${user.id}`);
+    alert("名片網址已複製！");
+  }, [user?.id]);
 
   const loadProfileData = useCallback(async (userId: string) => {
     try {
@@ -360,6 +380,11 @@ function ProfilePageContent() {
     } catch (err) { console.error(err); } finally { setIsLoading(false); }
   }, [supabase]);
 
+  const handleCancelEdit = useCallback(() => {
+    if (user) loadProfileData(user.id);
+    handleReturnToPreview();
+  }, [user, loadProfileData, handleReturnToPreview]);
+
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user: authUser } }) => {
       if (authUser) { setUser(authUser); loadProfileData(authUser.id); } else setIsLoading(false);
@@ -367,14 +392,14 @@ function ProfilePageContent() {
   }, [loadProfileData, supabase]);
 
   useEffect(() => {
-    if (!isEditing || editForm.handle === profile?.handle || editForm.handle.length < 3) { setHandleStatus("idle"); return; }
+    if (privateTab !== "edit" || editForm.handle === profile?.handle || editForm.handle.length < 3) { setHandleStatus("idle"); return; }
     const timer = setTimeout(async () => {
       setHandleStatus("checking");
       const { data } = await supabase.from("profiles").select("id").eq("handle", editForm.handle).neq("id", user?.id).maybeSingle();
       setHandleStatus(data ? "taken" : "available");
     }, 500);
     return () => clearTimeout(timer);
-  }, [editForm.handle, isEditing, user?.id, profile?.handle, supabase]);
+  }, [editForm.handle, privateTab, user?.id, profile?.handle, supabase]);
 
   const closeCropModal = useCallback(() => {
     setCropTarget(null);
@@ -520,9 +545,9 @@ function ProfilePageContent() {
     });
     if (!error) {
       setProfile(prev => ({ ...prev!, ...editForm, avatar_url: finalAvatarUrl, full_name: fullName, location: `${editForm.region}, ${editForm.country}` }));
-      setIsEditing(false);
       await loadProfileData(user.id);
       alert("✅ 儲存成功！您的個人資料已更新。");
+      handleReturnToPreview();
       router.refresh();
     } else {
       console.error("Save Error:", error);
@@ -621,184 +646,109 @@ function ProfilePageContent() {
     <div className="bg-slate-950 min-h-screen text-zinc-200 font-sans selection:bg-blue-500/30">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <BackButton label="返回首頁" />
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mt-4">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-8 mt-4">
 
-          {/* ── Left sidebar ── */}
-          <div className="lg:col-span-4 xl:col-span-3 space-y-6">
-            <div className="bg-slate-900/40 backdrop-blur-xl border border-slate-800/60 rounded-3xl p-6 sticky top-20 shadow-2xl">
-              <div className="relative w-32 h-32 mx-auto mb-6">
+          {/* ── Profile card ── */}
+          <div className="order-1 lg:col-span-4 xl:col-span-3">
+            <div className="bg-slate-900/40 backdrop-blur-xl border border-slate-800/60 rounded-3xl p-6 lg:sticky lg:top-20 shadow-2xl">
+              <ProfileHubTopActions userId={user?.id} onShare={handleShareProfile} />
+
+              <div className="relative w-32 h-32 mx-auto mb-6 overflow-visible">
                 <div className="w-full h-full rounded-full bg-slate-800 border-2 border-slate-700/50 shadow-xl overflow-hidden bg-cover bg-center" style={{ backgroundImage: avatarSrc ? `url(${avatarSrc})` : "none" }}>{!avatarSrc && (profile?.first_name?.[0] || profile?.full_name?.[0] || "PRO")}</div>
-                {isEditing && <button onClick={() => avatarInputRef.current?.click()} className="absolute inset-0 bg-slate-950/60 rounded-full flex flex-col items-center justify-center text-white text-xs font-bold border border-dashed border-slate-400">📸 換照片</button>}
                 <input type="file" ref={avatarInputRef} onChange={onAvatarFileChange} accept="image/*" className="hidden" />
-                <GenderAvatarBadge gender={isEditing ? editForm.gender : profile?.gender} size="sm" />
-                <div className="absolute -bottom-3 -right-6 z-20"><StatusBadge tag={isEditing ? editForm.status_tag : profile?.status_tag ?? null} /></div>
+                <GenderAvatarBadge gender={profile?.gender} size="sm" />
+                <div className="absolute -bottom-3 -right-6 z-20"><StatusBadge tag={profile?.status_tag ?? null} /></div>
               </div>
 
-              {isEditing ? (
-                <div className="space-y-4 animate-fadeIn">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1"><label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">名 First</label><input className="w-full bg-slate-950/50 border border-slate-800 rounded-xl p-3 text-white text-sm" value={editForm.first_name} onChange={e => setEditForm({ ...editForm, first_name: e.target.value })} /></div>
-                    <div className="space-y-1"><label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">姓 Last</label><input className="w-full bg-slate-950/50 border border-slate-800 rounded-xl p-3 text-white text-sm" value={editForm.last_name} onChange={e => setEditForm({ ...editForm, last_name: e.target.value })} /></div>
+              <div className="text-center animate-fadeIn mt-2">
+                <h1 className="text-3xl font-black text-white tracking-tight leading-none mb-1">{profile?.first_name} {profile?.last_name}</h1>
+                <p className="text-sm font-mono text-blue-400 mb-2">@{profile?.handle || "ID_未設定"}</p>
+
+                {profile?.is_player !== false && profile?.show_physical_stats && (profile?.height_cm || profile?.weight_kg) && (
+                  <div className="flex items-center justify-center gap-4 px-4 py-1.5 rounded-full bg-slate-900/60 border border-slate-800 text-xs font-mono text-zinc-400 mb-4 mx-auto w-fit shadow-inner">
+                    {profile.height_cm && <span>📏 {profile.height_cm} cm</span>}
+                    {profile.weight_kg && <span className={profile.height_cm ? "border-l border-slate-700 pl-4" : ""}>⚖️ {profile.weight_kg} kg</span>}
                   </div>
-                  <div className="space-y-1"><label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">Unique Handle</label><input className={`w-full bg-slate-950/50 border rounded-xl p-3 text-white text-sm ${handleStatus === "taken" ? "border-red-500" : "border-slate-800"}`} value={editForm.handle} onChange={e => setEditForm({ ...editForm, handle: e.target.value.replace(/[^a-zA-Z0-9_]/g, "") })} placeholder="ID 帳號" /></div>
-                  <div className="space-y-1"><label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">Headline</label><input className="w-full bg-slate-950/50 border border-slate-800 rounded-xl p-3 text-white text-sm" value={editForm.headline} onChange={e => setEditForm({ ...editForm, headline: e.target.value })} placeholder="例如: 網球底線玩家" /></div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">名片自介 Bio</label>
-                    <input
-                      className="w-full bg-slate-950/50 border border-slate-800 rounded-xl p-3 text-white text-sm"
-                      value={editForm.bio || ""}
-                      maxLength={PROFILE_CARD_BIO_MAX}
-                      onChange={(e) => setEditForm({ ...editForm, bio: e.target.value })}
-                      placeholder="一句話介紹自己，顯示於球員卡片"
-                    />
-                    <p className="text-[10px] text-zinc-500 text-right pr-1">
-                      {(editForm.bio || "").length}/{PROFILE_CARD_BIO_MAX}
-                    </p>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">性別 <span className="normal-case font-normal text-zinc-600">(顯示於報名與成員名單)</span></label>
-                    <select
-                      className="w-full bg-slate-950/50 border border-slate-800 rounded-xl p-3 text-white text-sm"
-                      value={editForm.gender}
-                      onChange={e => setEditForm({ ...editForm, gender: e.target.value as ProfileGender })}
-                    >
-                      <option value="">請選擇</option>
-                      {PROFILE_GENDER_OPTIONS.map((opt) => (
-                        <option key={opt.value} value={opt.value}>{opt.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1"><label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">身高 (cm)</label><input type="number" className="w-full bg-slate-950/50 border border-slate-800 rounded-xl p-3 text-white text-sm" value={editForm.height_cm} onChange={e => setEditForm({ ...editForm, height_cm: e.target.value })} placeholder="例: 178" /></div>
-                    <div className="space-y-1"><label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">體重 (kg)</label><input type="number" className="w-full bg-slate-950/50 border border-slate-800 rounded-xl p-3 text-white text-sm" value={editForm.weight_kg} onChange={e => setEditForm({ ...editForm, weight_kg: e.target.value })} placeholder="例: 70" /></div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1"><label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">國家</label><select className="w-full bg-slate-950/50 border border-slate-800 rounded-xl p-3 text-white text-sm" value={editForm.country} onChange={e => setEditForm({ ...editForm, country: e.target.value, region: "", districts: [], subdistricts: [] })}><option value="">選擇國家</option>{Object.keys(locationData).map(c => <option key={c} value={c}>{c}</option>)}</select></div>
-                    {!isHongKongCountry(editForm.country) && (
-                      <div className="space-y-1"><label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">地區</label><select className="w-full bg-slate-950/50 border border-slate-800 rounded-xl p-3 text-white text-sm" value={editForm.region} onChange={e => setEditForm({ ...editForm, region: e.target.value })}><option value="">選擇區域</option>{editForm.country && locationData[editForm.country]?.map(r => <option key={r} value={r}>{r}</option>)}</select></div>
-                    )}
-                  </div>
-                  {isHongKongCountry(editForm.country) && (
-                    <div className="space-y-1.5 p-3 bg-slate-950/40 border border-slate-800 rounded-xl">
-                      <label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">香港地區（可多選）</label>
-                      <HKDistrictPicker
-                        districts={editForm.districts || []}
-                        subdistricts={editForm.subdistricts || []}
-                        onDistrictsChange={() => {}}
-                        onSubdistrictsChange={() => {}}
-                        onSelectionChange={(d, s) => setEditForm((prev: any) => ({ ...prev, districts: d, subdistricts: s }))}
-                        hideSectionTitle
-                        minDistricts={0}
-                      />
-                    </div>
-                  )}
-                  
-                  <div className="p-4 bg-slate-950/50 rounded-2xl border border-slate-800/80 space-y-4 mt-2">
-                    <div>
-                      <label className="text-[10px] text-zinc-400 font-bold uppercase pl-1 block mb-2">運動員/一般狀態</label>
-                      <select className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white text-xs" value={editForm.status_tag} onChange={e => setEditForm((prev: any) => ({ ...prev, status_tag: e.target.value }))}>
-                        <option value="recruiting">🟢 尋找新血</option>
-                        <option value="seeking_team">🔵 尋找隊伍</option>
-                        <option value="open_to_match">🟡 開放約戰</option>
-                        <option value="committed">⚪ 穩定狀態</option>
-                        <option value="hidden">🔒 未發布 (隱藏中)</option>
-                      </select>
-                    </div>
-                    <div className="pt-3 border-t border-slate-800/80 space-y-3">
-                      <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={editForm.show_physical_stats} onChange={e => setEditForm((prev: any) => ({ ...prev, show_physical_stats: e.target.checked }))} className="rounded bg-slate-900 border-slate-700" /><span className="text-xs font-bold text-zinc-300">公開展示身高體重數據</span></label>
-                      <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={editForm.is_player} onChange={e => setEditForm((prev: any) => ({ ...prev, is_player: e.target.checked }))} className="rounded bg-slate-900 border-slate-700" /><span className="text-xs font-bold text-blue-400">開啟運動員球員檔案</span></label>
-                      <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={editForm.is_coach} onChange={e => setEditForm((prev: any) => ({ ...prev, is_coach: e.target.checked }))} className="rounded bg-slate-900 border-slate-700" /><span className="text-xs font-bold text-amber-400">開啟教練管理功能</span></label>
-                      <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={editForm.is_physio} onChange={e => setEditForm((prev: any) => ({ ...prev, is_physio: e.target.checked }))} className="rounded bg-slate-900 border-slate-700" /><span className="text-xs font-bold text-emerald-400">開啟運動/物理治療功能</span></label>
-                    </div>
-                  </div>
-                  <div className="flex gap-2 pt-4">
-                    <button onClick={handleSaveProfile} disabled={isSaving || handleStatus === "taken"} className="flex-1 bg-slate-50 hover:bg-slate-200 text-black font-black py-3 rounded-xl disabled:opacity-50">{isSaving ? "同步中..." : "完成變更"}</button>
-                    <button onClick={() => { setIsEditing(false); if (user) loadProfileData(user.id); }} className="px-4 bg-slate-800 text-zinc-300 font-bold rounded-xl hover:bg-slate-700">取消</button>
-                  </div>
+                )}
+
+                <p className="text-sm font-bold text-zinc-400 mb-4">{profile?.headline || "設定你的場上宣言"}</p>
+                <div className="flex flex-wrap justify-center gap-2 mb-4">
+                  {profile?.is_player !== false && <span className="bg-blue-500/10 text-blue-400 text-[10px] font-black px-3 py-1 rounded-full border border-blue-500/20">👤 運動員</span>}
+                  {profile?.is_coach && <span className="bg-amber-500/10 text-amber-400 text-[10px] font-black px-3 py-1 rounded-full border border-amber-500/20">🎓 教練</span>}
+                  {profile?.is_physio && <span className="bg-emerald-500/10 text-emerald-400 text-[10px] font-black px-3 py-1 rounded-full border border-emerald-500/20">⚕️ 物理治療</span>}
                 </div>
-              ) : (
-                <div className="text-center animate-fadeIn mt-2">
-                  <h1 className="text-3xl font-black text-white tracking-tight leading-none mb-1">{profile?.first_name} {profile?.last_name}</h1>
-                  <p className="text-sm font-mono text-blue-400 mb-2">@{profile?.handle || "ID_未設定"}</p>
-
-                  {profile?.is_player !== false && profile?.show_physical_stats && (profile?.height_cm || profile?.weight_kg) && (
-                    <div className="flex items-center justify-center gap-4 px-4 py-1.5 rounded-full bg-slate-900/60 border border-slate-800 text-xs font-mono text-zinc-400 mb-4 mx-auto w-fit shadow-inner">
-                      {profile.height_cm && <span>📏 {profile.height_cm} cm</span>}
-                      {profile.weight_kg && <span className={profile.height_cm ? "border-l border-slate-700 pl-4" : ""}>⚖️ {profile.weight_kg} kg</span>}
-                    </div>
-                  )}
-
-                  <p className="text-sm font-bold text-zinc-400 mb-4">{profile?.headline || "設定你的場上宣言"}</p>
-                  <div className="flex flex-wrap justify-center gap-2 mb-4">
-                    {profile?.is_player !== false && <span className="bg-blue-500/10 text-blue-400 text-[10px] font-black px-3 py-1 rounded-full border border-blue-500/20">👤 運動員</span>}
-                    {profile?.is_coach && <span className="bg-amber-500/10 text-amber-400 text-[10px] font-black px-3 py-1 rounded-full border border-amber-500/20">🎓 教練</span>}
-                    {profile?.is_physio && <span className="bg-emerald-500/10 text-emerald-400 text-[10px] font-black px-3 py-1 rounded-full border border-emerald-500/20">⚕️ 物理治療</span>}
-                  </div>
-                  <p className="text-sm text-zinc-300 leading-relaxed text-left bg-slate-900/30 p-4 rounded-2xl border border-slate-800/50 mb-6">{stripHtml(profile?.bio || "") || "寫下一段關於你的歷程..."}</p>
-
-                  <div className="flex flex-col gap-3">
-                    <button onClick={() => setIsEditing(true)} className="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition flex items-center justify-center gap-2">✏️ 編輯基礎檔案與身份</button>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button onClick={() => router.push(`/p/${user?.id}`)} className="w-full bg-blue-600/20 border border-blue-500/40 hover:bg-blue-600 hover:text-white text-blue-400 font-bold py-3 rounded-xl transition flex items-center justify-center gap-1.5 text-xs">👁️ 預覽公開名片</button>
-                      <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/p/${user?.id}`); alert("名片網址已複製！"); }} className="w-full bg-transparent border border-slate-700 hover:border-slate-500 text-zinc-300 font-bold py-3 rounded-xl transition text-xs">分享連結 ↗</button>
-                    </div>
-                  </div>
-
-                  {/* ── Private backend navigation ── */}
-                  <div className="mt-6 pt-6 border-t border-slate-800/80 space-y-3">
-                    <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider pl-1 text-left">專屬後台 (Backend)</p>
-
-                    <button onClick={() => handlePrivateTabSwitch("friends")} className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold transition ${privateTab === "friends" ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20" : "bg-slate-900/50 text-zinc-400 hover:bg-slate-800 hover:text-white"}`}>
-                      <span className="flex items-center gap-3"><span className="text-lg">👥</span> 好友管理</span><span className="text-xs">→</span>
-                    </button>
-
-                    <button onClick={() => handlePrivateTabSwitch("account")} className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold transition ${privateTab === "account" ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20" : "bg-slate-900/50 text-zinc-400 hover:bg-slate-800 hover:text-white"}`}>
-                      <span className="flex items-center gap-3"><span className="text-lg">⚙️</span> 帳戶管理</span><span className="text-xs">→</span>
-                    </button>
-
-                    {userTeams.length > 0 && (
-                      <button onClick={() => handlePrivateTabSwitch("teams")} className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold transition ${privateTab === "teams" ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20" : "bg-slate-900/50 text-zinc-400 hover:bg-slate-800 hover:text-white"}`}>
-                        <span className="flex items-center gap-3"><span className="text-lg">🛡️</span> 我的團隊</span><span className="text-xs">→</span>
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
+                <p className="text-sm text-zinc-300 leading-relaxed text-left bg-slate-900/30 p-4 rounded-2xl border border-slate-800/50">{stripHtml(profile?.bio || "") || "寫下一段關於你的歷程..."}</p>
+              </div>
             </div>
           </div>
 
-          {/* ── Right content ── */}
-          <div className="lg:col-span-8 xl:col-span-9 flex flex-col" ref={contentRef}>
-            {privateTab ? (
-              <>
-                <div className="bg-slate-900 border border-slate-800 p-3 md:p-4 rounded-2xl flex items-center justify-between w-full mb-8 shadow-sm">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-xl">
-                      {privateTab === "friends" && "👥"}
-                      {privateTab === "teams" && "🛡️"}
-                      {privateTab === "account" && "⚙️"}
-                      {privateTab === "dashboard" && "👤"}
-                    </div>
-                    <div>
-                      <h2 className="text-sm md:text-base font-black text-white leading-tight">
-                        {privateTab === "friends" && "好友管理"}
-                        {privateTab === "teams" && "我的團隊"}
-                        {privateTab === "account" && "帳戶管理"}
-                        {privateTab === "dashboard" && "運動員專屬後台管理"}
-                      </h2>
-                      <p className="text-[10px] text-zinc-400 font-bold tracking-wider mt-0.5">專屬私密空間</p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleReturnToPreview}
-                    className="bg-slate-800 hover:bg-slate-700 border border-slate-600 text-zinc-300 hover:text-white text-xs md:text-sm font-bold px-3 py-2 md:px-4 md:py-2.5 rounded-xl transition flex items-center gap-1.5 shadow-sm"
-                  >
-                    <span className="hidden sm:inline">返回公開預覽</span><span className="sm:hidden">返回</span> ↗
-                  </button>
-                </div>
+          {/* ── Mobile sticky hub icons (outside profile card) ── */}
+          <div className="order-2 col-span-1 lg:hidden">
+            <ProfileHubMobileBar
+              activeTab={privateTab === "dashboard" ? "home" : privateTab}
+              onTab={(tab) => handlePrivateTabSwitch(tab)}
+            />
+          </div>
 
-                <div className="flex-1">
+          {/* ── Right content ── */}
+          <div className="order-3 lg:order-2 lg:col-span-8 xl:col-span-9 lg:col-start-5 xl:col-start-4 flex flex-col min-w-0" ref={contentRef}>
+            <ProfileHubTabNav
+              activeTab={privateTab === "dashboard" ? "home" : privateTab}
+              onTab={(tab) => handlePrivateTabSwitch(tab)}
+            />
+
+            {privateTab === "home" && profile ? (
+              <ProfileRolePreview
+                    profile={profile}
+                    activeRole={activeRole}
+                    onRoleChange={setActiveRole}
+                    activeAthleteTab={activeAthleteTab}
+                    onAthleteTabChange={setActiveAthleteTab}
+                    showPlayer={showPlayer}
+                    showCoach={showCoach}
+                    showPhysio={showPhysio}
+                    coachServices={coachServices}
+                    physioServices={physioServices}
+                    coachReviews={coachReviews}
+                    onCoachBackend={showCoach ? () => router.push("/dashboard/coach") : undefined}
+                    onPhysioBackend={showPhysio ? () => router.push("/dashboard/physio") : undefined}
+                    onAthleteBackend={showPlayer ? () => handlePrivateTabSwitch("dashboard") : undefined}
+                    athleteExpertise={
+                      <ExpertiseTab
+                        userSports={userSports}
+                        editFormDisplaySports={editForm.display_sports}
+                        onToggleDisplaySport={toggleDisplaySport}
+                        onOpenSportModal={handleOpenSportModal}
+                        onRemoveSport={handleRemoveSport}
+                        onSaveDisplaySports={handleSaveProfile}
+                        onMoveSport={handleMoveSport}
+                      />
+                    }
+                    athleteHighlights={
+                      <HighlightsTab
+                        galleryMedia={galleryMedia}
+                        userSports={userSports}
+                        onSelectPost={setSelectedPost}
+                        onOpenMediaModal={() => setIsMediaModalOpen(true)}
+                      />
+                    }
+                    athleteFeed={<FeedTab profile={profile} avatarSrc={avatarSrc} />}
+                  />
+            ) : privateTab !== "home" ? (
+              <div className="flex-1">
+                  {privateTab === "edit" && (
+                    <ProfileEditTab
+                      editForm={editForm}
+                      setEditForm={setEditForm}
+                      locationData={locationData}
+                      handleStatus={handleStatus}
+                      isSaving={isSaving}
+                      avatarSrc={avatarSrc}
+                      onAvatarClick={() => avatarInputRef.current?.click()}
+                      onSave={handleSaveProfile}
+                      onCancel={handleCancelEdit}
+                    />
+                  )}
                   {privateTab === "dashboard" && (
                     <DashboardTab
                       editForm={editForm}
@@ -815,6 +765,9 @@ function ProfilePageContent() {
                   )}
                   {privateTab === "account" && user && (
                     <AccountManagementTab userEmail={user.email} identities={user.identities} />
+                  )}
+                  {privateTab === "events" && user && (
+                    <MyEventsTab embedded userId={user.id} />
                   )}
                   {privateTab === "teams" && (() => {
                     const managedTeams = userTeams.filter(t => t.role === "admin" && t.teams);
@@ -876,44 +829,6 @@ function ProfilePageContent() {
                     );
                   })()}
                 </div>
-              </>
-            ) : profile ? (
-              <ProfileRolePreview
-                profile={profile}
-                activeRole={activeRole}
-                onRoleChange={setActiveRole}
-                activeAthleteTab={activeAthleteTab}
-                onAthleteTabChange={setActiveAthleteTab}
-                showPlayer={showPlayer}
-                showCoach={showCoach}
-                showPhysio={showPhysio}
-                coachServices={coachServices}
-                physioServices={physioServices}
-                coachReviews={coachReviews}
-                onCoachBackend={showCoach ? () => router.push("/dashboard/coach") : undefined}
-                onPhysioBackend={showPhysio ? () => router.push("/dashboard/physio") : undefined}
-                onAthleteBackend={showPlayer ? () => setPrivateTab("dashboard") : undefined}
-                athleteExpertise={
-                  <ExpertiseTab
-                    userSports={userSports}
-                    editFormDisplaySports={editForm.display_sports}
-                    onToggleDisplaySport={toggleDisplaySport}
-                    onOpenSportModal={handleOpenSportModal}
-                    onRemoveSport={handleRemoveSport}
-                    onSaveDisplaySports={handleSaveProfile}
-                    onMoveSport={handleMoveSport}
-                  />
-                }
-                athleteHighlights={
-                  <HighlightsTab
-                    galleryMedia={galleryMedia}
-                    userSports={userSports}
-                    onSelectPost={setSelectedPost}
-                    onOpenMediaModal={() => setIsMediaModalOpen(true)}
-                  />
-                }
-                athleteFeed={<FeedTab profile={profile} avatarSrc={avatarSrc} />}
-              />
             ) : null}
           </div>
         </div>

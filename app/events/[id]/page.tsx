@@ -247,18 +247,20 @@ export default function EventDetailPage() {
       >
         <div className="flex items-center gap-3 min-w-0">
           {reg.profiles ? (
-            <Link href={profileLink(reg.profiles.id || reg.user_id, returnTo)} className="shrink-0 relative">
-              <div
-                className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center font-black text-xs shrink-0 overflow-hidden"
-                style={{
-                  backgroundImage: reg.profiles.avatar_url ? `url(${reg.profiles.avatar_url})` : "none",
-                  backgroundSize: "cover",
-                }}
-              >
-                {!reg.profiles.avatar_url && (reg.profiles.full_name?.[0] || "?")}
-              </div>
+            <div className="relative shrink-0 w-10 h-10 overflow-visible">
+              <Link href={profileLink(reg.profiles.id || reg.user_id, returnTo)} className="block w-full h-full">
+                <div
+                  className="w-full h-full rounded-full bg-slate-800 flex items-center justify-center font-black text-xs overflow-hidden"
+                  style={{
+                    backgroundImage: reg.profiles.avatar_url ? `url(${reg.profiles.avatar_url})` : "none",
+                    backgroundSize: "cover",
+                  }}
+                >
+                  {!reg.profiles.avatar_url && (reg.profiles.full_name?.[0] || "?")}
+                </div>
+              </Link>
               <GenderAvatarBadge gender={reg.profiles.gender} size="xs" />
-            </Link>
+            </div>
           ) : (
             <div className="w-10 h-10 rounded-full bg-red-600/20 text-red-400 flex items-center justify-center shrink-0">
               <Shield className="w-5 h-5" />

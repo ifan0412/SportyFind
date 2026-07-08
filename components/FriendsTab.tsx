@@ -68,7 +68,7 @@ type SubTab = "friends" | "pending" | "sent";
 // ── Avatar ─────────────────────────────────────────────────────────────────
 function Avatar({ profile }: { profile: FriendProfile }) {
   return (
-    <div className="relative w-12 h-12 flex-shrink-0">
+    <div className="relative w-12 h-12 flex-shrink-0 overflow-visible">
       <div
         className="w-full h-full rounded-full bg-slate-800 flex items-center justify-center overflow-hidden"
         style={{

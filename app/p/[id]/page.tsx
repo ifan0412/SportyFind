@@ -14,7 +14,7 @@ import {
 } from "@/lib/hk-locations";
 import { RichBody } from "@/components/content/RichBody";
 import { SportCategoryBadge } from "@/components/sports/SportCategoryBadge";
-import { stripHtml, truncatePlainBio } from "@/lib/content/body";
+import { stripHtml, truncatePlainBio, serviceDescriptionPreview } from "@/lib/content/body";
 import { reopenOrSendFriendRequest } from "@/lib/friendships";
 import { mapHighlightGalleryFiles } from "@/lib/highlights-gallery";
 import { ServicePublishBadge } from "@/components/services/ServicePublishBadge";
@@ -345,7 +345,7 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mt-4">
           <div className="lg:col-span-4 xl:col-span-3 space-y-6">
             <div className="bg-slate-900/40 backdrop-blur-xl border border-slate-800/60 rounded-3xl p-6 sticky top-20 shadow-2xl text-center">
-              <div className="relative w-32 h-32 mx-auto mb-6">
+              <div className="relative w-32 h-32 mx-auto mb-6 overflow-visible">
                 <div className="w-full h-full rounded-full bg-slate-800 border-2 border-slate-700/50 shadow-xl overflow-hidden bg-cover bg-center" style={{ backgroundImage: avatarSrc ? `url(${avatarSrc})` : "none" }}>
                   {!avatarSrc && <div className="w-full h-full flex items-center justify-center text-4xl font-black text-zinc-600">PRO</div>}
                 </div>
@@ -628,7 +628,7 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
                                 </Link>
 
                                 <p className="text-xs text-zinc-400 line-clamp-2 leading-relaxed">
-                                  {srv.description || "點擊查看完整課程內容與學員評價"}
+                                  {serviceDescriptionPreview(srv.description, "點擊查看完整課程內容與學員評價")}
                                 </p>
                                 <div className="inline-flex items-center gap-1 text-[10px] font-bold text-zinc-400">
                                   <MapPin className="w-3 h-3 text-orange-400" />
@@ -793,7 +793,7 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
                                   </Link>
 
                                   <p className="text-xs text-zinc-400 line-clamp-2 leading-relaxed">
-                                    {stripHtml(srv.description || "") || "點擊查看完整診療內容與評價"}
+                                    {serviceDescriptionPreview(srv.description, "點擊查看完整診療內容與評價")}
                                   </p>
                                   <div className="space-y-1">
                                     {srv.service_centre && (

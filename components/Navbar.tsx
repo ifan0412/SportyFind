@@ -72,16 +72,19 @@ function ProfileNavMenu({
   onNavigate?: () => void;
   variant: "desktop" | "mobile-inline" | "mobile-menu";
 }) {
-  const isProfileActive = pathname === "/profile" || pathname.startsWith("/profile/");
-  const isFriendsActive = isProfileActive;
+  const onProfilePage = pathname === "/profile";
+  const isProfileIconActive = onProfilePage;
   const isCoachActive = pathname.startsWith("/dashboard/coach");
   const isPhysioActive = pathname.startsWith("/dashboard/physio");
   const friendsHref = "/profile?tab=friends";
   const teamsTabHref = "/profile?tab=teams";
 
+  // Dropdown items should not appear "selected" while already on /profile
+  const menuItemActive = (active: boolean) => !onProfilePage && active;
+
   const profileIconClass = cn(
     "relative flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 transition-all duration-200 bg-slate-900",
-    isProfileActive
+    isProfileIconActive
       ? "border-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.3)] text-blue-400"
       : "border-slate-700 text-slate-400 hover:border-slate-400 hover:text-white"
   );
@@ -89,7 +92,7 @@ function ProfileNavMenu({
   const menuItemClass = (active: boolean) =>
     cn(
       "flex items-center gap-2.5 w-full px-3 py-2.5 text-sm font-bold rounded-xl transition-colors text-left",
-      active ? "bg-blue-600/15 text-blue-400" : "text-zinc-300 hover:bg-slate-800 hover:text-white"
+      menuItemActive(active) ? "bg-blue-600/15 text-blue-400" : "text-zinc-300 hover:bg-slate-800 hover:text-white"
     );
 
   if (variant === "mobile-inline") {
@@ -108,7 +111,7 @@ function ProfileNavMenu({
             href="/profile"
             className={cn(
               "flex items-center gap-3 rounded-md px-3 py-3 text-sm font-bold transition-colors",
-              isProfileActive ? "text-blue-400" : "text-slate-400 hover:bg-slate-800 hover:text-white"
+              menuItemActive(false) ? "text-blue-400" : "text-slate-400 hover:bg-slate-800 hover:text-white"
             )}
             onClick={onNavigate}
           >
@@ -148,7 +151,7 @@ function ProfileNavMenu({
             href={friendsHref}
             className={cn(
               "flex items-center gap-3 rounded-md px-3 py-3 text-sm font-bold transition-colors",
-              isFriendsActive ? "text-blue-400" : "text-slate-400 hover:bg-slate-800 hover:text-white"
+              menuItemActive(false) ? "text-blue-400" : "text-slate-400 hover:bg-slate-800 hover:text-white"
             )}
             onClick={onNavigate}
           >
@@ -176,7 +179,7 @@ function ProfileNavMenu({
               href={teamsTabHref}
               className={cn(
                 "flex items-center gap-3 rounded-md px-3 py-3 text-sm font-bold transition-colors",
-                pathname === "/profile" ? "text-purple-400" : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                menuItemActive(false) ? "text-purple-400" : "text-slate-400 hover:bg-slate-800 hover:text-white"
               )}
               onClick={onNavigate}
             >
@@ -191,7 +194,7 @@ function ProfileNavMenu({
   const teamMenuItems = profileNav.adminTeams.length === 1
     ? [{ href: `/team/${profileNav.adminTeams[0].id}/admin`, label: "我的團隊", active: pathname.startsWith(`/team/${profileNav.adminTeams[0].id}`) }]
     : profileNav.adminTeams.length > 1
-      ? [{ href: teamsTabHref, label: "我的團隊", active: pathname === "/profile" }]
+      ? [{ href: teamsTabHref, label: "我的團隊", active: false }]
       : [];
 
   return (
@@ -201,11 +204,11 @@ function ProfileNavMenu({
       </Link>
       <div className="absolute right-0 top-full pt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
         <div className="w-56 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden p-1.5">
-          <Link href="/profile" className={menuItemClass(isProfileActive)}>
+          <Link href="/profile" className={menuItemClass(false)}>
             <User className="size-4 shrink-0" />
             我的檔案
           </Link>
-          <Link href={friendsHref} className={menuItemClass(isFriendsActive)}>
+          <Link href={friendsHref} className={menuItemClass(false)}>
             <Users className="size-4 shrink-0" />
             好友列表
           </Link>

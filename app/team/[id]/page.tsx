@@ -550,7 +550,7 @@ export default function TeamDetailPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {adminsAndLeads.map((m) => (
                     <Link key={m.user_id} href={profileLink(m.user_id, returnTo)} className="flex items-center gap-3 bg-slate-950/50 border border-slate-800 rounded-2xl px-4 py-3 hover:border-slate-700 transition">
-                      <div className="relative shrink-0">
+                      <div className="relative shrink-0 overflow-visible">
                         <Avatar src={m.profiles?.avatar_url ?? null} name={m.profiles?.full_name ?? null} size="sm" />
                         <GenderAvatarBadge gender={m.profiles?.gender} size="xs" />
                       </div>
@@ -572,7 +572,7 @@ export default function TeamDetailPage() {
                 <div className="flex flex-wrap gap-3">
                   {regularMembers.map((m) => (
                     <Link key={m.user_id} href={profileLink(m.user_id, returnTo)} className="flex items-center gap-2 bg-slate-950/50 border border-slate-800 rounded-full pl-1.5 pr-4 py-1.5 hover:border-slate-700 transition">
-                      <div className="relative shrink-0">
+                      <div className="relative shrink-0 overflow-visible">
                         <Avatar src={m.profiles?.avatar_url ?? null} name={m.profiles?.full_name ?? null} size="sm" />
                         <GenderAvatarBadge gender={m.profiles?.gender} size="xs" />
                       </div>

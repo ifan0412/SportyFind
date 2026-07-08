@@ -264,7 +264,7 @@ function NetworkPageContent() {
                   )}
 
                   <div className="flex flex-col items-center text-center mt-4">
-                    <div className="relative w-20 h-20 md:w-24 md:h-24 mb-4">
+                    <div className="relative w-20 h-20 md:w-24 md:h-24 mb-4 overflow-visible">
                       <div className="w-full h-full rounded-2xl bg-slate-800 border-2 border-slate-700/60 flex items-center justify-center text-3xl font-black text-zinc-600 overflow-hidden bg-cover bg-center shadow-lg" style={p.avatar_url ? { backgroundImage: `url(${p.avatar_url})` } : undefined}>
                         {!p.avatar_url && (p.full_name?.[0] || "P")}
                       </div>

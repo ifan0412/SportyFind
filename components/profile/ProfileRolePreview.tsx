@@ -7,7 +7,7 @@ import {
   normalizeDistrictIds,
 } from "@/lib/hk-locations";
 import { RichBody } from "@/components/content/RichBody";
-import { stripHtml } from "@/lib/content/body";
+import { serviceDescriptionPreview } from "@/lib/content/body";
 import { SportCategoryBadge } from "@/components/sports/SportCategoryBadge";
 import { PhysioServiceTypeBadges } from "@/components/physio/PhysioServiceTypePicker";
 import { normalizePhysioServiceTypes } from "@/lib/physio-service-types";
@@ -105,9 +105,8 @@ export function ProfileRolePreview({
       ? (coachReviews.reduce((acc, r) => acc + r.rating, 0) / coachReviews.length).toFixed(1)
       : "5.0";
 
-  return (
-    <>
-      <div className="bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 p-1 rounded-2xl flex w-full sticky top-16 z-30 mb-4 shadow-sm overflow-x-auto [&::-webkit-scrollbar]:hidden">
+  const roleTabBar = (
+    <div className="bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 p-1 rounded-2xl flex w-full shadow-sm overflow-x-auto [&::-webkit-scrollbar]:hidden mb-4">
         {showPlayer && (
           <button
             type="button"
@@ -150,8 +149,11 @@ export function ProfileRolePreview({
             <span className="text-[10px] md:text-xs font-black leading-tight">運動/物理治療</span>
           </button>
         )}
-      </div>
+    </div>
+  );
 
+  const backendSection = (
+    <>
       {activeRole === "athlete" && onAthleteBackend && (
         <button
           type="button"
@@ -193,7 +195,10 @@ export function ProfileRolePreview({
           <span className="text-xs opacity-80">診療項目 · 名片 · 預約 →</span>
         </button>
       )}
+    </>
+  );
 
+  const mainContent = (
       <div className="flex-1 animate-fadeIn">
         {activeRole === "athlete" && showPlayer && (
           <div className="space-y-6">
@@ -389,7 +394,7 @@ export function ProfileRolePreview({
                               </h4>
                             </Link>
                             <p className="text-xs text-zinc-400 line-clamp-2 leading-relaxed">
-                              {stripHtml(srv.description || "") || "點擊查看完整課程內容與學員評價"}
+                              {serviceDescriptionPreview(srv.description, "點擊查看完整課程內容與學員評價")}
                             </p>
                             <div className="inline-flex items-center gap-1 text-[10px] font-bold text-zinc-400">
                               <MapPin className="w-3 h-3 text-orange-400" />
@@ -533,7 +538,7 @@ export function ProfileRolePreview({
                               </h4>
                             </Link>
                             <p className="text-xs text-zinc-400 line-clamp-2 leading-relaxed">
-                              {stripHtml(srv.description || "") || "點擊查看完整診療內容與評價"}
+                              {serviceDescriptionPreview(srv.description, "點擊查看完整診療內容與評價")}
                             </p>
                             <div className="inline-flex items-center gap-1 text-[10px] font-bold text-zinc-400">
                               <MapPin className="w-3 h-3 text-green-400" />
@@ -565,6 +570,13 @@ export function ProfileRolePreview({
           </div>
         )}
       </div>
+  );
+
+  return (
+    <>
+      {roleTabBar}
+      {backendSection}
+      {mainContent}
     </>
   );
 }
