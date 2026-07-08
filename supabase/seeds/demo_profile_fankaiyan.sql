@@ -27,7 +27,8 @@
 --   demo.peer4@sportyfind.hk  / DemoPeer4!
 -- =============================================================================
 
-create extension if not exists pgcrypto;
+-- Supabase installs pgcrypto in the `extensions` schema (not public)
+create extension if not exists pgcrypto with schema extensions;
 
 -- ---------------------------------------------------------------------------
 -- Helper: create a minimal auth user + profile (for demo peers)
@@ -40,7 +41,7 @@ create or replace function public._demo_ensure_auth_user(
 ) returns uuid
 language plpgsql
 security definer
-set search_path = public, auth
+set search_path = public, auth, extensions
 as $$
 declare
   v_instance uuid;
@@ -56,7 +57,7 @@ begin
     raw_app_meta_data, raw_user_meta_data, created_at, updated_at
   ) values (
     v_instance, p_id, 'authenticated', 'authenticated', p_email,
-    crypt(p_password, gen_salt('bf')),
+    extensions.crypt(p_password, extensions.gen_salt('bf'::text)),
     now(), now(), now(),
     '{"provider":"email","providers":["email"]}'::jsonb,
     p_meta,
