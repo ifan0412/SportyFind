@@ -376,7 +376,7 @@ export function Navbar() {
           "data-[revealing=true]:ease-[cubic-bezier(0.32,0.72,0,1)]"
         )}
       >
-        <nav className="relative grid h-14 w-full grid-cols-[2.25rem_1fr_2.25rem] items-center px-4">
+        <nav className="relative grid h-14 w-full grid-cols-[2.25rem_1fr_auto] items-center gap-2 px-4">
           <div className="flex justify-start">
             {showMobileSettings ? (
               <button
@@ -418,7 +418,7 @@ export function Navbar() {
             </span>
           </Link>
 
-          <div className="flex justify-end">
+          <div className="flex justify-end min-w-[2.25rem]">
             {isClient && user ? (
               <button
                 type="button"
@@ -445,7 +445,7 @@ export function Navbar() {
             ) : isClient ? (
               <Link
                 href="/auth"
-                className="rounded-xl px-3 py-1.5 text-xs font-black bg-red-600 hover:bg-red-500 text-white transition"
+                className="inline-flex items-center justify-center whitespace-nowrap shrink-0 rounded-xl px-3 py-1.5 text-xs font-black bg-red-600 hover:bg-red-500 text-white transition"
               >
                 登入
               </Link>
