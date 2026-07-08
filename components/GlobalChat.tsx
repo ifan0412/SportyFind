@@ -47,7 +47,7 @@ export function GlobalChat() {
   const isInboxPage = pathname === "/inbox" || pathname.startsWith("/inbox/");
 
   const [isOpen, setIsOpen] = useState(false);
-  const currentUser = authUser ? { id: authUser.id } : null;
+  const currentUserId = authUser?.id ?? null;
   const [friends, setFriends] = useState<Friend[]>([]);
   const [summaries, setSummaries] = useState<Record<string, ConversationSummary>>({});
   const [activeChat, setActiveChat] = useState<Friend | null>(null);
@@ -58,6 +58,9 @@ export function GlobalChat() {
   const activeChatRef = useRef<Friend | null>(null);
   const isOpenRef = useRef(false);
   const friendIdsRef = useRef<string[]>([]);
+  const messagesCacheRef = useRef<Record<string, Message[]>>({});
+  const loadingPeerRef = useRef<string | null>(null);
+  const refreshSummariesTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   activeChatRef.current = activeChat;
   isOpenRef.current = isOpen;
@@ -83,17 +86,24 @@ export function GlobalChat() {
 
   const appendMessage = useCallback(
     (newMsg: Message) => {
+      const peerId = activeChatRef.current?.id;
+      if (!peerId) return;
+
       setMessages((prev) => {
         const tempIndex = prev.findIndex(
           (m) => m.isSending && m.content === newMsg.content && m.sender_id === newMsg.sender_id
         );
+        let next: Message[];
         if (tempIndex !== -1) {
-          const updated = [...prev];
-          updated[tempIndex] = newMsg;
-          return updated;
+          next = [...prev];
+          next[tempIndex] = newMsg;
+        } else if (prev.some((m) => m.id === newMsg.id)) {
+          return prev;
+        } else {
+          next = [...prev, newMsg];
         }
-        if (prev.some((m) => m.id === newMsg.id)) return prev;
-        return [...prev, newMsg];
+        messagesCacheRef.current[peerId] = next;
+        return next;
       });
       scrollToBottom();
     },
@@ -110,6 +120,18 @@ export function GlobalChat() {
       setSummaries(next);
     },
     [supabase]
+  );
+
+  const scheduleRefreshSummaries = useCallback(
+    (userId: string, peerIds: string[]) => {
+      if (refreshSummariesTimerRef.current) {
+        clearTimeout(refreshSummariesTimerRef.current);
+      }
+      refreshSummariesTimerRef.current = setTimeout(() => {
+        refreshSummaries(userId, peerIds).catch(() => {});
+      }, 400);
+    },
+    [refreshSummaries]
   );
 
   const loadFriends = useCallback(
@@ -161,23 +183,42 @@ export function GlobalChat() {
 
   const loadChatMessages = useCallback(
     async (userId: string, chat: Friend) => {
-      setIsLoading(true);
-      const { data } = await supabase
-        .from("messages")
-        .select("*")
-        .or(
-          `and(sender_id.eq.${userId},receiver_id.eq.${chat.id}),` +
-            `and(sender_id.eq.${chat.id},receiver_id.eq.${userId})`
-        )
-        .order("created_at", { ascending: true });
+      const peerId = chat.id;
+      if (loadingPeerRef.current === peerId) return;
+      loadingPeerRef.current = peerId;
 
-      if (data) {
-        setMessages(data);
-        scrollToBottom();
+      const hasCache = Boolean(messagesCacheRef.current[peerId]?.length);
+      if (!hasCache) setIsLoading(true);
+
+      try {
+        const { data } = await supabase
+          .from("messages")
+          .select("*")
+          .or(
+            `and(sender_id.eq.${userId},receiver_id.eq.${chat.id}),` +
+              `and(sender_id.eq.${chat.id},receiver_id.eq.${userId})`
+          )
+          .order("created_at", { ascending: true });
+
+        if (activeChatRef.current?.id !== peerId) return;
+
+        if (data) {
+          messagesCacheRef.current[peerId] = data;
+          setMessages(data);
+          scrollToBottom();
+        }
+      } finally {
+        if (loadingPeerRef.current === peerId) {
+          loadingPeerRef.current = null;
+        }
+        if (activeChatRef.current?.id === peerId) {
+          setIsLoading(false);
+        }
       }
-      setIsLoading(false);
 
-      await markChatAsRead(userId, chat);
+      if (activeChatRef.current?.id === peerId) {
+        await markChatAsRead(userId, chat);
+      }
     },
     [supabase, scrollToBottom, markChatAsRead]
   );
@@ -188,16 +229,16 @@ export function GlobalChat() {
   }, [authUser?.id, loadFriends]);
 
   useEffect(() => {
-    if (!currentUser) return;
+    if (!currentUserId) return;
 
     const channel = supabase
-      .channel(`global-msgs-${currentUser.id}`)
+      .channel(`global-msgs-${currentUserId}`)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "messages" },
         (payload) => {
           const newMsg = payload.new as Message;
-          const uid = currentUser.id;
+          const uid = currentUserId;
           const isMine = newMsg.sender_id === uid || newMsg.receiver_id === uid;
           if (!isMine) return;
 
@@ -231,48 +272,62 @@ export function GlobalChat() {
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "messages" },
-        () => {
-          if (currentUser) {
-            refreshSummaries(currentUser.id, friendIdsRef.current);
+        (payload) => {
+          const oldRow = payload.old as Partial<Message> | undefined;
+          const newRow = payload.new as Partial<Message> | undefined;
+          if (
+            oldRow &&
+            newRow &&
+            oldRow.content === newRow.content &&
+            oldRow.is_read !== newRow.is_read
+          ) {
+            return;
           }
+          scheduleRefreshSummaries(currentUserId, friendIdsRef.current);
         }
       )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
+      if (refreshSummariesTimerRef.current) {
+        clearTimeout(refreshSummariesTimerRef.current);
+      }
     };
-  }, [currentUser, supabase, appendMessage, refreshSummaries]);
+  }, [currentUserId, supabase, appendMessage, scheduleRefreshSummaries]);
 
   useEffect(() => {
     const onSync = async () => {
-      if (!currentUser) return;
-      await refreshSummaries(currentUser.id, friendIdsRef.current);
+      if (!currentUserId) return;
+      await refreshSummaries(currentUserId, friendIdsRef.current);
     };
     window.addEventListener("chat-message-sync", onSync);
     return () => window.removeEventListener("chat-message-sync", onSync);
-  }, [currentUser, refreshSummaries]);
+  }, [currentUserId, refreshSummaries]);
 
   useEffect(() => {
-    if (!activeChat || !currentUser || !isOpen) return;
-    loadChatMessages(currentUser.id, activeChat);
-  }, [activeChat, currentUser, isOpen, loadChatMessages]);
+    if (!activeChat || !currentUserId) return;
+    loadChatMessages(currentUserId, activeChat);
+  }, [activeChat?.id, currentUserId, loadChatMessages]);
 
   const handleOpenChat = (friend: Friend) => {
     setSummaries((prev) => clearUnreadForPeer(prev, friend.id));
+    const cached = messagesCacheRef.current[friend.id];
+    setMessages(cached ?? []);
+    setIsLoading(!cached?.length);
     setActiveChat(friend);
   };
 
   const handleBackToList = () => {
     setActiveChat(null);
-    if (currentUser) {
-      refreshSummaries(currentUser.id, friendIdsRef.current);
+    if (currentUserId) {
+      refreshSummaries(currentUserId, friendIdsRef.current);
     }
   };
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !activeChat || !currentUser) return;
+    if (!newMessage.trim() || !activeChat || !currentUserId) return;
 
     const msgText = newMessage.trim();
     setNewMessage("");
@@ -280,42 +335,52 @@ export function GlobalChat() {
     const tempId = `temp-${Date.now()}`;
     const tempMsg: Message = {
       id: tempId,
-      sender_id: currentUser.id,
+      sender_id: currentUserId,
       receiver_id: activeChat.id,
       content: msgText,
       is_read: false,
       created_at: new Date().toISOString(),
       isSending: true,
     };
-    setMessages((prev) => [...prev, tempMsg]);
+    setMessages((prev) => {
+      const next = [...prev, tempMsg];
+      messagesCacheRef.current[activeChat.id] = next;
+      return next;
+    });
     setSummaries((prev) =>
-      applyMessageInsert(prev, currentUser.id, tempMsg, { skipUnreadIncrement: true })
+      applyMessageInsert(prev, currentUserId, tempMsg, { skipUnreadIncrement: true })
     );
     scrollToBottom();
 
     const { data: inserted, error } = await supabase
       .from("messages")
-      .insert({ sender_id: currentUser.id, receiver_id: activeChat.id, content: msgText })
+      .insert({ sender_id: currentUserId, receiver_id: activeChat.id, content: msgText })
       .select()
       .single();
 
     if (error || !inserted) {
-      setMessages((prev) =>
-        prev.map((m) => (m.id === tempId ? { ...m, isSending: false, isError: true } : m))
-      );
+      setMessages((prev) => {
+        const next = prev.map((m) => (m.id === tempId ? { ...m, isSending: false, isError: true } : m));
+        messagesCacheRef.current[activeChat.id] = next;
+        return next;
+      });
       return;
     }
 
-    setMessages((prev) => prev.map((m) => (m.id === tempId ? inserted : m)));
+    setMessages((prev) => {
+      const next = prev.map((m) => (m.id === tempId ? inserted : m));
+      messagesCacheRef.current[activeChat.id] = next;
+      return next;
+    });
     setSummaries((prev) => {
       const withoutTemp = { ...prev };
-      return applyMessageInsert(withoutTemp, currentUser.id, inserted, { skipUnreadIncrement: true });
+      return applyMessageInsert(withoutTemp, currentUserId, inserted, { skipUnreadIncrement: true });
     });
     scrollToBottom();
     window.dispatchEvent(new CustomEvent("chat-message-sync"));
   };
 
-  if (!currentUser) return null;
+  if (!currentUserId) return null;
 
   return (
     <div
@@ -378,7 +443,7 @@ export function GlobalChat() {
           ) : (
             <>
               <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4 [&::-webkit-scrollbar]:hidden bg-slate-950">
-                {isLoading ? (
+                {isLoading && messages.length === 0 ? (
                   <div className="flex justify-center mt-10">
                     <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
                   </div>
@@ -386,7 +451,7 @@ export function GlobalChat() {
                   <div className="text-center text-xs font-bold text-slate-500 mt-10">打個招呼吧！</div>
                 ) : (
                   messages.map((msg) => {
-                    const isMe = msg.sender_id === currentUser.id;
+                    const isMe = msg.sender_id === currentUserId;
                     return (
                       <div key={msg.id} className={isMe ? CHAT_BUBBLE_ROW_ME : CHAT_BUBBLE_ROW_THEM}>
                         <div
