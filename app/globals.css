@@ -316,6 +316,7 @@
 .rich-text-editor-surface .ProseMirror {
   outline: none;
   min-height: inherit;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .rich-text-editor-surface .ProseMirror-focused {

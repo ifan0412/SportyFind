@@ -42,7 +42,7 @@ const HUB_ITEMS: {
   {
     id: "events",
     icon: CalendarDays,
-    label: "我的賽事",
+    label: "我的賽事/活動",
     desc: "參加與主辦的活動行程",
     accent: "hover:border-red-500/40 hover:bg-red-500/5 group-hover:text-red-400",
   },
@@ -90,7 +90,7 @@ export function ProfileHubWelcome({ userId, compact = false, onTab }: ProfileHub
       <div className="bg-slate-900/40 border border-slate-800/60 rounded-3xl p-6 md:p-8">
         <h2 className="text-xl md:text-2xl font-black text-white mb-2">個人檔案總覽</h2>
         <p className="text-sm text-zinc-500 mb-6">
-          使用左側圖示或下方快速入口，管理你的檔案、好友、團隊與賽事。
+          使用左側圖示或下方快速入口，管理你的檔案、好友、團隊與賽事/活動。
         </p>
 
         {userId && (

@@ -58,9 +58,9 @@ export const LISTING_SECTIONS: Record<ListingSectionId, ListingSectionConfig> = 
     icon: Trophy,
     gradient: CATEGORY_COLORS.events.iconGradient,
     shadow: CATEGORY_COLORS.events.shadow,
-    title: "約戰賽事",
+    title: "賽事/活動",
     subtitle: "尋找即將開打的球隊友誼賽、訓練營或散客休閒團練。",
-    tagline: "探索賽事",
+    tagline: "探索賽事/活動",
   },
   content: {
     icon: Sparkles,

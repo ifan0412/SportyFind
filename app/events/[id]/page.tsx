@@ -169,7 +169,7 @@ export default function EventDetailPage() {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center text-zinc-500 font-mono">
         <Loader2 className="w-6 h-6 animate-spin mr-2 text-blue-500" />
-        載入賽事詳情...
+        載入賽事/活動詳情...
       </div>
     );
   }
@@ -179,7 +179,7 @@ export default function EventDetailPage() {
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white p-4">
         <Trophy className="w-12 h-12 text-zinc-600 mb-4" />
         <h2 className="text-xl font-bold mb-2">找不到此活動</h2>
-        <Link href="/events" className="text-blue-400 hover:underline text-sm">返回約戰賽事</Link>
+        <Link href="/events" className="text-blue-400 hover:underline text-sm">返回賽事/活動</Link>
       </div>
     );
   }
@@ -790,7 +790,7 @@ export default function EventDetailPage() {
             {isCopied ? (
               <><Check className="w-3.5 h-3.5 text-emerald-400" /><span className="text-emerald-400">已複製連結</span></>
             ) : (
-              <><Share2 className="w-3.5 h-3.5 text-blue-400" /><span>分享 / 轉發賽事</span></>
+              <><Share2 className="w-3.5 h-3.5 text-blue-400" /><span>分享 / 轉發賽事/活動</span></>
             )}
           </button>
         </div>
@@ -1386,7 +1386,7 @@ export default function EventDetailPage() {
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl">
             <h3 className="text-lg font-black text-white mb-2 flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-red-500" /> 確認退出此賽事？
+              <AlertTriangle className="w-5 h-5 text-red-500" /> 確認退出此賽事/活動？
             </h3>
 
             {isLateInfractionTrigger && (

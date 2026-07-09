@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
+import dynamic from "next/dynamic";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -27,6 +28,16 @@ import {
   readTeamDetailBack,
 } from "@/lib/team-listing-state";
 import { GenderAvatarBadge } from "@/components/profile/GenderBadge";
+
+const DiscussionBoard = dynamic(
+  () => import("@/components/discussion/DiscussionBoard").then((m) => m.DiscussionBoard),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="py-8 text-center text-zinc-500 text-xs font-mono mb-6">載入討論區...</div>
+    ),
+  }
+);
 
 interface TeamData {
   id: string;
@@ -144,39 +155,58 @@ export default function TeamDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [joinState, setJoinState] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [joinError, setJoinError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"about" | "media" | "members">("about");
+  const [activeTab, setActiveTab] = useState<"about" | "discussion" | "media" | "members">("about");
   const [backHref, setBackHref] = useState("/team");
   const [backLabel, setBackLabel] = useState("← 返回團隊列表");
 
   useEffect(() => {
     if (!id) return;
-    Promise.all([
-      supabase.from("teams").select("*").eq("id", id).single(),
-      supabase
-        .from("team_members")
-        .select("team_id, user_id, role, joined_at, profiles(id, full_name, avatar_url, bio, gender)")
-        .eq("team_id", id),
-      supabase
-        .from("team_achievements")
-        .select("id, year, title, description")
-        .eq("team_id", id)
-        .order("year", { ascending: false }),
-      supabase.auth.getUser(),
-    ]).then(async ([{ data: teamData }, { data: membersData }, { data: achData }, { data: authData }]) => {
-      if (teamData) setTeam(teamData as TeamData);
-      if (membersData) setMembers(membersData as unknown as TeamMemberRow[]);
-      if (achData)     setAchievements(achData as Achievement[]);
-      setCurrentUserId(authData?.user?.id ?? null);
-      if (authData?.user?.id) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("gender")
-          .eq("id", authData.user.id)
-          .maybeSingle();
-        setCurrentUserGender(profile?.gender ?? null);
+    let cancelled = false;
+
+    async function loadTeam() {
+      try {
+        const [teamRes, membersRes, achRes, authRes] = await Promise.all([
+          supabase.from("teams").select("*").eq("id", id).single(),
+          supabase
+            .from("team_members")
+            .select("team_id, user_id, role, joined_at, profiles(id, full_name, avatar_url, bio, gender)")
+            .eq("team_id", id),
+          supabase
+            .from("team_achievements")
+            .select("id, year, title, description")
+            .eq("team_id", id)
+            .order("year", { ascending: false }),
+          supabase.auth.getUser(),
+        ]);
+
+        if (cancelled) return;
+
+        if (teamRes.data) setTeam(teamRes.data as TeamData);
+        if (membersRes.data) setMembers(membersRes.data as unknown as TeamMemberRow[]);
+        if (achRes.data) setAchievements(achRes.data as Achievement[]);
+        setCurrentUserId(authRes.data?.user?.id ?? null);
+
+        if (authRes.data?.user?.id) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("gender")
+            .eq("id", authRes.data.user.id)
+            .maybeSingle();
+          if (!cancelled) setCurrentUserGender(profile?.gender ?? null);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.error("載入團隊資料失敗:", err);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
       }
-      setIsLoading(false);
-    });
+    }
+
+    void loadTeam();
+    return () => {
+      cancelled = true;
+    };
   }, [id, supabase]);
 
   const myMembership = members.find((m) => m.user_id === currentUserId);
@@ -400,6 +430,7 @@ export default function TeamDetailPage() {
 
         <div className="flex flex-wrap gap-2 mb-6">
           {tabBtn("about", "📋 總覽")}
+          {tabBtn("discussion", "💬 討論區")}
           {tabBtn("media", `🖼️ 媒體${galleryPhotos.length > 0 ? ` (${galleryPhotos.length})` : ""}`)}
           {tabBtn("members", `👥 成員 (${activeMemberCount})`)}
           {isAdmin && (
@@ -530,6 +561,28 @@ export default function TeamDetailPage() {
         )}
 
           </>
+        )}
+
+        {activeTab === "discussion" && (
+          isMember ? (
+            <DiscussionBoard
+              contextType="team"
+              contextId={id}
+              currentUser={currentUserId ? { id: currentUserId } : null}
+              isModerator={isAdmin}
+              canParticipate
+              returnTo={returnTo}
+              title="團隊討論區"
+              emptyHint="尚無討論，成員可在此交流、約練或分享資訊。"
+              inputPlaceholder="與隊友交流、約練或分享資訊..."
+              className="mb-6"
+            />
+          ) : (
+            <div className="bg-slate-900/40 border border-dashed border-slate-700 rounded-3xl p-10 text-center mb-6">
+              <p className="text-sm font-bold text-zinc-400 mb-2">討論區僅限團隊成員</p>
+              <p className="text-xs text-zinc-500">加入團隊後即可參與討論、按讚與留言。</p>
+            </div>
+          )
         )}
 
         {activeTab === "media" && (

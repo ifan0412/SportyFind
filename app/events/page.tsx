@@ -284,18 +284,18 @@ export default function EventsLobbyPage() {
 
         <div className="mb-4 px-1">
           <span className="text-sm font-bold text-zinc-500">
-            顯示 <span className="text-white">{filteredEvents.length}</span> 場即將開打賽事
+            顯示 <span className="text-white">{filteredEvents.length}</span> 場即將開打的賽事/活動
           </span>
         </div>
 
         {isLoading ? (
           <div className="py-20 text-center text-zinc-500 font-mono flex items-center justify-center gap-2 text-sm">
-            <Loader2 className="w-5 h-5 animate-spin text-blue-500" /> 正在尋找即將開打的賽事...
+            <Loader2 className="w-5 h-5 animate-spin text-blue-500" /> 正在尋找即將開打的賽事/活動...
           </div>
         ) : filteredEvents.length === 0 ? (
           <div className="bg-slate-900/40 border border-dashed border-slate-700/50 rounded-3xl py-20 text-center px-4 space-y-3">
             <Clock className="w-10 h-10 text-zinc-600 mx-auto" />
-            <p className="text-zinc-400 font-bold text-sm">目前沒有符合條件的即將開打賽事</p>
+            <p className="text-zinc-400 font-bold text-sm">目前沒有符合條件的即將開打賽事/活動</p>
             <p className="text-xs text-zinc-500 max-w-md mx-auto">
               嘗試更換搜尋關鍵字、切換篩選條件，或是發起您的第一場公開約戰！
             </p>

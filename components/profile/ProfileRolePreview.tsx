@@ -13,6 +13,7 @@ import { PhysioServiceTypeBadges } from "@/components/physio/PhysioServiceTypePi
 import { normalizePhysioServiceTypes } from "@/lib/physio-service-types";
 import { ServicePublishBadge } from "@/components/services/ServicePublishBadge";
 import { formatCoachServicePrice, formatPhysioServicePrice } from "@/lib/coach-pricing";
+import { CoachRoleLabel, PhysioRoleLabel } from "@/components/profile/RoleBadges";
 import { serviceHasUncontactedEnquiry } from "@/lib/service-enquiry";
 
 export type ProfileRole = "athlete" | "coach" | "physio";
@@ -309,7 +310,7 @@ export function ProfileRolePreview({
                 <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-xl">
                   <div className="space-y-2 max-w-2xl">
                     <h3 className="text-sm font-black text-orange-400 uppercase tracking-wider flex items-center gap-2">
-                      <span>🎓</span> 專業教學簡介
+                      <CoachRoleLabel label="專業教學簡介" iconClassName="w-4 h-4" />
                     </h3>
                     <RichBody
                       html={profile.coach_bio}
@@ -463,7 +464,7 @@ export function ProfileRolePreview({
                 <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-xl">
                   <div className="space-y-2 max-w-2xl">
                     <h3 className="text-sm font-black text-green-400 uppercase tracking-wider flex items-center gap-2">
-                      <span>⚕️</span> 治療師專業簡介
+                      <PhysioRoleLabel label="治療師專業簡介" iconClassName="w-4 h-4" />
                     </h3>
                     <RichBody
                       html={profile.physio_qualifications}

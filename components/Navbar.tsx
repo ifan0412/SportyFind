@@ -523,7 +523,7 @@ export function Navbar() {
                       ? "border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.3)] text-red-400"
                       : "border-slate-700 text-slate-400 hover:border-slate-400 hover:text-white"
                   )}
-                  title="我的賽事中心"
+                  title="我的賽事/活動"
                 >
                   <Calendar className="size-4" />
                 </Link>

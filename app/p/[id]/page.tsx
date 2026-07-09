@@ -14,6 +14,8 @@ import {
 } from "@/lib/hk-locations";
 import { LISTING_PAGE_SHELL_PADDING } from "@/lib/listing-sections";
 import { RichBody } from "@/components/content/RichBody";
+import { CoachRoleLabel, PhysioRoleLabel } from "@/components/profile/RoleBadges";
+import { ProfilePhysicalStatsRow } from "@/components/profile/ProfilePhysicalStatsRow";
 import { SportCategoryBadge } from "@/components/sports/SportCategoryBadge";
 import { stripHtml, truncatePlainBio, serviceDescriptionPreview } from "@/lib/content/body";
 import { reopenOrSendFriendRequest } from "@/lib/friendships";
@@ -58,6 +60,7 @@ interface Profile {
   physio_service_tags?: string[] | null;
   physio_qualification_tags?: string[] | null; physio_qualification_custom?: string | null;
   height_cm?: number | null; weight_kg?: number | null; show_physical_stats?: boolean | null;
+  age?: number | null; show_age?: boolean | null;
   gender?: string | null;
 }
 
@@ -345,8 +348,6 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
   const hasPublicPlayer = profile.is_player !== false;
   const hasPublicCoach = profile.is_coach === true;
   const hasPublicPhysio = profile.is_physio && profile.physio_status !== "hidden";
-  const showPhysicalStats = hasPublicPlayer && profile.show_physical_stats && (profile.height_cm || profile.weight_kg);
-
   return (
     <div className="bg-slate-950 min-h-screen text-zinc-200 font-sans selection:bg-blue-500/30">
       <div className={`max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 ${LISTING_PAGE_SHELL_PADDING}`}>
@@ -368,19 +369,24 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
               <h1 className="text-3xl font-black text-white tracking-tight mb-1">{profile.full_name}</h1>
               <p className="text-blue-400 font-mono text-sm mb-4">@{profile.handle || id.slice(0, 8)}</p>
 
-              {showPhysicalStats && (
-                <div className="flex items-center justify-center gap-4 px-4 py-1.5 rounded-full bg-slate-950/60 border border-slate-800 text-xs font-mono text-zinc-400 mb-4 mx-auto w-fit shadow-inner">
-                  {profile.height_cm && <span>📏 {profile.height_cm} cm</span>}
-                  {profile.weight_kg && <span className={profile.height_cm ? "border-l border-slate-700 pl-4" : ""}>⚖️ {profile.weight_kg} kg</span>}
-                </div>
+              {hasPublicPlayer && (
+                <ProfilePhysicalStatsRow
+                  age={profile.age}
+                  showAge={profile.show_age}
+                  heightCm={profile.height_cm}
+                  weightKg={profile.weight_kg}
+                  showPhysicalStats={profile.show_physical_stats}
+                  size="md"
+                  className="mb-4"
+                />
               )}
 
               <p className="text-sm font-bold text-zinc-400 mb-4">{profile.headline || "專注於每一次場上表現。"}</p>
               
               <div className="flex flex-wrap justify-center gap-2 mb-4">
                 {hasPublicPlayer && <span className="bg-slate-800/80 text-zinc-300 text-[10px] font-black px-3 py-1 rounded-full border border-slate-700">👤 運動員</span>}
-                {hasPublicCoach && <span className="bg-orange-500/10 text-orange-400 text-[10px] font-black px-3 py-1 rounded-full border border-orange-500/20">🎓 教練</span>}
-                {hasPublicPhysio && <span className="bg-green-500/10 text-green-400 text-[10px] font-black px-3 py-1 rounded-full border border-green-500/20">⚕️ 運動/物理治療</span>}
+                {hasPublicCoach && <span className="bg-orange-500/10 text-orange-400 text-[10px] font-black px-3 py-1 rounded-full border border-orange-500/20"><CoachRoleLabel /></span>}
+                {hasPublicPhysio && <span className="bg-green-500/10 text-green-400 text-[10px] font-black px-3 py-1 rounded-full border border-green-500/20"><PhysioRoleLabel label="運動/物理治療" /></span>}
               </div>
               
               <p className="text-sm text-zinc-300 leading-relaxed text-center bg-slate-900/30 p-4 rounded-2xl border border-slate-800/50 mb-6">
@@ -545,7 +551,7 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
                       <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-xl mt-2">
                         <div className="space-y-2 max-w-2xl">
                           <h3 className="text-sm font-black text-orange-400 uppercase tracking-wider flex items-center gap-2">
-                            <span>🎓</span> 專業教學簡介
+                            <CoachRoleLabel label="專業教學簡介" iconClassName="w-4 h-4" />
                           </h3>
                           <RichBody
                             html={profile.coach_bio}
@@ -696,7 +702,7 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
                       <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-xl mt-2">
                         <div className="space-y-2 max-w-2xl">
                           <h3 className="text-sm font-black text-green-400 uppercase tracking-wider flex items-center gap-2">
-                            <span>⚕️</span> 治療師專業簡介
+                            <PhysioRoleLabel label="治療師專業簡介" iconClassName="w-4 h-4" />
                           </h3>
                           <RichBody
                             html={profile.physio_qualifications}

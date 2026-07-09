@@ -164,7 +164,7 @@ export function MyEventsTab({ embedded = false, userId }: MyEventsTabProps) {
       {embedded && (
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-lg md:text-xl font-black text-white">我的賽事</h2>
+            <h2 className="text-lg md:text-xl font-black text-white">我的賽事/活動</h2>
             <p className="text-xs text-zinc-500 mt-1">管理你參加與主辦的所有活動。</p>
           </div>
           <Link
@@ -224,19 +224,19 @@ export function MyEventsTab({ embedded = false, userId }: MyEventsTabProps) {
 
       {isLoading ? (
         <div className="py-24 text-center text-zinc-500 font-mono flex items-center justify-center">
-          <Loader2 className="w-6 h-6 animate-spin mr-2 text-blue-500" /> 彙整您的賽事履歷...
+          <Loader2 className="w-6 h-6 animate-spin mr-2 text-blue-500" /> 彙整您的賽事/活動履歷...
         </div>
       ) : activeTab === "joined" ? (
         filteredJoined.length === 0 ? (
           <div className="py-16 text-center bg-slate-900/40 border border-dashed border-slate-700/50 rounded-3xl p-8">
             <Calendar className="w-12 h-12 text-zinc-600 mx-auto mb-3" />
-            <h3 className="text-base font-bold text-zinc-300 mb-1">你尚未參加任何賽事</h3>
-            <p className="text-xs text-zinc-500 mb-6">前往約戰大廳探索各區熱門訓練與友誼賽事！</p>
+            <h3 className="text-base font-bold text-zinc-300 mb-1">你尚未參加任何賽事/活動</h3>
+            <p className="text-xs text-zinc-500 mb-6">前往大廳探索各區熱門訓練與友誼賽事/活動！</p>
             <Link
               href="/events"
               className="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-black text-white transition inline-flex items-center gap-2"
             >
-              探索約戰賽事 <ArrowUpRight className="w-4 h-4" />
+              探索賽事/活動 <ArrowUpRight className="w-4 h-4" />
             </Link>
           </div>
         ) : (
@@ -339,13 +339,13 @@ export function MyEventsTab({ embedded = false, userId }: MyEventsTabProps) {
       ) : filteredHosted.length === 0 ? (
         <div className="py-16 text-center bg-slate-900/40 border border-dashed border-slate-700/50 rounded-3xl p-8">
           <Shield className="w-12 h-12 text-zinc-600 mx-auto mb-3" />
-          <h3 className="text-base font-bold text-zinc-300 mb-1">你尚未建立任何賽事</h3>
+          <h3 className="text-base font-bold text-zinc-300 mb-1">你尚未建立任何賽事/活動</h3>
           <p className="text-xs text-zinc-500 mb-6">建立專屬的球隊邀請賽或周末訓練營，掌握社群主導權！</p>
           <Link
             href="/events/new"
             className="px-6 py-3 rounded-xl bg-red-600 hover:bg-red-500 text-xs font-black text-white transition inline-flex items-center gap-2"
           >
-            立即建立賽事 <Plus className="w-4 h-4" />
+            立即建立賽事/活動 <Plus className="w-4 h-4" />
           </Link>
         </div>
       ) : (

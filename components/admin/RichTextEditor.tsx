@@ -98,29 +98,8 @@ export function RichTextEditor({
   const imagesEnabled = enableImages ?? variant === "default";
   const editorMinHeight = minHeight ?? (variant === "compact" ? "140px" : "280px");
 
-  const uploadImage = useCallback(
-    async (file: File): Promise<string | null> => {
-      const ext = file.name.split(".").pop() || "jpg";
-      const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-      const filePath = `content/${fileName}`;
-      const { error } = await supabase.storage.from("highlights").upload(filePath, file, { upsert: true });
-      if (error) {
-        console.error("Image upload failed:", error.message);
-        return null;
-      }
-      return supabase.storage.from("highlights").getPublicUrl(filePath).data.publicUrl;
-    },
-    [supabase]
-  );
-
-  const focusEditor = useCallback((ed: Editor) => {
-    if (!ed.isFocused) {
-      ed.chain().focus("end").run();
-    }
-  }, []);
-
-  const editor = useEditor({
-    extensions: [
+  const extensions = useMemo(
+    () => [
       StarterKit.configure({
         heading: { levels: [2, 3] },
         hardBreak: { keepMarks: true },
@@ -139,9 +118,53 @@ export function RichTextEditor({
         : []),
       Placeholder.configure({ placeholder: placeholder || "開始撰寫內容…" }),
     ],
+    [imagesEnabled, placeholder]
+  );
+
+  const focusView = useCallback((view: { focus: () => void; hasFocus: () => boolean }) => {
+    if (!view.hasFocus()) {
+      requestAnimationFrame(() => {
+        view.focus();
+      });
+    }
+  }, []);
+
+  const focusEditor = useCallback((ed: Editor) => {
+    if (!ed.isFocused) {
+      ed.chain().focus("end").run();
+    }
+  }, []);
+
+  const uploadImage = useCallback(
+    async (file: File): Promise<string | null> => {
+      const ext = file.name.split(".").pop() || "jpg";
+      const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const filePath = `content/${fileName}`;
+      const { error } = await supabase.storage.from("highlights").upload(filePath, file, { upsert: true });
+      if (error) {
+        console.error("Image upload failed:", error.message);
+        return null;
+      }
+      return supabase.storage.from("highlights").getPublicUrl(filePath).data.publicUrl;
+    },
+    [supabase]
+  );
+
+  const onChangeRef = useRef(onChange);
+  const valueRef = useRef(value);
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
+  useEffect(() => {
+    valueRef.current = value;
+  }, [value]);
+
+  const editor = useEditor({
+    extensions,
     content: normalizeRichHtml(value || ""),
     immediatelyRender: false,
     autofocus: false,
+    shouldRerenderOnTransaction: false,
     editorProps: {
         attributes: {
           class:
@@ -151,13 +174,23 @@ export function RichTextEditor({
         autocorrect: "on",
         spellcheck: "true",
         "aria-label": placeholder || "Rich text editor",
+        contenteditable: "true",
       },
       handleDOMEvents: {
-        touchstart: () => {
-          const ed = editorInstanceRef.current;
-          if (ed && !ed.isFocused) {
-            ed.chain().focus().run();
-          }
+        touchstart: (view) => {
+          focusView(view);
+          return false;
+        },
+        touchend: (view) => {
+          focusView(view);
+          return false;
+        },
+        mousedown: (view) => {
+          focusView(view);
+          return false;
+        },
+        click: (view) => {
+          focusView(view);
           return false;
         },
       },
@@ -208,17 +241,17 @@ export function RichTextEditor({
     onUpdate: ({ editor: ed }) => {
       const html = normalizeRichHtml(ed.getHTML());
       lastEmittedHtml.current = html;
-      onChange(html);
+      onChangeRef.current(html);
       setCharCount(ed.getText().length);
     },
     onBlur: ({ editor: ed }) => {
       const html = normalizeRichHtml(ed.getHTML());
       lastEmittedHtml.current = html;
-      if (!richHtmlEquivalent(html, value)) {
-        onChange(html);
+      if (!richHtmlEquivalent(html, valueRef.current)) {
+        onChangeRef.current(html);
       }
     },
-  });
+  }, [extensions]);
 
   // Only apply external value changes — never reset while the user is editing
   useEffect(() => {
@@ -381,6 +414,7 @@ export function RichTextEditor({
         ref={editorWrapperRef}
         className="rich-text-editor-surface cursor-text"
         style={{ minHeight: editorMinHeight }}
+        onPointerDown={() => focusEditor(editor)}
         onClick={() => focusEditor(editor)}
       >
         <EditorContent editor={editor} />

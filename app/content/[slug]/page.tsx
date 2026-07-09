@@ -47,6 +47,74 @@ function estimateReadMinutes(body: string): number {
   return Math.max(1, Math.ceil(words / 200));
 }
 
+function ArticleIntroHeader({
+  title,
+  excerpt,
+  published,
+  readMin,
+  categories,
+  sports,
+  overlay = false,
+}: {
+  title: string;
+  excerpt?: string | null;
+  published: string;
+  readMin: number;
+  categories: string[];
+  sports: string[];
+  overlay?: boolean;
+}) {
+  return (
+    <>
+      <BackButton label="返回運動貼士" href="/content" />
+
+      <div className={`flex flex-wrap gap-2 mb-4 ${overlay ? "mt-4" : "mt-3"}`}>
+        <span
+          className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-full bg-violet-500/20 text-violet-200 border border-violet-400/30 ${
+            overlay ? "backdrop-blur-sm" : ""
+          }`}
+        >
+          運動貼士
+        </span>
+        <ContentBadges categories={categories} sports={sports} overlay={overlay} />
+      </div>
+
+      <h1
+        className={`text-2xl sm:text-3xl md:text-4xl font-black text-white tracking-tight leading-tight mb-4 max-w-3xl ${
+          overlay ? "drop-shadow-lg" : ""
+        }`}
+      >
+        {title}
+      </h1>
+
+      {excerpt && (
+        <p
+          className={`text-sm sm:text-base leading-relaxed mb-5 max-w-2xl ${
+            overlay ? "text-zinc-300 drop-shadow" : "text-zinc-400"
+          }`}
+        >
+          {excerpt}
+        </p>
+      )}
+
+      <div className={`flex flex-wrap items-center gap-4 text-xs font-bold ${overlay ? "text-zinc-400" : "text-zinc-500"}`}>
+        <time dateTime={published} className="flex items-center gap-1.5">
+          <Calendar className="w-3.5 h-3.5" />
+          {new Date(published).toLocaleDateString("zh-HK", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          })}
+        </time>
+        <span className="flex items-center gap-1.5">
+          <Clock className="w-3.5 h-3.5" />
+          約 {readMin} 分鐘閱讀
+        </span>
+      </div>
+    </>
+  );
+}
+
 export default async function ContentDetailPage({ params }: PageProps) {
   const { slug } = await params;
   const supabase = await createClient();
@@ -78,85 +146,71 @@ export default async function ContentDetailPage({ params }: PageProps) {
   return (
     <article className="bg-slate-950 min-h-screen text-zinc-200 font-sans pb-24">
       {article.cover_image_url ? (
-        <div className="relative w-full h-44 md:h-auto md:aspect-[16/9] md:max-h-[480px] overflow-hidden bg-slate-900">
-          <Image
-            src={article.cover_image_url}
-            alt={article.title}
-            fill
-            className="object-cover object-center"
-            priority
-            sizes="100vw"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/70 to-slate-950/30" />
-          <div className="absolute inset-0 bg-gradient-to-r from-slate-950/40 to-transparent" />
-
-          <div className={`relative z-10 w-full ${ARTICLE_PAGE_MAX_WIDTH} mx-auto px-4 sm:px-6 pb-8 pt-20 md:pt-24`}>
-            <BackButton label="返回運動貼士" href="/content" />
-
-            <div className="flex flex-wrap gap-2 mb-4 mt-4">
-              <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-full bg-violet-500/20 text-violet-200 border border-violet-400/30 backdrop-blur-sm">
-                運動貼士
-              </span>
-              <ContentBadges categories={categories} sports={sports} overlay />
+        <>
+          {/* Mobile: banner image + readable header below (no clipped overlay). */}
+          <div className="md:hidden">
+            <div className="relative w-full aspect-[16/9] max-h-[220px] overflow-hidden bg-slate-900">
+              <Image
+                src={article.cover_image_url}
+                alt={article.title}
+                fill
+                className="object-cover object-center"
+                priority
+                sizes="100vw"
+              />
             </div>
-
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-white tracking-tight leading-tight mb-4 max-w-3xl drop-shadow-lg">
-              {article.title}
-            </h1>
-
-            {article.excerpt && (
-              <p className="text-sm sm:text-base text-zinc-300 leading-relaxed mb-5 max-w-2xl drop-shadow">
-                {article.excerpt}
-              </p>
-            )}
-
-            <div className="flex flex-wrap items-center gap-4 text-xs text-zinc-400 font-bold">
-              <time dateTime={published} className="flex items-center gap-1.5">
-                <Calendar className="w-3.5 h-3.5" />
-                {new Date(published).toLocaleDateString("zh-HK", {
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}
-              </time>
-              <span className="flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5" />
-                約 {readMin} 分鐘閱讀
-              </span>
+            <div className={`${ARTICLE_PAGE_MAX_WIDTH} mx-auto px-4 sm:px-6 pb-2 pt-4`}>
+              <ArticleIntroHeader
+                title={article.title}
+                excerpt={article.excerpt}
+                published={published}
+                readMin={readMin}
+                categories={categories}
+                sports={sports}
+              />
             </div>
           </div>
-        </div>
+
+          {/* Desktop: cinematic overlay hero. */}
+          <div className="relative hidden w-full md:block md:aspect-[16/9] md:max-h-[480px] overflow-hidden bg-slate-900">
+            <Image
+              src={article.cover_image_url}
+              alt={article.title}
+              fill
+              className="object-cover object-center"
+              priority
+              sizes="100vw"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/70 to-slate-950/30" />
+            <div className="absolute inset-0 bg-gradient-to-r from-slate-950/40 to-transparent" />
+
+            <div className={`relative z-10 w-full ${ARTICLE_PAGE_MAX_WIDTH} mx-auto px-4 sm:px-6 pb-8 pt-24`}>
+              <ArticleIntroHeader
+                title={article.title}
+                excerpt={article.excerpt}
+                published={published}
+                readMin={readMin}
+                categories={categories}
+                sports={sports}
+                overlay
+              />
+            </div>
+          </div>
+        </>
       ) : (
-        <div className={`${ARTICLE_PAGE_MAX_WIDTH} mx-auto px-4 sm:px-6 py-8`}>
-          <BackButton label="返回運動貼士" href="/content" />
-          <header className="mt-6 mb-8">
-            <div className="flex flex-wrap gap-2 mb-4">
-              <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-full bg-violet-500/20 text-violet-200 border border-violet-400/30">
-                運動貼士
-              </span>
-              <ContentBadges categories={categories} sports={sports} />
-            </div>
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-white tracking-tight leading-tight mb-4">
-              {article.title}
-            </h1>
-            {article.excerpt && (
-              <p className="text-sm sm:text-base text-zinc-400 leading-relaxed mb-4">{article.excerpt}</p>
-            )}
-            <div className="flex flex-wrap items-center gap-4 text-xs text-zinc-500 font-bold">
-              <time dateTime={published}>
-                {new Date(published).toLocaleDateString("zh-HK", {
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}
-              </time>
-              <span>約 {readMin} 分鐘閱讀</span>
-            </div>
-          </header>
+        <div className={`${ARTICLE_PAGE_MAX_WIDTH} mx-auto px-4 sm:px-6 py-6 md:py-8`}>
+          <ArticleIntroHeader
+            title={article.title}
+            excerpt={article.excerpt}
+            published={published}
+            readMin={readMin}
+            categories={categories}
+            sports={sports}
+          />
         </div>
       )}
 
-      <div className={`${ARTICLE_PAGE_MAX_WIDTH} mx-auto px-4 sm:px-6 py-8 md:py-10`}>
+      <div className={`${ARTICLE_PAGE_MAX_WIDTH} mx-auto px-4 sm:px-6 pt-6 pb-8 md:py-10`}>
         {bodyIsHtml ? (
           <div
             className="content-article-body rich-body max-w-none text-[15px] sm:text-[17px] leading-relaxed text-zinc-300"

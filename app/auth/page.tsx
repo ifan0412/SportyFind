@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { PasswordRequirements } from "@/components/PasswordRequirements";
 import { getPasswordValidationError } from "@/lib/password";
+import { CoachRoleLabel, PhysioRoleLabel } from "@/components/profile/RoleBadges";
 import { type ProfileGender, PROFILE_GENDER_OPTIONS } from "@/lib/gender";
 
 export default function AuthPage() {
@@ -203,8 +204,7 @@ export default function AuthPage() {
                         : "bg-pro-slate-800/60 border-pro-slate-700 text-slate-400 hover:border-slate-600"
                     }`}
                   >
-                    <span className="text-lg">🎓</span>
-                    <span className="text-xs font-bold">教練</span>
+                    <CoachRoleLabel iconClassName="w-5 h-5" className="flex-col gap-1 text-xs font-bold" />
                   </button>
 
                   <button
@@ -216,8 +216,7 @@ export default function AuthPage() {
                         : "bg-pro-slate-800/60 border-pro-slate-700 text-slate-400 hover:border-slate-600"
                     }`}
                   >
-                    <span className="text-lg">⚕️</span>
-                    <span className="text-xs font-bold">物理治療</span>
+                    <PhysioRoleLabel iconClassName="w-5 h-5" className="flex-col gap-1 text-xs font-bold" />
                   </button>
                 </div>
               </div>

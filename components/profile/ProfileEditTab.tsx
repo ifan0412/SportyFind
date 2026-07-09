@@ -3,8 +3,8 @@
 import { HKDistrictPicker } from "@/components/location/HKDistrictPicker";
 import { GenderAvatarBadge } from "@/components/profile/GenderBadge";
 import { PROFILE_GENDER_OPTIONS, type ProfileGender } from "@/lib/gender";
+import { PROFILE_AGE_OPTIONS } from "@/lib/profile-age";
 import { isHongKongCountry } from "@/lib/hk-locations";
-import { PROFILE_CARD_BIO_MAX } from "@/lib/content/body";
 
 interface ProfileEditTabProps {
   editForm: Record<string, unknown>;
@@ -105,37 +105,49 @@ export function ProfileEditTab({
           />
         </div>
 
-        <div className="space-y-1">
-          <label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">名片自介 Bio</label>
-          <input
-            className="w-full bg-slate-950/50 border border-slate-800 rounded-xl p-3 text-white text-sm"
-            value={form.bio || ""}
-            maxLength={PROFILE_CARD_BIO_MAX}
-            onChange={(e) => setEditForm({ ...form, bio: e.target.value })}
-            placeholder="一句話介紹自己，顯示於球員卡片"
-          />
-          <p className="text-[10px] text-zinc-500 text-right pr-1">
-            {(form.bio || "").length}/{PROFILE_CARD_BIO_MAX}
-          </p>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">
+              性別 <span className="normal-case font-normal text-zinc-600">(顯示於報名與成員名單)</span>
+            </label>
+            <select
+              className="w-full bg-slate-950/50 border border-slate-800 rounded-xl p-3 text-white text-sm"
+              value={form.gender || ""}
+              onChange={(e) => setEditForm({ ...form, gender: e.target.value as ProfileGender })}
+            >
+              <option value="">請選擇</option>
+              {PROFILE_GENDER_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">年齡</label>
+            <select
+              className="w-full bg-slate-950/50 border border-slate-800 rounded-xl p-3 text-white text-sm"
+              value={form.age != null && form.age !== "" ? String(form.age) : ""}
+              onChange={(e) => setEditForm({ ...form, age: e.target.value })}
+            >
+              {PROFILE_AGE_OPTIONS.map((opt) => (
+                <option key={opt.value || "unset"} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
-        <div className="space-y-1">
-          <label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">
-            性別 <span className="normal-case font-normal text-zinc-600">(顯示於報名與成員名單)</span>
-          </label>
-          <select
-            className="w-full bg-slate-950/50 border border-slate-800 rounded-xl p-3 text-white text-sm"
-            value={form.gender || ""}
-            onChange={(e) => setEditForm({ ...form, gender: e.target.value as ProfileGender })}
-          >
-            <option value="">請選擇</option>
-            {PROFILE_GENDER_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        </div>
+        <label className="flex items-center gap-2 cursor-pointer pl-1">
+          <input
+            type="checkbox"
+            checked={!!form.show_age}
+            onChange={(e) => setEditForm({ ...form, show_age: e.target.checked })}
+            className="rounded bg-slate-900 border-slate-700"
+          />
+          <span className="text-xs font-bold text-zinc-300">在個人檔案公開顯示年齡</span>
+        </label>
 
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1">

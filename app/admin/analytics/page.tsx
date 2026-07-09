@@ -147,7 +147,7 @@ export default function AdminAnalyticsPage() {
         <div className="space-y-8">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <StatCard label="註冊用戶" value={stats.totals.users} icon={Users} accent="bg-blue-500/10 text-blue-400" />
-            <StatCard label="賽事" value={stats.totals.events} icon={Calendar} accent="bg-red-500/10 text-red-400" />
+            <StatCard label="賽事/活動" value={stats.totals.events} icon={Calendar} accent="bg-red-500/10 text-red-400" />
             <StatCard label="隊伍" value={stats.totals.teams} icon={Shield} accent="bg-purple-500/10 text-purple-400" />
             <StatCard label="頁面瀏覽" value={stats.totals.page_views} icon={Eye} accent="bg-green-500/10 text-green-400" />
             <StatCard label="教練" value={stats.totals.coaches} icon={Activity} accent="bg-orange-500/10 text-orange-400" />
@@ -162,8 +162,8 @@ export default function AdminAnalyticsPage() {
               <MiniBarChart data={stats.registrations_by_day} color="bg-blue-500" />
             </div>
             <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800">
-              <h3 className="text-sm font-black text-white mb-1">賽事建立趨勢</h3>
-              <p className="text-[11px] text-zinc-600 mb-4">過去 {days} 天新賽事</p>
+              <h3 className="text-sm font-black text-white mb-1">賽事/活動建立趨勢</h3>
+              <p className="text-[11px] text-zinc-600 mb-4">過去 {days} 天新賽事/活動</p>
               <MiniBarChart data={stats.events_by_day} color="bg-amber-500" />
             </div>
             <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800">

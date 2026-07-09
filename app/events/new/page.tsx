@@ -422,13 +422,13 @@ export default function CreateEventPage() {
           href="/events"
           className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors mb-6 font-bold cursor-pointer"
         >
-          <ArrowLeft className="w-4 h-4" /> 返回約戰賽事
+          <ArrowLeft className="w-4 h-4" /> 返回賽事/活動
         </Link>
 
         <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl">
           <div className="border-b border-slate-800 pb-6 mb-6">
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight flex items-center gap-3">
-              <Trophy className="w-8 h-8 text-red-500" /> 發起運動賽事或聚會
+              <Trophy className="w-8 h-8 text-red-500" /> 發起賽事/活動或聚會
             </h1>
             <p className="text-xs sm:text-sm text-zinc-400 mt-1">
               設定報名規則、人數限制以及紅旗退賽預警，系統會自動依據運動類別嚴格隔離球隊。

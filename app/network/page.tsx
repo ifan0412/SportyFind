@@ -13,12 +13,13 @@ import {
   metadataMatchesPositionFilter,
   positionsFromMetadata,
 } from "@/lib/sport-positions";
-import { profileLink } from "@/lib/profile-links";
 import { useProfileReturnTo } from "@/lib/use-profile-return-to";
-import { truncatePlainBio } from "@/lib/content/body";
 import { type ProfileGender, PROFILE_GENDER_LABELS } from "@/lib/gender";
-import { GenderAvatarBadge } from "@/components/profile/GenderBadge";
 import { useAuth } from "@/components/SupabaseProvider";
+import {
+  PlayerNetworkCard,
+  type PlayerFriendshipStatus,
+} from "@/components/network/PlayerNetworkCard";
 import { ListingFilterBar } from "@/components/filters/ListingFilterBar";
 import { ScrollRevealFilterShell } from "@/components/filters/ScrollRevealFilterShell";
 import { MobileFilterSheet } from "@/components/filters/MobileFilterSheet";
@@ -44,6 +45,8 @@ interface ProfileRow {
   height_cm: number | null;
   weight_kg: number | null;
   show_physical_stats: boolean | null;
+  age: number | null;
+  show_age: boolean | null;
   is_coach: boolean | null;
   coach_status: string | null;
   is_physio: boolean | null;
@@ -52,15 +55,7 @@ interface ProfileRow {
   user_sports?: { sports?: { name: string } | null; metadata?: Record<string, unknown> }[];
 }
 
-function PlayerStatusBadge({ tag }: { tag: string | null }) {
-  if (tag === "recruiting")
-    return <div className="inline-flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] md:text-xs px-2.5 py-1 rounded-full font-black tracking-widest whitespace-nowrap shadow"><div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> 尋找新血</div>;
-  if (tag === "seeking_team")
-    return <div className="inline-flex items-center gap-1.5 bg-blue-500/10 border border-blue-500/20 text-blue-400 text-[10px] md:text-xs px-2.5 py-1 rounded-full font-black tracking-widest whitespace-nowrap shadow"><div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" /> 尋找隊伍</div>;
-  if (tag === "open_to_match")
-    return <div className="inline-flex items-center gap-1.5 bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] md:text-xs px-2.5 py-1 rounded-full font-black tracking-widest whitespace-nowrap shadow"><div className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" /> 開放約戰</div>;
-  return <div className="inline-flex items-center gap-1.5 bg-slate-800/80 border border-slate-700/50 text-zinc-400 text-[10px] md:text-xs px-2.5 py-1 rounded-full font-black tracking-widest whitespace-nowrap shadow"><div className="w-1.5 h-1.5 rounded-full bg-slate-500" /> 穩定狀態</div>;
-}
+type FriendshipMap = Record<string, { status: PlayerFriendshipStatus; friendshipId: string }>;
 
 export default function NetworkPage() {
   return (
@@ -76,6 +71,7 @@ function NetworkPageContent() {
   const returnTo = useProfileReturnTo();
 
   const [profiles, setProfiles] = useState<ProfileRow[]>([]);
+  const [friendshipMap, setFriendshipMap] = useState<FriendshipMap>({});
   const [isLoading, setIsLoading] = useState(true);
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -150,7 +146,7 @@ function NetworkPageContent() {
         .select(
           `
           id, full_name, location, headline, bio, avatar_url, status_tag, gender, display_sports, is_coach, coach_status, is_physio, physio_status,
-          height_cm, weight_kg, show_physical_stats, user_sports (
+          height_cm, weight_kg, show_physical_stats, age, show_age, user_sports (
             metadata,
             sports ( name )
           )
@@ -186,6 +182,56 @@ function NetworkPageContent() {
       cancelled = true;
     };
   }, [supabase, authUserId]);
+
+  useEffect(() => {
+    if (!authUserId) {
+      setFriendshipMap({});
+      return;
+    }
+
+    let cancelled = false;
+
+    supabase
+      .from("friendships")
+      .select("id, status, sender_id, receiver_id")
+      .or(`sender_id.eq.${authUserId},receiver_id.eq.${authUserId}`)
+      .then(({ data }) => {
+        if (cancelled) return;
+        const map: FriendshipMap = {};
+        for (const row of data || []) {
+          const peerId = row.sender_id === authUserId ? row.receiver_id : row.sender_id;
+          if (row.status === "accepted") {
+            map[peerId] = { status: "accepted", friendshipId: row.id };
+          } else if (row.status === "pending") {
+            map[peerId] = {
+              status: row.sender_id === authUserId ? "pending_sent" : "pending_received",
+              friendshipId: row.id,
+            };
+          }
+        }
+        setFriendshipMap(map);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [supabase, authUserId]);
+
+  const handleFriendshipChange = (
+    profileId: string,
+    status: PlayerFriendshipStatus,
+    friendshipId: string | null
+  ) => {
+    setFriendshipMap((prev) => {
+      const next = { ...prev };
+      if (status === "none" || !friendshipId) {
+        delete next[profileId];
+      } else {
+        next[profileId] = { status, friendshipId };
+      }
+      return next;
+    });
+  };
 
   const filteredProfiles = useMemo(() => {
     const q = searchTerm.toLowerCase();
@@ -337,54 +383,20 @@ function NetworkPageContent() {
             <div className="bg-slate-900/40 border border-dashed border-slate-700/50 rounded-3xl py-20 text-center px-4"><p className="text-zinc-400 font-bold text-sm">沒有符合條件的運動員檔案。</p></div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6 lg:gap-8 animate-fadeIn">
-              {filteredProfiles.map((p) => (
-                <div key={p.id} className="bg-slate-900/60 border border-slate-800 hover:border-slate-700 rounded-3xl p-6 flex flex-col justify-between transition duration-300 group hover:-translate-y-1 shadow-md hover:shadow-2xl relative overflow-hidden">
-                  {p.is_coach && p.coach_status !== "hidden" && (
-                    <span className="absolute top-4 left-4 z-10 px-3.5 py-1.5 rounded-full text-xs font-black uppercase tracking-wider bg-amber-500/15 text-amber-400 border border-amber-500/30 shadow-sm flex items-center gap-1.5">
-                      🎓 教練
-                    </span>
-                  )}
-                  {p.is_physio && p.physio_status !== "hidden" && (
-                    <span className="absolute top-4 right-4 z-10 px-3.5 py-1.5 rounded-full text-xs font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shadow-sm flex items-center gap-1.5">
-                      ⚕️ 物理治療
-                    </span>
-                  )}
-
-                  <div className="flex flex-col items-center text-center mt-4">
-                    <div className="relative w-20 h-20 md:w-24 md:h-24 mb-4 overflow-visible">
-                      <div className="w-full h-full rounded-2xl bg-slate-800 border-2 border-slate-700/60 flex items-center justify-center text-3xl font-black text-zinc-600 overflow-hidden bg-cover bg-center shadow-lg" style={p.avatar_url ? { backgroundImage: `url(${p.avatar_url})` } : undefined}>
-                        {!p.avatar_url && (p.full_name?.[0] || "P")}
-                      </div>
-                      <GenderAvatarBadge gender={p.gender} />
-                      <div className="absolute -bottom-3 flex justify-center w-full"><PlayerStatusBadge tag={p.status_tag} /></div>
-                    </div>
-
-                    <h3 className="text-lg font-black text-white group-hover:text-blue-400 transition mt-1 truncate max-w-full">{p.full_name || "運動員"}</h3>
-                    <p className="text-xs md:text-sm text-blue-400 font-medium truncate max-w-full mb-2">{p.headline || "熱愛運動與交流"}</p>
-                    
-                    {p.show_physical_stats && (p.height_cm || p.weight_kg) && (
-                      <div className="inline-flex items-center justify-center gap-2.5 px-3 py-1 rounded-full bg-slate-950 border border-slate-800 text-[10px] md:text-xs font-mono text-zinc-400 mb-3 shadow-inner">
-                        {p.height_cm && <span>📏 {p.height_cm} cm</span>}
-                        {p.weight_kg && <span className={p.height_cm ? "border-l border-slate-700 pl-2.5" : ""}>⚖️ {p.weight_kg} kg</span>}
-                      </div>
-                    )}
-
-                    {p.location && <div className="inline-flex items-center gap-1 text-[11px] text-zinc-400 bg-slate-950/60 px-3 py-1 rounded-full border border-slate-800/80 mb-3"><span>📍</span> <span className="truncate max-w-[160px]">{p.location}</span></div>}
-                    <p className="text-xs text-zinc-300 line-clamp-1 min-h-[1.25rem] leading-relaxed px-2 my-1">
-                      {truncatePlainBio(p.bio || "") || "這位運動員很低調，尚未填寫自介。"}
-                    </p>
-                  </div>
-
-                  <div className="space-y-4 pt-4 mt-2 border-t border-slate-800/80">
-                    <div className="flex flex-wrap justify-center gap-1.5 min-h-[1.75rem]">
-                      {p.display_sports && p.display_sports.length > 0 ? (
-                        p.display_sports.slice(0, 3).map((sport: string) => <span key={sport} className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-blue-950/40 text-blue-300 border border-blue-500/20">{sport}</span>)
-                      ) : <span className="text-[10px] text-zinc-600 italic">尚未勾選專項</span>}
-                    </div>
-                    <Link href={profileLink(p.id, returnTo)} className="block w-full py-2.5 rounded-xl bg-slate-800 hover:bg-blue-600 text-zinc-200 hover:text-white text-xs font-black text-center transition duration-200 shadow active:scale-95">查看完整檔案</Link>
-                  </div>
-                </div>
-              ))}
+              {filteredProfiles.map((p) => {
+                const friendship = friendshipMap[p.id];
+                return (
+                  <PlayerNetworkCard
+                    key={p.id}
+                    profile={p}
+                    returnTo={returnTo}
+                    currentUserId={authUserId ?? null}
+                    friendshipStatus={friendship?.status ?? "none"}
+                    friendshipId={friendship?.friendshipId ?? null}
+                    onFriendshipChange={handleFriendshipChange}
+                  />
+                );
+              })}
             </div>
           )}
         </div>

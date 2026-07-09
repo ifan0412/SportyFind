@@ -29,6 +29,10 @@ import {
 } from "@/lib/hk-locations";
 import { mapHighlightGalleryFiles } from "@/lib/highlights-gallery";
 import { type ProfileGender } from "@/lib/gender";
+import { parseProfileAgeInput } from "@/lib/profile-age";
+import { CoachRoleLabel, PhysioRoleLabel } from "@/components/profile/RoleBadges";
+import { ProfilePhysicalStatsRow } from "@/components/profile/ProfilePhysicalStatsRow";
+import { ProfileCardBio } from "@/components/profile/ProfileCardBio";
 import { GenderAvatarBadge } from "@/components/profile/GenderBadge";
 import { ProfileHubTopActions, ProfileHubMobileBar } from "@/components/profile/ProfileHubBar";
 import { ProfileHubTabNav, type ProfileHubTabId } from "@/components/profile/ProfileHubTabNav";
@@ -90,6 +94,8 @@ interface Profile {
   physio_facebook_url: string | null;
   physio_threads_url: string | null;
   gender?: ProfileGender | null;
+  age?: number | null;
+  show_age?: boolean | null;
 }
 
 interface Sport { id: string; name: string; }
@@ -167,6 +173,8 @@ const DEFAULT_FORM = {
   coach_subdistricts: [] as string[],
   coach_teaching_experience_years: "" as number | string,
   gender: "" as ProfileGender | "",
+  age: "",
+  show_age: false,
   physio_districts: [] as string[],
   physio_subdistricts: [] as string[],
 };
@@ -384,6 +392,8 @@ function ProfilePageContent() {
           coach_subdistricts: normalizeSubdistrictIds(prof.coach_subdistricts),
           coach_teaching_experience_years: prof.coach_teaching_experience_years ?? "",
           gender: (prof.gender === "male" || prof.gender === "female" ? prof.gender : "") as ProfileGender | "",
+          age: prof.age != null ? String(prof.age) : "",
+          show_age: prof.show_age ?? false,
           physio_districts: normalizeDistrictIds(prof.physio_districts, prof.physio_city_region),
           physio_subdistricts: normalizeSubdistrictIds(prof.physio_subdistricts),
         });
@@ -563,6 +573,8 @@ function ProfilePageContent() {
       weight_kg: editForm.weight_kg ? Number(editForm.weight_kg) : null,
       show_physical_stats: editForm.show_physical_stats ?? true,
       gender: editForm.gender || null,
+      age: parseProfileAgeInput(String(editForm.age ?? "")),
+      show_age: editForm.show_age ?? false,
       contact_email: editForm.contact_email || null,
       contact_phone: editForm.contact_phone || null,
       player_whatsapp: editForm.player_whatsapp || null,
@@ -721,20 +733,34 @@ function ProfilePageContent() {
                 <h1 className="text-3xl font-black text-white tracking-tight leading-none mb-1">{profile?.first_name} {profile?.last_name}</h1>
                 <p className="text-sm font-mono text-blue-400 mb-2">@{profile?.handle || "ID_未設定"}</p>
 
-                {profile?.is_player !== false && profile?.show_physical_stats && (profile?.height_cm || profile?.weight_kg) && (
-                  <div className="flex items-center justify-center gap-4 px-4 py-1.5 rounded-full bg-slate-900/60 border border-slate-800 text-xs font-mono text-zinc-400 mb-4 mx-auto w-fit shadow-inner">
-                    {profile.height_cm && <span>📏 {profile.height_cm} cm</span>}
-                    {profile.weight_kg && <span className={profile.height_cm ? "border-l border-slate-700 pl-4" : ""}>⚖️ {profile.weight_kg} kg</span>}
-                  </div>
+                {profile?.is_player !== false && (
+                  <ProfilePhysicalStatsRow
+                    age={profile?.age}
+                    showAge={profile?.show_age}
+                    heightCm={profile?.height_cm}
+                    weightKg={profile?.weight_kg}
+                    showPhysicalStats={profile?.show_physical_stats}
+                    size="md"
+                    className="mb-4"
+                  />
                 )}
 
                 <p className="text-sm font-bold text-zinc-400 mb-4">{profile?.headline || "設定你的場上宣言"}</p>
                 <div className="flex flex-wrap justify-center gap-2 mb-4">
                   {profile?.is_player !== false && <span className="bg-blue-500/10 text-blue-400 text-[10px] font-black px-3 py-1 rounded-full border border-blue-500/20">👤 運動員</span>}
-                  {profile?.is_coach && <span className="bg-amber-500/10 text-amber-400 text-[10px] font-black px-3 py-1 rounded-full border border-amber-500/20">🎓 教練</span>}
-                  {profile?.is_physio && <span className="bg-emerald-500/10 text-emerald-400 text-[10px] font-black px-3 py-1 rounded-full border border-emerald-500/20">⚕️ 物理治療</span>}
+                  {profile?.is_coach && <span className="bg-amber-500/10 text-amber-400 text-[10px] font-black px-3 py-1 rounded-full border border-amber-500/20"><CoachRoleLabel /></span>}
+                  {profile?.is_physio && <span className="bg-emerald-500/10 text-emerald-400 text-[10px] font-black px-3 py-1 rounded-full border border-emerald-500/20"><PhysioRoleLabel /></span>}
                 </div>
-                <p className="text-sm text-zinc-300 leading-relaxed text-center bg-slate-900/30 p-4 rounded-2xl border border-slate-800/50">{stripHtml(profile?.bio || "") || "寫下一段關於你的歷程..."}</p>
+                {user?.id && (
+                  <ProfileCardBio
+                    userId={user.id}
+                    bio={profile?.bio}
+                    onSaved={(nextBio) => {
+                      setProfile((prev) => (prev ? { ...prev, bio: nextBio || null } : prev));
+                      setEditForm((prev: Record<string, unknown>) => ({ ...prev, bio: nextBio }));
+                    }}
+                  />
+                )}
               </div>
             </div>
           </div>

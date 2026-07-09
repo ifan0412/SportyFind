@@ -137,7 +137,7 @@ export function MobileBottomNav() {
 
           {isAuthenticated ? (
             <>
-              <NavButton href="/events/my" label="我的活動" active={isEvents}>
+              <NavButton href="/events/my" label="我的賽事/活動" active={isEvents}>
                 <Calendar className="w-5 h-5" />
               </NavButton>
               <NavButton

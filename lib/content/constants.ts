@@ -2,7 +2,7 @@ export const CONTENT_CATEGORIES = [
   { id: "players", label: "運動員", labelEn: "Players", href: "/network" },
   { id: "coaches", label: "教練", labelEn: "Coaches", href: "/coaches" },
   { id: "teams", label: "隊伍", labelEn: "Teams", href: "/team" },
-  { id: "events", label: "賽事", labelEn: "Events", href: "/events" },
+  { id: "events", label: "賽事/活動", labelEn: "Events", href: "/events" },
   { id: "physio", label: "物理治療", labelEn: "Physio", href: "/physio" },
   { id: "general", label: "平台指南", labelEn: "General", href: "/" },
 ] as const;

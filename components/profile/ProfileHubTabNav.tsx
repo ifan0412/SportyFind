@@ -10,12 +10,14 @@ export const PROFILE_HUB_TABS: {
   id: Exclude<ProfileHubTabId, "settings">;
   icon: typeof Home;
   label: string;
+  /** Compact label for mobile icon row (≤4 chars where possible). */
+  shortLabel: string;
 }[] = [
-  { id: "home", icon: Home, label: "主頁" },
-  { id: "edit", icon: Pencil, label: "編輯個人檔案" },
-  { id: "friends", icon: Users, label: "好友管理" },
-  { id: "teams", icon: Shield, label: "我的團隊" },
-  { id: "events", icon: CalendarDays, label: "我的賽事" },
+  { id: "home", icon: Home, label: "主頁", shortLabel: "主頁" },
+  { id: "edit", icon: Pencil, label: "編輯個人檔案", shortLabel: "個人檔案" },
+  { id: "friends", icon: Users, label: "好友管理", shortLabel: "好友" },
+  { id: "teams", icon: Shield, label: "我的團隊", shortLabel: "隊伍" },
+  { id: "events", icon: CalendarDays, label: "我的賽事/活動", shortLabel: "賽事/活動" },
 ];
 
 interface ProfileHubTabNavProps {
