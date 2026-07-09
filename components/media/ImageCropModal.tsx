@@ -89,6 +89,7 @@ export function ImageCropModal({
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const confirmingRef = useRef(false);
   const previewUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -97,6 +98,7 @@ export function ImageCropModal({
     setZoom(1);
     setCroppedAreaPixels(null);
     setPreviewUrl(null);
+    confirmingRef.current = false;
     if (previewUrlRef.current) {
       URL.revokeObjectURL(previewUrlRef.current);
       previewUrlRef.current = null;
@@ -129,7 +131,8 @@ export function ImageCropModal({
   if (!open || !imageSrc) return null;
 
   const handleConfirm = async () => {
-    if (!croppedAreaPixels) return;
+    if (!croppedAreaPixels || confirmingRef.current) return;
+    confirmingRef.current = true;
     setIsProcessing(true);
     try {
       const file = await cropImageToFile(
@@ -140,6 +143,7 @@ export function ImageCropModal({
       );
       if (file) onConfirm(file);
     } finally {
+      confirmingRef.current = false;
       setIsProcessing(false);
     }
   };

@@ -57,7 +57,7 @@ export function ProfileCardBio({ userId, bio, onSaved, className }: ProfileCardB
           rows={3}
           autoFocus
           placeholder="寫下一段關於你的歷程..."
-          className="w-full bg-slate-950/60 border border-slate-700 rounded-xl p-3 text-sm text-zinc-200 leading-relaxed resize-none focus:outline-none focus:border-blue-500"
+          className="w-full bg-slate-950/60 border border-slate-700 rounded-xl p-3 text-base md:text-sm text-zinc-200 leading-relaxed resize-none focus:outline-none focus:border-blue-500"
         />
         <div className="flex items-center justify-between mt-2 gap-2">
           <span className="text-[10px] text-zinc-500 tabular-nums">

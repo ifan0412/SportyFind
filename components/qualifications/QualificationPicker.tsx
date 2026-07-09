@@ -75,12 +75,12 @@ export function QualificationPicker({
         <p className="text-[10px] text-zinc-600 pl-1 mb-1">
           顯示於您的公開名片，不會以標籤形式出現在名錄列表
         </p>
-        <input
-          type="text"
+        <textarea
           value={customValue}
           onChange={(e) => onCustomChange(e.target.value)}
           placeholder={customPlaceholder}
-          className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:border-slate-500 transition outline-none placeholder:text-zinc-600"
+          rows={3}
+          className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-base md:text-sm text-white focus:border-slate-500 transition outline-none placeholder:text-zinc-600 resize-y min-h-[5.5rem]"
         />
       </div>
 

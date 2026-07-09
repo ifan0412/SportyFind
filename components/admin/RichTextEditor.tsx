@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useEditor, EditorContent, type Editor } from "@tiptap/react";
+import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
 import Link from "@tiptap/extension-link";
@@ -91,10 +91,8 @@ export function RichTextEditor({
   const uploadingRef = useRef(false);
   /** Tracks HTML we emitted so parent echo doesn't reset the editor mid-typing */
   const lastEmittedHtml = useRef(normalizeRichHtml(value || ""));
-  const editorWrapperRef = useRef<HTMLDivElement>(null);
-  const editorInstanceRef = useRef<Editor | null>(null);
-  const [charCount, setCharCount] = useState(() => plainTextLength(value || ""));
   const [, setToolbarRevision] = useState(0);
+  const [charCount, setCharCount] = useState(() => plainTextLength(value || ""));
   const imagesEnabled = enableImages ?? variant === "default";
   const editorMinHeight = minHeight ?? (variant === "compact" ? "140px" : "280px");
 
@@ -120,20 +118,6 @@ export function RichTextEditor({
     ],
     [imagesEnabled, placeholder]
   );
-
-  const focusView = useCallback((view: { focus: () => void; hasFocus: () => boolean }) => {
-    if (!view.hasFocus()) {
-      requestAnimationFrame(() => {
-        view.focus();
-      });
-    }
-  }, []);
-
-  const focusEditor = useCallback((ed: Editor) => {
-    if (!ed.isFocused) {
-      ed.chain().focus("end").run();
-    }
-  }, []);
 
   const uploadImage = useCallback(
     async (file: File): Promise<string | null> => {
@@ -166,33 +150,14 @@ export function RichTextEditor({
     autofocus: false,
     shouldRerenderOnTransaction: false,
     editorProps: {
-        attributes: {
-          class:
-            "tiptap rich-body max-w-none px-4 py-3 focus:outline-none text-[15px] leading-relaxed text-zinc-200 min-h-[inherit]",
-          style: `min-height: ${editorMinHeight}`,
+      attributes: {
+        class:
+          "tiptap rich-body max-w-none px-4 py-3 focus:outline-none text-base md:text-[15px] leading-relaxed text-zinc-200 min-h-[inherit]",
+        style: `min-height: ${editorMinHeight}`,
         autocapitalize: "sentences",
         autocorrect: "on",
         spellcheck: "true",
         "aria-label": placeholder || "Rich text editor",
-        contenteditable: "true",
-      },
-      handleDOMEvents: {
-        touchstart: (view) => {
-          focusView(view);
-          return false;
-        },
-        touchend: (view) => {
-          focusView(view);
-          return false;
-        },
-        mousedown: (view) => {
-          focusView(view);
-          return false;
-        },
-        click: (view) => {
-          focusView(view);
-          return false;
-        },
       },
       handleDrop: imagesEnabled
         ? (view, event, _slice, moved) => {
@@ -267,10 +232,6 @@ export function RichTextEditor({
       setCharCount(editor.getText().length);
     }
   }, [editor, value]);
-
-  useEffect(() => {
-    editorInstanceRef.current = editor;
-  }, [editor]);
 
   useEffect(() => {
     if (!editor) return;
@@ -411,11 +372,8 @@ export function RichTextEditor({
       </div>
 
       <div
-        ref={editorWrapperRef}
-        className="rich-text-editor-surface cursor-text"
+        className="rich-text-editor-surface"
         style={{ minHeight: editorMinHeight }}
-        onPointerDown={() => focusEditor(editor)}
-        onClick={() => focusEditor(editor)}
       >
         <EditorContent editor={editor} />
       </div>

@@ -217,6 +217,7 @@ function ProfilePageContent() {
   const [cropTarget, setCropTarget] = useState<"avatar" | "highlight" | null>(null);
   const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
   const pendingHighlightSport = useRef<string | null>(null);
+  const highlightUploadLockRef = useRef(false);
 
   const [isSportModalOpen, setIsSportModalOpen] = useState(false);
   const [selectedSportSlug, setSelectedSportSlug] = useState<SportCategoryId | "">("");
@@ -470,6 +471,7 @@ function ProfilePageContent() {
     setCropTarget(null);
     setCropImageSrc(null);
     pendingHighlightSport.current = null;
+    highlightUploadLockRef.current = false;
   }, []);
 
   const onAvatarFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -492,6 +494,8 @@ function ProfilePageContent() {
     }
 
     if (cropTarget === "highlight" && pendingHighlightSport.current && user) {
+      if (highlightUploadLockRef.current) return;
+      highlightUploadLockRef.current = true;
       const sportName = pendingHighlightSport.current;
       setIsUploadingMedia(true);
       try {
@@ -520,6 +524,7 @@ function ProfilePageContent() {
         router.refresh();
       } finally {
         setIsUploadingMedia(false);
+        highlightUploadLockRef.current = false;
         closeCropModal();
       }
     }
@@ -693,8 +698,9 @@ function ProfilePageContent() {
 
   const handleMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawFile = e.target.files?.[0];
-    if (!rawFile || !uploadMediaSport || !user) return;
     e.target.value = "";
+    if (!rawFile || !uploadMediaSport || !user) return;
+    if (cropTarget !== null || isUploadingMedia || highlightUploadLockRef.current) return;
     pendingHighlightSport.current = uploadMediaSport;
     setCropImageSrc(await readFileAsDataUrl(rawFile));
     setCropTarget("highlight");
@@ -816,7 +822,11 @@ function ProfilePageContent() {
                         galleryMedia={galleryMedia}
                         userSports={userSports}
                         onSelectPost={setSelectedPost}
-                        onOpenMediaModal={() => setIsMediaModalOpen(true)}
+                        isUploadBusy={isUploadingMedia || cropTarget === "highlight"}
+                        onOpenMediaModal={() => {
+                          if (isUploadingMedia || cropTarget !== null) return;
+                          setIsMediaModalOpen(true);
+                        }}
                       />
                     }
                     athleteFeed={<FeedTab profile={profile} avatarSrc={avatarSrc} />}
@@ -990,7 +1000,7 @@ function ProfilePageContent() {
             <h3 className="text-lg font-black text-white mb-6">歸檔雲端賽事影音</h3>
             <div className="space-y-5 text-sm">
               <div><label className="block text-[10px] font-bold text-zinc-500 uppercase mb-2">1. 歸屬類別</label><select value={uploadMediaSport} onChange={e => setUploadMediaSport(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3.5 text-white font-bold outline-none"><option value="">-- 選擇專長 --</option>{userSports.map(us => <option key={us.id} value={us.sports?.name}>{us.sports?.name}</option>)}</select></div>
-              <div><label className="block text-[10px] font-bold text-zinc-500 uppercase mb-2">2. 選擇檔案</label><div className="border-2 border-dashed border-slate-800 hover:border-slate-600 transition rounded-xl p-4 text-center cursor-pointer relative overflow-hidden"><input type="file" ref={mediaInputRef} onChange={handleMediaUpload} accept="image/*" disabled={!uploadMediaSport || isUploadingMedia} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed" /><span className="text-zinc-400 font-bold block">{isUploadingMedia ? "雲端推流中..." : uploadMediaSport ? "點擊選擇照片" : "請先選擇上方類別"}</span></div></div>
+              <div><label className="block text-[10px] font-bold text-zinc-500 uppercase mb-2">2. 選擇檔案</label><div className="border-2 border-dashed border-slate-800 hover:border-slate-600 transition rounded-xl p-4 text-center cursor-pointer relative overflow-hidden"><input type="file" ref={mediaInputRef} onChange={handleMediaUpload} accept="image/*" disabled={!uploadMediaSport || isUploadingMedia || cropTarget === "highlight"} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed" /><span className="text-zinc-400 font-bold block">{isUploadingMedia ? "雲端推流中..." : cropTarget === "highlight" ? "裁切處理中..." : uploadMediaSport ? "點擊選擇照片" : "請先選擇上方類別"}</span></div></div>
               <button onClick={() => setIsMediaModalOpen(false)} className="w-full bg-slate-900 text-zinc-400 font-bold py-3 rounded-xl mt-2">關閉視窗</button>
             </div>
           </div>
