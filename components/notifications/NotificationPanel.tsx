@@ -98,6 +98,17 @@ export function NotificationPanel({
                       報名了您主辦的活動
                     </>
                   )}
+                  {notif.type === "event_waitlist_signup" && (
+                    <>
+                      <span className="text-white">{notif.sender?.full_name ?? "某人"}</span>{" "}
+                      加入了您主辦活動的候補名單
+                    </>
+                  )}
+                  {notif.type === "event_waitlist_promoted" && (
+                    <>
+                      <span className="text-white">系統通知</span>：您已從候補名單升級，成功加入活動 🎉
+                    </>
+                  )}
                   {notif.type === "event_kicked" && (
                     <>
                       <span className="text-white">系統通知</span>：您已被主辦方移除出某活動的參賽名單

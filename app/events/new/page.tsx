@@ -387,12 +387,11 @@ export default function CreateEventPage() {
       if (error) throw error;
 
       if (registrationType === "individual" && data) {
-        await supabase.from("event_registrations").insert({
-          event_id: data.id,
-          user_id: user.id,
-          companion_count: 0,
-          status: "going",
+        const { error: hostRegErr } = await supabase.rpc("upsert_individual_rsvp", {
+          p_event_id: data.id,
+          p_companion_count: 0,
         });
+        if (hostRegErr) throw hostRegErr;
       }
 
       alert("🎉 活動發佈成功！");

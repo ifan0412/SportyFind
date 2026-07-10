@@ -12,9 +12,11 @@ export function getNotificationHref(notif: Notification): string {
   ) {
     return `/team/${notif.team_id}`;
   }
-  if (notif.type === "event_registration" && notif.event_id) return `/events/${notif.event_id}`;
   if (
-    (notif.type === "event_kicked" ||
+    (notif.type === "event_registration" ||
+      notif.type === "event_waitlist_signup" ||
+      notif.type === "event_waitlist_promoted" ||
+      notif.type === "event_kicked" ||
       notif.type === "event_accepted" ||
       notif.type === "event_joined") &&
     notif.event_id

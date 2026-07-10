@@ -179,10 +179,14 @@
 }
 
 .rich-body p:empty::before,
-.tiptap p:empty::before,
 .content-article-body p:empty::before {
   content: "\00a0";
   white-space: pre-wrap;
+}
+
+/* Editor paragraphs use TipTap Placeholder — do not inject nbsp pseudo-content */
+.rich-text-editor-surface .tiptap p:empty::before {
+  content: none;
 }
 
 .rich-body p:has(> br:only-child),
@@ -304,41 +308,24 @@
   text-align: left;
 }
 
-/* TipTap editor — mobile focus & caret visibility */
+/* TipTap editor — focus, sizing, and interaction */
 .rich-text-editor-surface {
   position: relative;
   cursor: text;
-  pointer-events: auto;
-  touch-action: auto;
+  min-height: var(--editor-min-height, 280px);
 }
 
-.rich-text-editor-surface .rich-text-editor-content,
-.rich-text-editor-surface .rich-text-editor-content > div {
-  min-height: inherit;
-  height: 100%;
-}
-
-.rich-text-editor-surface .tiptap {
-  -webkit-user-select: text;
-  user-select: text;
-  touch-action: auto;
-  caret-color: #e4e4e7;
-  cursor: text;
-  min-height: inherit;
-  height: 100%;
-  pointer-events: auto;
-}
-
+.rich-text-editor-surface .tiptap,
 .rich-text-editor-surface .ProseMirror {
   outline: none;
+  display: block;
   min-height: inherit;
-  height: 100%;
-  -webkit-tap-highlight-color: transparent;
+  width: 100%;
+  cursor: text;
+  caret-color: #e4e4e7;
   -webkit-user-select: text;
   user-select: text;
-  -webkit-user-modify: read-write;
-  touch-action: auto;
-  pointer-events: auto;
+  touch-action: manipulation;
 }
 
 .rich-text-editor-surface .ProseMirror-focused {
@@ -349,7 +336,8 @@
 @media (max-width: 767px) {
   input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="hidden"]):not([type="button"]):not([type="submit"]),
   textarea,
-  select {
+  select,
+  .rich-text-editor-surface .ProseMirror {
     font-size: 16px;
   }
 }
@@ -368,6 +356,11 @@ select,
   content: attr(data-placeholder);
   float: left;
   height: 0;
+  pointer-events: none;
+}
+
+.rich-text-editor-surface .tiptap p:empty::before,
+.rich-text-editor-surface .tiptap p.is-editor-empty::before {
   pointer-events: none;
 }
 

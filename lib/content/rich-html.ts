@@ -14,7 +14,22 @@ export function normalizeRichHtml(html: string): string {
   return out;
 }
 
+/** True when HTML has no meaningful text (TipTap empty doc, <p><br></p>, etc.) */
+export function isRichHtmlEmpty(html: string): boolean {
+  const trimmed = (html || "").trim();
+  if (!trimmed) return true;
+
+  const textOnly = normalizeRichHtml(trimmed)
+    .replace(/<br\s*\/?>/gi, "")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/gi, " ")
+    .trim();
+
+  return textOnly.length === 0;
+}
+
 /** Compare editor HTML semantically for controlled-value sync */
 export function richHtmlEquivalent(a: string, b: string): boolean {
+  if (isRichHtmlEmpty(a) && isRichHtmlEmpty(b)) return true;
   return normalizeRichHtml(a || "") === normalizeRichHtml(b || "");
 }

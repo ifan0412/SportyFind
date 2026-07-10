@@ -7,6 +7,8 @@ export interface Notification {
     | "team_request_accepted"
     | "team_request_rejected"
     | "event_registration"
+    | "event_waitlist_signup"
+    | "event_waitlist_promoted"
     | "event_kicked"
     | "event_accepted"
     | "event_joined"

@@ -16,15 +16,20 @@ import { profileLink } from "@/lib/profile-links";
 import { formatEventPeriod } from "@/lib/event-datetime";
 import {
   countFilledSlots,
+  findUserIndividualRegistration,
+  formatRegistrationDisplayName,
   getEventApprovalMode,
   getVisibleRegistrations,
   isConfirmedRegStatus,
   isEventAcceptingGuests,
   isPendingRegStatus,
+  isRejectedRegStatus,
   isWaitlistRegStatus,
+  joinWouldBeWaitlist,
+  maxCompanionCountForJoin,
   normalizeRegStatus,
-  resolveNewJoinStatus,
 } from "@/lib/event-registration";
+import { callUpsertIndividualRsvp, getJoinBlockReason, notifyAfterIndividualJoin } from "@/lib/event-rsvp";
 import { RichTextEditor } from "@/components/admin/RichTextEditor";
 import { RichBody } from "@/components/content/RichBody";
 import {
@@ -48,6 +53,7 @@ export default function EventDetailPage() {
   const [currentUserGender, setCurrentUserGender] = useState<string | null>(null);
   const [event, setEvent] = useState<any>(null);
   const [registrations, setRegistrations] = useState<any[]>([]);
+  const [myEventRegistration, setMyEventRegistration] = useState<any | null>(null);
   const [myManagedTeams, setMyManagedTeams] = useState<any[]>([]);
   
   const [isLoading, setIsLoading] = useState(true);
@@ -128,6 +134,19 @@ export default function EventDetailPage() {
       }
 
       if (authUser) {
+        const { data: myReg } = await safeSupabaseQuery(
+          supabase
+            .from("event_registrations")
+            .select("id, event_id, user_id, status, companion_count, alias, note, registered_at")
+            .eq("event_id", eventId)
+            .eq("user_id", authUser.id)
+            .order("registered_at", { ascending: false })
+            .limit(1)
+            .maybeSingle()
+        );
+        if (!fetchGeneration.isCurrent(generation)) return;
+        setMyEventRegistration(myReg ?? null);
+
         const { data: profile } = await safeSupabaseQuery(
           supabase.from("profiles").select("gender").eq("id", authUser.id).maybeSingle()
         );
@@ -154,6 +173,7 @@ export default function EventDetailPage() {
           setMyManagedTeams([]);
         }
       } else {
+        setMyEventRegistration(null);
         setCurrentUserGender(null);
         setMyManagedTeams([]);
       }
@@ -228,14 +248,15 @@ export default function EventDetailPage() {
   const isCreator = Boolean(authUser && event.creator_id === authUser.id);
   const acceptingGuests = isEventAcceptingGuests(event);
 
-  const activeIndivReg = registrations.find(r => 
-    r.user_id === authUser?.id && 
-    ["going", "confirmed", "accepted", "waitlist", "waiting", "pending", "reviewing"].includes(String(r.status || "").toLowerCase())
-  );
-  const rejectedIndivReg = registrations.find(r => 
-    r.user_id === authUser?.id && 
-    ["kicked", "rejected"].includes(String(r.status || "").toLowerCase())
-  );
+  const userIndivReg =
+    findUserIndividualRegistration(registrations, authUser?.id) ?? myEventRegistration;
+  const activeIndivReg =
+    userIndivReg &&
+    !["cancelled", "kicked", "rejected"].includes(normalizeRegStatus(userIndivReg.status))
+      ? userIndivReg
+      : undefined;
+  const rejectedIndivReg =
+    userIndivReg && isRejectedRegStatus(userIndivReg.status) ? userIndivReg : undefined;
 
   const myManagedTeamIds = myManagedTeams.map(t => t.id);
   const activeTeamReg = registrations.find(r => 
@@ -265,12 +286,15 @@ export default function EventDetailPage() {
   const pendingRegistrations = isOrganizer
     ? registrations.filter(
         (r) =>
-          normalizeRegStatus(r.status) !== "cancelled" && isPendingRegStatus(r.status)
+          normalizeRegStatus(r.status) !== "cancelled" &&
+          isPendingRegStatus(r.status) &&
+          r.user_id !== event.creator_id
       )
     : visibleRegistrations.filter((r) => isPendingRegStatus(r.status));
   const myPendingReg =
     event.registration_type === "individual" &&
     approvalMode === "approval" &&
+    !isOrganizer &&
     activeIndivReg &&
     isPendingRegStatus(activeIndivReg.status)
       ? activeIndivReg
@@ -278,12 +302,7 @@ export default function EventDetailPage() {
 
   const renderRegistrationRow = (reg: any) => {
     const normRegStatus = normalizeRegStatus(reg.status);
-    const displayName =
-      reg.alias ||
-      reg.profiles?.full_name ||
-      reg.team?.name_zh ||
-      reg.team?.name_en ||
-      "未知球員";
+    const displayName = formatRegistrationDisplayName(reg);
 
     return (
       <div
@@ -405,12 +424,17 @@ export default function EventDetailPage() {
     );
   };
 
-  const currentFilledCount = registrations
-    .filter(r => ["going", "confirmed", "accepted"].includes(String(r.status || "").toLowerCase()))
-    .reduce((acc, curr) => acc + (event.registration_type === "individual" ? (1 + (curr.companion_count || 0)) : 1), 0);
+  const currentFilledCount = countFilledSlots(registrations, event.registration_type);
 
   const remainingSlots = event.max_capacity ? (event.max_capacity - currentFilledCount) : 9999;
   const isFull = remainingSlots <= 0;
+  const maxCompanions = maxCompanionCountForJoin(event, registrations, activeIndivReg);
+  const joinTargetsWaitlist = joinWouldBeWaitlist(
+    event,
+    registrations,
+    Math.min(companionCount, maxCompanions),
+    activeIndivReg
+  );
 
   const unitLabel = event.registration_type === "individual" ? "人" : "隊";
   const capacityDisplay = event.max_capacity 
@@ -509,6 +533,7 @@ export default function EventDetailPage() {
 
   const handleIndividualJoin = async () => {
     if (!authUser) return router.push("/auth");
+    if (actionLoading) return;
 
     const requirement = event?.gender_requirement ?? "both";
     if (!genderMeetsRequirement(currentUserGender, requirement)) {
@@ -520,67 +545,44 @@ export default function EventDetailPage() {
       return;
     }
 
+    const safeCompanionCount = Math.min(companionCount, maxCompanions);
+    const blockReason = getJoinBlockReason(
+      event,
+      registrations,
+      userIndivReg,
+      safeCompanionCount
+    );
+    if (blockReason) {
+      alert(blockReason);
+      return;
+    }
+
     setActionLoading(true);
     try {
-      const approvalMode = getEventApprovalMode(event);
-      let notifyHost = false;
+      const result = await callUpsertIndividualRsvp(supabase, {
+        eventId,
+        userId: authUser.id,
+        companionCount: safeCompanionCount,
+        alias: joinAlias.trim() || null,
+        note: joinNote.trim() || null,
+        existingReg: userIndivReg,
+        event,
+        registrations,
+      });
 
-      if (rejectedIndivReg) {
-        const newStatus = resolveNewJoinStatus(event, {
-          filledCount: currentFilledCount,
-          slotsNeeded: 1 + companionCount,
-        });
-        const { error } = await supabase
-          .from("event_registrations")
-          .update({
-            status: newStatus,
-            companion_count: companionCount,
-            alias: joinAlias.trim() || null,
-            note: joinNote.trim() || null,
-            last_updated_at: new Date().toISOString()
-          })
-          .eq("id", rejectedIndivReg.id);
-        if (error) throw error;
-        notifyHost = true;
-        alert(
-          !acceptingGuests
-            ? approvalMode === "approval"
-              ? "主辦已暫停接受報名，申請已列入審核名單！"
-              : "主辦已暫停接受報名，已排入候補名單！"
-            : approvalMode === "approval"
-            ? "🎉 參賽申請已重新送出，請等候主辦審核！"
-            : newStatus === "waitlist"
-              ? "⏳ 已排入候補名單！"
-              : "🎉 報名成功！"
-        );
-      } else {
-        const { data, error } = await supabase.rpc("upsert_individual_rsvp", {
-          p_event_id: eventId,
-          p_companion_count: companionCount,
-          p_alias: joinAlias.trim() || null,
-          p_note: joinNote.trim() || null
-        });
-
-        if (error) {
-          alert("報名失敗: " + error.message);
-          return;
-        }
-        if (data && data.success === false) {
-          alert(data.message);
-          return;
-        }
-        const joinedStatus = String(data?.status || "").toLowerCase();
-        if (["pending", "going", "waitlist", "waiting"].includes(joinedStatus)) {
-          notifyHost = true;
-        }
-        alert(data?.message || "🎉 報名送出成功！");
+      if (!result.success) {
+        alert("報名失敗: " + result.message);
+        return;
       }
 
-      if (notifyHost) {
-        try { await supabase.rpc("notify_event_registration", { p_event_id: eventId }); } catch (e) {}
-      }
+      const joinedStatus = String(result.status || "").toLowerCase();
+      await notifyAfterIndividualJoin(supabase, eventId, joinedStatus, { isOrganizer });
+      alert(result.message || "🎉 報名送出成功！");
+
       setJoinAlias("");
       setJoinNote("");
+      setCompanionCount(0);
+      fetchGeneration.invalidate();
       await fetchEventDetails();
       router.refresh();
     } catch (err: any) {
@@ -746,7 +748,10 @@ export default function EventDetailPage() {
       if (newStatus === approveStatus && targetUserId) {
         try {
           if (isWaitlistRegStatus(previousStatus)) {
-            await supabase.rpc("notify_event_joined", { p_event_id: eventId, p_user_id: targetUserId });
+            await supabase.rpc("notify_event_waitlist_promoted", {
+              p_event_id: eventId,
+              p_user_id: targetUserId,
+            });
           } else {
             await supabase.rpc("notify_event_accepted", { p_event_id: eventId, p_user_id: targetUserId });
           }
@@ -768,12 +773,7 @@ export default function EventDetailPage() {
     reg: any,
     action: "approve" | "reject"
   ) => {
-    const displayName =
-      reg.alias ||
-      reg.profiles?.full_name ||
-      reg.team?.name_zh ||
-      reg.team?.name_en ||
-      "未知球員";
+    const displayName = formatRegistrationDisplayName(reg);
     const newStatus =
       action === "approve"
         ? event.registration_type === "team"
@@ -988,7 +988,7 @@ export default function EventDetailPage() {
                 <div className="space-y-4">
                   <div className="p-4 bg-blue-950/30 border border-blue-500/30 rounded-2xl text-center space-y-2">
                     <span className="text-xs font-black text-blue-400 uppercase tracking-wider block">您是本活動主辦人</span>
-                    <p className="text-xs text-zinc-300">您可以在右側名單審核參賽球隊或管理球員狀態。</p>
+                    <p className="text-xs text-zinc-300">您可以在右側名單審核參賽球隊或管理參加者狀態。</p>
                   </div>
 
                   <button
@@ -1084,7 +1084,7 @@ export default function EventDetailPage() {
 
                     <div>
                       <label className="block text-xs font-bold text-zinc-300 mb-1.5">
-                        球場稱呼 / 綽號 <span className="text-zinc-500 font-normal">(選填)</span>
+                        稱呼 / 綽號 <span className="text-zinc-500 font-normal">(選填)</span>
                       </label>
                       <input
                         type="text"
@@ -1106,7 +1106,7 @@ export default function EventDetailPage() {
                       <input
                         type="text"
                         maxLength={40}
-                        placeholder="例：自備比賽球 / D2程度..."
+                        placeholder="例：自備裝備 / 初學程度..."
                         value={joinNote}
                         onChange={(e) => setJoinNote(e.target.value)}
                         className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
@@ -1117,13 +1117,22 @@ export default function EventDetailPage() {
                       <label className="block text-xs font-bold text-zinc-300 mb-1.5">
                         攜伴人數 (同行朋友)
                       </label>
+                      {maxCompanions < 3 && (
+                        <p className="text-[11px] text-amber-400/90 mb-2">
+                          剩餘正式名額 {remainingSlots} 人，最多可攜 {maxCompanions} 位同伴。
+                          {joinTargetsWaitlist && companionCount > 0
+                            ? " 候補名單不接受攜伴。"
+                            : ""}
+                        </p>
+                      )}
                       <div className="grid grid-cols-4 gap-2">
                         {[0, 1, 2, 3].map(num => (
                           <button
                             key={num}
                             type="button"
+                            disabled={num > maxCompanions}
                             onClick={() => setCompanionCount(num)}
-                            className={`py-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                            className={`py-2 rounded-xl text-xs font-bold border transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
                               companionCount === num
                                 ? "bg-blue-600 border-blue-500 text-white shadow-md"
                                 : "bg-slate-950 border-slate-800 text-zinc-400 hover:border-slate-700"
