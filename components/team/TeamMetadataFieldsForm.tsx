@@ -4,6 +4,7 @@ import type { SportCategory } from "@/types/team";
 import { SPORT_CATEGORIES } from "@/lib/sports-categories";
 import { getTeamMetaFields, TEAM_CARD_BIO_MAX } from "@/lib/team-metadata-fields";
 import { FormSelect } from "@/components/ui/form-select";
+import { HKDistrictPicker } from "@/components/location/HKDistrictPicker";
 
 const inputCls =
   "w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-500 transition";
@@ -31,11 +32,8 @@ export function TeamMetadataFieldsForm({
     onMetadataChange({ ...metadata, [key]: value });
   };
 
-  const toggleMulti = (key: string, value: string) => {
-    const current = (metadata[key] as string[] | undefined) ?? [];
-    const next = current.includes(value) ? current.filter((v) => v !== value) : [...current, value];
-    setMeta(key, next);
-  };
+  const locationDistricts = (metadata.location_regions as string[] | undefined) ?? [];
+  const locationSubdistricts = (metadata.location_subdistricts as string[] | undefined) ?? [];
 
   return (
     <div className="space-y-6">
@@ -58,6 +56,26 @@ export function TeamMetadataFieldsForm({
             max={new Date().getFullYear()}
             value={estYear}
             onChange={(e) => onEstYearChange(e.target.value)}
+          />
+        </div>
+      </div>
+
+      <div>
+        <label className={labelCls}>活動地區 <span className="normal-case font-normal text-zinc-600">(選填)</span></label>
+        <div className="bg-slate-950/50 border border-slate-800 rounded-2xl p-4">
+          <HKDistrictPicker
+            districts={locationDistricts}
+            subdistricts={locationSubdistricts}
+            onDistrictsChange={() => {}}
+            onSubdistrictsChange={() => {}}
+            onSelectionChange={(districts, subdistricts) => {
+              onMetadataChange({
+                ...metadata,
+                location_regions: districts,
+                location_subdistricts: subdistricts,
+              });
+            }}
+            hideSectionTitle
           />
         </div>
       </div>
@@ -112,27 +130,6 @@ export function TeamMetadataFieldsForm({
                   />
                   <span className="text-sm text-slate-300 font-bold">是</span>
                 </label>
-              )}
-              {field.type === "multiselect" && (
-                <div className="grid grid-cols-2 gap-2">
-                  {field.options?.map((opt) => {
-                    const selected = ((metadata[field.key] as string[] | undefined) ?? []).includes(opt.value);
-                    return (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => toggleMulti(field.key, opt.value)}
-                        className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm font-bold transition-all text-left ${
-                          selected
-                            ? "bg-amber-500/10 border-amber-500 text-amber-400"
-                            : "bg-slate-950 border-slate-800 text-zinc-400 hover:border-slate-600 hover:text-white"
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
-                    );
-                  })}
-                </div>
               )}
             </div>
           ))}

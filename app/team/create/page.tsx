@@ -6,6 +6,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { SportCategory, RecruitmentStatus } from "@/types/team";
 import { SPORT_CATEGORIES } from "@/lib/sports-categories";
 import { ImageCropModal } from "@/components/media/ImageCropModal";
+import { HKDistrictPicker } from "@/components/location/HKDistrictPicker";
 import { FormSelect } from "@/components/ui/form-select";
 import { readFileAsDataUrl } from "@/lib/image-crop";
 import { RichTextEditor } from "@/components/admin/RichTextEditor";
@@ -111,13 +112,8 @@ export default function CreateTeamPage() {
       sport_metadata: { ...prev.sport_metadata, [key]: value },
     }));
 
-  const toggleRegion = (key: string, region: string) => {
-    const current = (formData.sport_metadata[key] as string[] | undefined) ?? [];
-    const next = current.includes(region)
-      ? current.filter((r) => r !== region)
-      : [...current, region];
-    setMeta(key, next);
-  };
+  const locationDistricts = (formData.sport_metadata.location_regions as string[] | undefined) ?? [];
+  const locationSubdistricts = (formData.sport_metadata.location_subdistricts as string[] | undefined) ?? [];
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, type: "logo" | "cover") => {
     const file = e.target.files?.[0];
@@ -304,6 +300,28 @@ export default function CreateTeamPage() {
               />
               <p className="text-[10px] text-zinc-600 mt-1.5 pl-1">不符合性別要求的用戶將無法申請加入。</p>
             </div>
+            <div>
+              <label className={labelCls}>活動地區 <span className="normal-case font-normal text-zinc-600">(選填)</span></label>
+              <div className="bg-slate-950/50 border border-slate-800 rounded-2xl p-4">
+                <HKDistrictPicker
+                  districts={locationDistricts}
+                  subdistricts={locationSubdistricts}
+                  onDistrictsChange={() => {}}
+                  onSubdistrictsChange={() => {}}
+                  onSelectionChange={(districts, subdistricts) => {
+                    setFormData((prev) => ({
+                      ...prev,
+                      sport_metadata: {
+                        ...prev.sport_metadata,
+                        location_regions: districts,
+                        location_subdistricts: subdistricts,
+                      },
+                    }));
+                  }}
+                  hideSectionTitle
+                />
+              </div>
+            </div>
           </div>
         )}
 
@@ -357,24 +375,6 @@ export default function CreateTeamPage() {
                     <input type="checkbox" checked={(formData.sport_metadata[field.key] as boolean) ?? false} onChange={(e) => setMeta(field.key, e.target.checked)} className="w-4 h-4 rounded border-slate-700 text-purple-500 focus:ring-purple-500/50 bg-slate-950" />
                     <span className="text-sm text-slate-300 font-bold">是</span>
                   </label>
-                )}
-                {field.type === "multiselect" && (
-                  <div className="grid grid-cols-2 gap-2">
-                    {field.options?.map((opt) => {
-                      const selected = ((formData.sport_metadata[field.key] as string[] | undefined) ?? []).includes(opt.value);
-                      return (
-                        <button
-                          key={opt.value}
-                          type="button"
-                          onClick={() => toggleRegion(field.key, opt.value)}
-                          className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm font-bold transition-all text-left
-                            ${selected ? "bg-purple-500/10 border-purple-500 text-purple-400 shadow-[0_0_10px_rgba(192,132,252,0.1)]" : "bg-slate-950 border-slate-800 text-zinc-400 hover:border-slate-600 hover:text-white"}`}
-                        >
-                          {opt.label}
-                        </button>
-                      );
-                    })}
-                  </div>
                 )}
               </div>
             ))}

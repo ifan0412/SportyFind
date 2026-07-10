@@ -10,7 +10,7 @@ import { profileLink } from "@/lib/profile-links";
 import { RichTextEditor } from "@/components/admin/RichTextEditor";
 import { TeamMetadataFieldsForm } from "@/components/team/TeamMetadataFieldsForm";
 import { TeamMediaManager } from "@/components/team/TeamMediaManager";
-import { regionsToLocationString, cleanTeamMetadata, normalizeTeamMetadata } from "@/lib/team-metadata-fields";
+import { regionsToLocationString, cleanTeamMetadata, normalizeTeamMetadata, prepareTeamLocationForForm } from "@/lib/team-metadata-fields";
 import {
   type GenderRequirement,
   GENDER_REQUIREMENT_OPTIONS,
@@ -113,11 +113,18 @@ export default function TeamAdminDashboard() {
       setEditFb(teamRes.data.social_links?.fb || "");
       setEditThreads(teamRes.data.social_links?.threads || "");
       setEditEstYear(teamRes.data.est_year ? String(teamRes.data.est_year) : "");
-      setEditSportMetadata(
-        normalizeTeamMetadata(
-          (teamRes.data.sport_metadata as Record<string, string | boolean | string[]>) || {}
-        )
+      const normalizedMeta = normalizeTeamMetadata(
+        (teamRes.data.sport_metadata as Record<string, string | boolean | string[]>) || {}
       );
+      const { districts, subdistricts } = prepareTeamLocationForForm(
+        teamRes.data.location_region,
+        teamRes.data.sport_metadata as Record<string, unknown>
+      );
+      setEditSportMetadata({
+        ...normalizedMeta,
+        location_regions: districts,
+        location_subdistricts: subdistricts,
+      });
     } catch (err) {
       setIsAuthorized(false);
     } finally {

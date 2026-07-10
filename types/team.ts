@@ -29,6 +29,7 @@ export interface CompetitiveMetadata {
   division_level?: string;
   card_bio?: string;
   location_regions?: string[];
+  location_subdistricts?: string[];
   training_frequency?: string;
 }
 
