@@ -7,6 +7,7 @@ import { Loader2, Trash2, UploadCloud } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { ImageCropModal } from "@/components/media/ImageCropModal";
 import { readFileAsDataUrl } from "@/lib/image-crop";
+import { useActionLock } from "@/lib/use-submit-once";
 import { TeamMediaGallery } from "@/components/team/TeamMediaGallery";
 
 type CropTarget = "logo" | "cover" | "gallery" | null;
@@ -42,6 +43,7 @@ export function TeamMediaManager({
   const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
   const [galleryCropQueue, setGalleryCropQueue] = useState<File[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const saveLock = useActionLock();
 
   useEffect(() => {
     setLogoPreview(logoUrl);
@@ -121,6 +123,7 @@ export function TeamMediaManager({
   };
 
   const handleSave = async () => {
+    if (!saveLock.tryLock()) return;
     setIsSaving(true);
     try {
       let finalLogo = logoUrl;
@@ -155,6 +158,7 @@ export function TeamMediaManager({
     } catch (err) {
       toast.error("儲存失敗：" + (err instanceof Error ? err.message : "未知錯誤"));
     } finally {
+      saveLock.unlock();
       setIsSaving(false);
     }
   };

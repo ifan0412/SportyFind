@@ -11,7 +11,7 @@ import TextAlign from "@tiptap/extension-text-align";
 import { TextStyle } from "@tiptap/extension-text-style";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { plainTextLength } from "@/lib/content/body";
-import { isRichHtmlEmpty, normalizeRichHtml, richHtmlEquivalent } from "@/lib/content/rich-html";
+import { isRichHtmlEmpty, normalizeRichHtml, richHtmlEquivalent, sanitizeRichHtml } from "@/lib/content/rich-html";
 import { FONT_SIZE_OPTIONS, FontSize } from "@/lib/tiptap/font-size";
 import { FormSelect } from "@/components/ui/form-select";
 import { appPrompt } from "@/lib/app-dialog";
@@ -110,7 +110,18 @@ function buildExtensions(imagesEnabled: boolean, placeholder: string) {
     TextStyle,
     FontSize,
     TextAlign.configure({ types: ["heading", "paragraph"] }),
-    Link.configure({ openOnClick: false, HTMLAttributes: { class: "text-blue-400 underline" } }),
+    Link.configure({
+      openOnClick: false,
+      autolink: true,
+      defaultProtocol: "https",
+      protocols: ["https", "http", "mailto"],
+      validate: (href) => /^(https?:\/\/|mailto:)/i.test(href),
+      HTMLAttributes: {
+        class: "text-blue-400 underline",
+        rel: "noopener noreferrer nofollow",
+        target: "_blank",
+      },
+    }),
     ...(imagesEnabled
       ? [Image.configure({ HTMLAttributes: { class: "rounded-xl max-w-full h-auto my-4" } })]
       : []),
@@ -182,7 +193,7 @@ export function RichTextEditorCore({
   }, [showCharCount]);
 
   const emitChangeRef = useRef((html: string) => {
-    const normalized = isRichHtmlEmpty(html) ? "" : normalizeRichHtml(html);
+    const normalized = isRichHtmlEmpty(html) ? "" : sanitizeRichHtml(html);
     lastEmittedHtml.current = normalized;
     if (!richHtmlEquivalent(normalized, valueRef.current)) {
       onChangeRef.current(normalized);
@@ -191,7 +202,7 @@ export function RichTextEditorCore({
 
   useEffect(() => {
     emitChangeRef.current = (html: string) => {
-      const normalized = isRichHtmlEmpty(html) ? "" : normalizeRichHtml(html);
+      const normalized = isRichHtmlEmpty(html) ? "" : sanitizeRichHtml(html);
       lastEmittedHtml.current = normalized;
       if (!richHtmlEquivalent(normalized, valueRef.current)) {
         onChangeRef.current(normalized);

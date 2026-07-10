@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { MessageSquare, Send, Trash2, Loader2, Heart, ChevronDown, ChevronUp } from "lucide-react";
@@ -90,6 +90,8 @@ export function DiscussionBoard({
   const [commentSubmitting, setCommentSubmitting] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [unavailable, setUnavailable] = useState(false);
+  const postSubmitLock = useRef(false);
+  const commentSubmitLock = useRef<string | null>(null);
 
   const fetchPosts = useCallback(async () => {
     const result = await fetchDiscussionPosts(supabase, contextType, contextId);
@@ -136,6 +138,7 @@ export function DiscussionBoard({
 
   const handleSubmitPost = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (postSubmitLock.current) return;
     if (!currentUser) {
       toast.error("請先登入才能發佈！");
       return;
@@ -146,6 +149,7 @@ export function DiscussionBoard({
     }
     if (!content.trim()) return;
 
+    postSubmitLock.current = true;
     setSubmitting(true);
     try {
       const { error } = await supabase.from("discussion_posts").insert({
@@ -162,6 +166,7 @@ export function DiscussionBoard({
       const message = err instanceof Error ? err.message : "請檢查權限設定";
       toast.error("發佈失敗：" + message);
     } finally {
+      postSubmitLock.current = false;
       setSubmitting(false);
     }
   };
@@ -194,6 +199,7 @@ export function DiscussionBoard({
   };
 
   const handleSubmitComment = async (postId: string) => {
+    if (commentSubmitLock.current === postId) return;
     if (!currentUser) {
       toast.error("請先登入才能留言！");
       return;
@@ -202,6 +208,7 @@ export function DiscussionBoard({
     const text = (commentDrafts[postId] || "").trim();
     if (!text) return;
 
+    commentSubmitLock.current = postId;
     setCommentSubmitting(postId);
     try {
       const { error } = await supabase.from("discussion_comments").insert({
@@ -217,6 +224,7 @@ export function DiscussionBoard({
       const message = err instanceof Error ? err.message : "請稍後再試";
       toast.error("留言失敗：" + message);
     } finally {
+      commentSubmitLock.current = null;
       setCommentSubmitting(null);
     }
   };

@@ -6,6 +6,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { type ProfileGender, PROFILE_GENDER_OPTIONS } from "@/lib/gender";
 import { FormSelect } from "@/components/ui/form-select";
+import { safeRedirectPath } from "@/lib/safe-redirect";
 
 interface RoleOptionProps {
   checked: boolean;
@@ -64,7 +65,7 @@ function RoleOnboardingContent() {
   const supabase = createSupabaseBrowserClient();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const next = searchParams?.get("next") || "/profile";
+  const next = safeRedirectPath(searchParams?.get("next"));
 
   const [isPlayer, setIsPlayer] = useState(true);
   const [isCoach, setIsCoach] = useState(false);

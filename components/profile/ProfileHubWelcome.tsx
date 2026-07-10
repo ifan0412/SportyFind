@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Eye, Pencil, Settings, Users, Shield, CalendarDays, ArrowUpRight } from "lucide-react";
+import { profileLink } from "@/lib/profile-links";
 import type { ProfileHubTabId } from "@/components/profile/ProfileHubBar";
 
 const HUB_ITEMS: {
@@ -50,18 +51,19 @@ const HUB_ITEMS: {
 
 interface ProfileHubWelcomeProps {
   userId?: string;
+  userHandle?: string | null;
   compact?: boolean;
   onTab: (tab: ProfileHubTabId) => void;
 }
 
-export function ProfileHubWelcome({ userId, compact = false, onTab }: ProfileHubWelcomeProps) {
+export function ProfileHubWelcome({ userId, userHandle, compact = false, onTab }: ProfileHubWelcomeProps) {
   if (compact) {
     return (
       <div className="animate-fadeIn">
         <div className="flex flex-wrap items-center gap-2 mb-1">
           {userId && (
             <Link
-              href={`/p/${userId}`}
+              href={profileLink({ id: userId, handle: userHandle })}
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-600/15 border border-blue-500/30 text-blue-400 text-xs font-black hover:bg-blue-600 hover:text-white transition"
             >
               <Eye className="w-3.5 h-3.5" />
@@ -95,7 +97,7 @@ export function ProfileHubWelcome({ userId, compact = false, onTab }: ProfileHub
 
         {userId && (
           <Link
-            href={`/p/${userId}`}
+            href={profileLink({ id: userId, handle: userHandle })}
             className="inline-flex items-center gap-2 mb-8 px-5 py-3 rounded-2xl bg-blue-600/15 border border-blue-500/30 text-blue-400 text-sm font-black hover:bg-blue-600 hover:text-white transition"
           >
             <Eye className="w-4 h-4" />

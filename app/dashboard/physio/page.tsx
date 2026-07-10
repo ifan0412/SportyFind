@@ -30,6 +30,7 @@ import { QualificationPicker } from "@/components/qualifications/QualificationPi
 import { PHYSIO_QUALIFICATIONS, filterPhysioQualificationTags } from "@/lib/qualifications";
 import { profileLink } from "@/lib/profile-links";
 import { useProfileReturnTo } from "@/lib/use-profile-return-to";
+import { useActionLock } from "@/lib/use-submit-once";
 import { CoachPricingFields } from "@/components/coach/CoachPricingFields";
 import {
   formatPhysioServicePrice,
@@ -176,6 +177,10 @@ function PhysioServicesManager({
   const [serviceLeads, setServiceLeads] = useState<any[]>([]);
   const [loadingSubData, setLoadingSubData] = useState(false);
   const [uploadingMedia, setUploadingMedia] = useState(false);
+  const [isCreatingService, setIsCreatingService] = useState(false);
+  const createServiceLock = useActionLock();
+  const saveInfoLock = useActionLock();
+  const uploadPhotoLock = useActionLock();
   const titleSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const persistServiceField = useCallback(
@@ -277,53 +282,62 @@ function PhysioServicesManager({
   }, [selectedService, supabase]);
 
   const handleCreateNewService = async () => {
-    const payload = { physio_id: physioId, title: "", service_type: "運動復健", service_types: [] as string[], session_rate: 0, pricing_mode: "session", districts: [], subdistricts: [], description: "", photos: [], draft_photos: [], sort_order: services.length + 1, is_active: false, service_centre: "", full_address: "" };
-    const { data, error } = await supabase.from("physio_services").insert(payload).select().single();
-    if (error) { toast.error("新增失敗: " + error.message); return; }
-    if (data) { setServices([data, ...services]); setSelectedService(data); setEditForm({ ...data, districts: [], subdistricts: [] }); setIsEditingInfo(true); setDetailTab("info"); }
+    if (!createServiceLock.tryLock()) return;
+    setIsCreatingService(true);
+    try {
+      const payload = { physio_id: physioId, title: "", service_type: "運動復健", service_types: [] as string[], session_rate: 0, pricing_mode: "session", districts: [], subdistricts: [], description: "", photos: [], draft_photos: [], sort_order: services.length + 1, is_active: false, service_centre: "", full_address: "" };
+      const { data, error } = await supabase.from("physio_services").insert(payload).select().single();
+      if (error) { toast.error("新增失敗: " + error.message); return; }
+      if (data) { setServices([data, ...services]); setSelectedService(data); setEditForm({ ...data, districts: [], subdistricts: [] }); setIsEditingInfo(true); setDetailTab("info"); }
+    } finally {
+      createServiceLock.unlock();
+      setIsCreatingService(false);
+    }
   };
 
   const handleSaveServiceInfo = async (publish: boolean) => {
+    if (!saveInfoLock.tryLock()) return;
     setIsSavingInfo(true);
-    const districts = Array.isArray(editForm.districts) ? editForm.districts : [];
-    if (publish && !districts.length) {
+    try {
+      const districts = Array.isArray(editForm.districts) ? editForm.districts : [];
+      if (publish && !districts.length) {
+        toast.error("發佈前請至少選擇一個診療地區");
+        return;
+      }
+      const serviceTypes = normalizePhysioServiceTypes(editForm.service_types, editForm.service_type);
+      if (publish && !serviceTypes.length) {
+        toast.error("發佈前請至少選擇一個診療類別");
+        return;
+      }
+      const pricingMode = normalizeServicePricingMode(editForm.pricing_mode || "session");
+      if (publish && pricingMode !== "dm" && !(Number(editForm.session_rate) > 0)) {
+        toast.error("發佈前請填寫項目標價，或改選「私訊詢價」");
+        return;
+      }
+      const payload = {
+        title: (editForm.title ?? "").trim(),
+        service_types: serviceTypes,
+        service_type: serviceTypes[0] || "運動復健",
+        pricing_mode: pricingMode,
+        session_rate: pricingMode === "dm" ? 0 : Number(editForm.session_rate) || 0,
+        districts,
+        subdistricts: normalizeSubdistrictIds(editForm.subdistricts),
+        description: editForm.description || "",
+        service_centre: (editForm.service_centre ?? "").trim() || null,
+        full_address: (editForm.full_address ?? "").trim() || null,
+        is_active: publish,
+        location: formatDistrictList(districts, 4) || null,
+      };
+      const { error } = await supabase.from("physio_services").update(payload).eq("id", editForm.id);
+      if (error) { toast.error("更新失敗: " + error.message); return; }
+      const updated = { ...editForm, ...payload };
+      setSelectedService(updated);
+      setServices(services.map(s => s.id === editForm.id ? updated : s));
+      setIsEditingInfo(false);
+    } finally {
+      saveInfoLock.unlock();
       setIsSavingInfo(false);
-      toast.error("發佈前請至少選擇一個診療地區");
-      return;
     }
-    const serviceTypes = normalizePhysioServiceTypes(editForm.service_types, editForm.service_type);
-    if (publish && !serviceTypes.length) {
-      setIsSavingInfo(false);
-      toast.error("發佈前請至少選擇一個診療類別");
-      return;
-    }
-    const pricingMode = normalizeServicePricingMode(editForm.pricing_mode || "session");
-    if (publish && pricingMode !== "dm" && !(Number(editForm.session_rate) > 0)) {
-      setIsSavingInfo(false);
-      toast.error("發佈前請填寫項目標價，或改選「私訊詢價」");
-      return;
-    }
-    const payload = {
-      title: (editForm.title ?? "").trim(),
-      service_types: serviceTypes,
-      service_type: serviceTypes[0] || "運動復健",
-      pricing_mode: pricingMode,
-      session_rate: pricingMode === "dm" ? 0 : Number(editForm.session_rate) || 0,
-      districts,
-      subdistricts: normalizeSubdistrictIds(editForm.subdistricts),
-      description: editForm.description || "",
-      service_centre: (editForm.service_centre ?? "").trim() || null,
-      full_address: (editForm.full_address ?? "").trim() || null,
-      is_active: publish,
-      location: formatDistrictList(districts, 4) || null,
-    };
-    const { error } = await supabase.from("physio_services").update(payload).eq("id", editForm.id);
-    setIsSavingInfo(false);
-    if (error) { toast.error("更新失敗: " + error.message); return; }
-    const updated = { ...editForm, ...payload };
-    setSelectedService(updated);
-    setServices(services.map(s => s.id === editForm.id ? updated : s));
-    setIsEditingInfo(false);
   };
 
   const handleDeleteService = async (id: string) => {
@@ -358,23 +372,28 @@ function PhysioServicesManager({
   };
 
   const handleUploadPhoto = async (files: FileList | null) => {
-    if (!files || files.length === 0 || !selectedService) return;
+    if (!files || files.length === 0 || !selectedService || uploadingMedia) return;
+    if (!uploadPhotoLock.tryLock()) return;
     setUploadingMedia(true);
-    const updatedDrafts = [...(selectedService.draft_photos || [])];
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const filePath = `${physioId}/physio/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.]/g, "")}`;
-      const { error } = await supabase.storage.from("highlights").upload(filePath, file);
-      if (!error) {
-        const { data } = supabase.storage.from("highlights").getPublicUrl(filePath);
-        updatedDrafts.push(data.publicUrl);
+    try {
+      const updatedDrafts = [...(selectedService.draft_photos || [])];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const filePath = `${physioId}/physio/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.]/g, "")}`;
+        const { error } = await supabase.storage.from("highlights").upload(filePath, file);
+        if (!error) {
+          const { data } = supabase.storage.from("highlights").getPublicUrl(filePath);
+          updatedDrafts.push(data.publicUrl);
+        }
       }
+      await supabase.from("physio_services").update({ draft_photos: updatedDrafts }).eq("id", selectedService.id);
+      const updated = { ...selectedService, draft_photos: updatedDrafts };
+      setSelectedService(updated);
+      setServices(services.map((s) => (s.id === updated.id ? updated : s)));
+    } finally {
+      uploadPhotoLock.unlock();
+      setUploadingMedia(false);
     }
-    await supabase.from("physio_services").update({ draft_photos: updatedDrafts }).eq("id", selectedService.id);
-    const updated = { ...selectedService, draft_photos: updatedDrafts };
-    setSelectedService(updated);
-    setServices(services.map((s) => (s.id === updated.id ? updated : s)));
-    setUploadingMedia(false);
   };
 
   const handlePublishPhoto = async (url: string) => {
@@ -430,7 +449,7 @@ function PhysioServicesManager({
           <h3 className="text-lg font-black text-white flex items-center gap-2"><ClipboardList className="w-5 h-5 text-green-400" /> 診療項目與服務管理</h3>
           <p className="text-xs text-zinc-400 mt-1">建立的診療項目將展示於物理治療師名錄與個人檔案，供運動員預約諮詢。</p>
         </div>
-        <button onClick={handleCreateNewService} type="button" className="bg-green-700 hover:bg-green-600 text-white text-xs font-black px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-1.5 shrink-0 cursor-pointer active:scale-95">
+        <button onClick={handleCreateNewService} disabled={isCreatingService} type="button" className="bg-green-700 hover:bg-green-600 disabled:opacity-60 disabled:pointer-events-none text-white text-xs font-black px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-1.5 shrink-0 cursor-pointer active:scale-95">
           <Plus className="w-4 h-4" />新增診療項目
         </button>
       </div>

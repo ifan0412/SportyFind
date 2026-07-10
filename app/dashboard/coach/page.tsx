@@ -33,6 +33,7 @@ import { QualificationPicker } from "@/components/qualifications/QualificationPi
 import { COACH_QUALIFICATIONS, normalizeQualificationTags, filterCoachQualificationTags } from "@/lib/qualifications";
 import { profileLink } from "@/lib/profile-links";
 import { useProfileReturnTo } from "@/lib/use-profile-return-to";
+import { useActionLock } from "@/lib/use-submit-once";
 import { CoachPricingFields } from "@/components/coach/CoachPricingFields";
 import {
   formatCoachServicePrice,
@@ -179,6 +180,10 @@ function CoachServicesManager({
   const [courseLeads, setCourseLeads] = useState<any[]>([]);
   const [loadingSubData, setLoadingSubData] = useState(false);
   const [uploadingMedia, setUploadingMedia] = useState(false);
+  const [isCreatingService, setIsCreatingService] = useState(false);
+  const createServiceLock = useActionLock();
+  const saveInfoLock = useActionLock();
+  const uploadPhotoLock = useActionLock();
   const titleSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const persistServiceField = useCallback(
@@ -316,72 +321,81 @@ function CoachServicesManager({
   }, [detailTab, selectedService, fetchCourseLeads]);
 
   const handleCreateNewService = async () => {
-    const payload = {
-      coach_id: coachId,
-      title: "",
-      sport_category: "volleyball",
-      hourly_rate: 0,
-      pricing_mode: "hourly",
-      districts: [],
-      subdistricts: [],
-      description: "",
-      photos: [],
-      draft_photos: [],
-      sort_order: services.length + 1,
-      is_active: false,
-      teaching_experience_years: null,
-    };
-    const { data, error } = await supabase.from("coach_services").insert(payload).select().single();
-    if (error) { toast.error("新增失敗: " + error.message); return; }
-    if (data) {
-      setServices([data, ...services]);
-      setSelectedService(data);
-      setEditForm({ ...data, districts: [], subdistricts: [], teaching_experience_years: "" });
-      setIsEditingInfo(true);
-      setDetailTab("info");
+    if (!createServiceLock.tryLock()) return;
+    setIsCreatingService(true);
+    try {
+      const payload = {
+        coach_id: coachId,
+        title: "",
+        sport_category: "volleyball",
+        hourly_rate: 0,
+        pricing_mode: "hourly",
+        districts: [],
+        subdistricts: [],
+        description: "",
+        photos: [],
+        draft_photos: [],
+        sort_order: services.length + 1,
+        is_active: false,
+        teaching_experience_years: null,
+      };
+      const { data, error } = await supabase.from("coach_services").insert(payload).select().single();
+      if (error) { toast.error("新增失敗: " + error.message); return; }
+      if (data) {
+        setServices([data, ...services]);
+        setSelectedService(data);
+        setEditForm({ ...data, districts: [], subdistricts: [], teaching_experience_years: "" });
+        setIsEditingInfo(true);
+        setDetailTab("info");
+      }
+    } finally {
+      createServiceLock.unlock();
+      setIsCreatingService(false);
     }
   };
 
   const handleSaveCourseInfo = async (publish: boolean) => {
+    if (!saveInfoLock.tryLock()) return;
     setIsSavingInfo(true);
-    const districts = Array.isArray(editForm.districts) ? editForm.districts : [];
-    if (publish && !districts.length) {
+    try {
+      const districts = Array.isArray(editForm.districts) ? editForm.districts : [];
+      if (publish && !districts.length) {
+        toast.error("發佈前請至少選擇一個授課地區");
+        return;
+      }
+      if (publish && !editForm.sport_category) {
+        toast.error("發佈前請選擇專項類別");
+        return;
+      }
+      const pricingMode = normalizeCoachPricingMode(editForm.pricing_mode);
+      if (publish && pricingMode !== "dm" && !(Number(editForm.hourly_rate) > 0)) {
+        toast.error("發佈前請填寫課程標價，或改選「私訊詢價」");
+        return;
+      }
+      const payload = {
+        title: (editForm.title ?? "").trim(),
+        sport_category: editForm.sport_category,
+        pricing_mode: pricingMode,
+        hourly_rate: pricingMode === "dm" ? 0 : Number(editForm.hourly_rate) || 0,
+        districts,
+        subdistricts: normalizeSubdistrictIds(editForm.subdistricts),
+        description: editForm.description || "",
+        is_active: publish,
+        teaching_experience_years: editForm.teaching_experience_years
+          ? Number(editForm.teaching_experience_years)
+          : null,
+        location: formatDistrictList(districts, 4) || null,
+      };
+      const { error } = await supabase.from("coach_services").update(payload).eq("id", editForm.id);
+      if (error) { toast.error("更新失敗: " + error.message); return; }
+      const updated = { ...editForm, ...payload };
+      setSelectedService(updated);
+      setServices(services.map((s) => (s.id === editForm.id ? updated : s)));
+      setIsEditingInfo(false);
+    } finally {
+      saveInfoLock.unlock();
       setIsSavingInfo(false);
-      toast.error("發佈前請至少選擇一個授課地區");
-      return;
     }
-    if (publish && !editForm.sport_category) {
-      setIsSavingInfo(false);
-      toast.error("發佈前請選擇專項類別");
-      return;
-    }
-    const pricingMode = normalizeCoachPricingMode(editForm.pricing_mode);
-    if (publish && pricingMode !== "dm" && !(Number(editForm.hourly_rate) > 0)) {
-      setIsSavingInfo(false);
-      toast.error("發佈前請填寫課程標價，或改選「私訊詢價」");
-      return;
-    }
-    const payload = {
-      title: (editForm.title ?? "").trim(),
-      sport_category: editForm.sport_category,
-      pricing_mode: pricingMode,
-      hourly_rate: pricingMode === "dm" ? 0 : Number(editForm.hourly_rate) || 0,
-      districts,
-      subdistricts: normalizeSubdistrictIds(editForm.subdistricts),
-      description: editForm.description || "",
-      is_active: publish,
-      teaching_experience_years: editForm.teaching_experience_years
-        ? Number(editForm.teaching_experience_years)
-        : null,
-      location: formatDistrictList(districts, 4) || null,
-    };
-    const { error } = await supabase.from("coach_services").update(payload).eq("id", editForm.id);
-    setIsSavingInfo(false);
-    if (error) { toast.error("更新失敗: " + error.message); return; }
-    const updated = { ...editForm, ...payload };
-    setSelectedService(updated);
-    setServices(services.map((s) => (s.id === editForm.id ? updated : s)));
-    setIsEditingInfo(false);
   };
 
   const handleDeleteCourse = async (id: string) => {
@@ -416,23 +430,28 @@ function CoachServicesManager({
   };
 
   const handleUploadPhoto = async (files: FileList | null) => {
-    if (!files || files.length === 0 || !selectedService) return;
+    if (!files || files.length === 0 || !selectedService || uploadingMedia) return;
+    if (!uploadPhotoLock.tryLock()) return;
     setUploadingMedia(true);
-    const updatedDrafts = [...(selectedService.draft_photos || [])];
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const filePath = `${coachId}/services/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.]/g, "")}`;
-      const { error } = await supabase.storage.from("highlights").upload(filePath, file);
-      if (!error) {
-        const { data } = supabase.storage.from("highlights").getPublicUrl(filePath);
-        updatedDrafts.push(data.publicUrl);
+    try {
+      const updatedDrafts = [...(selectedService.draft_photos || [])];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const filePath = `${coachId}/services/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.]/g, "")}`;
+        const { error } = await supabase.storage.from("highlights").upload(filePath, file);
+        if (!error) {
+          const { data } = supabase.storage.from("highlights").getPublicUrl(filePath);
+          updatedDrafts.push(data.publicUrl);
+        }
       }
+      await supabase.from("coach_services").update({ draft_photos: updatedDrafts }).eq("id", selectedService.id);
+      const updated = { ...selectedService, draft_photos: updatedDrafts };
+      setSelectedService(updated);
+      setServices(services.map((s) => (s.id === updated.id ? updated : s)));
+    } finally {
+      uploadPhotoLock.unlock();
+      setUploadingMedia(false);
     }
-    await supabase.from("coach_services").update({ draft_photos: updatedDrafts }).eq("id", selectedService.id);
-    const updated = { ...selectedService, draft_photos: updatedDrafts };
-    setSelectedService(updated);
-    setServices(services.map((s) => (s.id === updated.id ? updated : s)));
-    setUploadingMedia(false);
   };
 
   const handlePublishPhoto = async (url: string) => {
@@ -488,7 +507,7 @@ function CoachServicesManager({
           <h3 className="text-lg font-black text-white flex items-center gap-2"><BookOpen className="w-5 h-5 text-orange-400" /> 獨立課程與教學專案管理</h3>
           <p className="text-xs text-zinc-400 mt-1">建立的課程將展示於教練名師榜大廳與個人檔案，供學員預約洽詢。</p>
         </div>
-        <button onClick={handleCreateNewService} type="button" className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-black px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-1.5 shrink-0 cursor-pointer active:scale-95">
+        <button onClick={handleCreateNewService} disabled={isCreatingService} type="button" className="bg-blue-600 hover:bg-blue-500 disabled:opacity-60 disabled:pointer-events-none text-white text-xs font-black px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-1.5 shrink-0 cursor-pointer active:scale-95">
           <Plus className="w-4 h-4" /> 新增獨立課程
         </button>
       </div>

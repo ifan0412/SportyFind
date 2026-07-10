@@ -3,39 +3,8 @@
 import React, { useState } from "react";
 import { MessageSquare, Heart, Share2, MoreHorizontal, CheckCircle2 } from "lucide-react";
 
-// 模擬的動態資料 (之後可串接 Supabase)
-const MOCK_POSTS = [
-  {
-    id: 1,
-    author: { name: "Jason Lee", handle: "@jason_runner", avatar: "J", isPro: false },
-    role: "Marathon Runner",
-    time: "2 小時前",
-    content: "剛完成這個月的 100K 跑量！準備進入下一個階段的間歇訓練。有人週末想一起在科學園練跑嗎？🏃‍♂️💨",
-    tags: ["#徵跑友", "#馬拉松訓練"],
-    likes: 24,
-    comments: 5,
-  },
-  {
-    id: 2,
-    author: { name: "Coach Sarah", handle: "@sarah_strength", avatar: "S", isPro: true },
-    role: "Strength & Conditioning Coach",
-    time: "5 小時前",
-    content: "很多運動員忽略了單側發力 (Unilateral training) 的重要性。這不僅能改善左右肌力不平衡，還能大幅降低受傷風險。下週我會釋出三個必做的單側訓練動作，敬請期待！🏋️‍♀️",
-    tags: ["#教練專欄", "#肌力訓練", "#預防受傷"],
-    likes: 156,
-    comments: 12,
-  },
-  {
-    id: 3,
-    author: { name: "Kowloon Hoops", handle: "@kln_hoops", avatar: "K", isPro: false },
-    role: "Amateur Basketball Team",
-    time: "昨天",
-    content: "🏀 招募新血！我們是一支位於九龍區的業餘籃球隊，目前正在尋找有經驗的控球後衛 (PG) 補強陣容。每週三晚上固定練球，有意願的兄弟請私訊或留言！",
-    tags: ["#球員招募", "#籃球"],
-    likes: 45,
-    comments: 8,
-  }
-];
+// Placeholder feed — real posts come from Supabase when the feed ships.
+const MOCK_POSTS: never[] = [];
 
 export default function CommunityFeed() {
   const [activeFilter, setActiveFilter] = useState("all");

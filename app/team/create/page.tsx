@@ -8,6 +8,10 @@ import { SPORT_CATEGORIES } from "@/lib/sports-categories";
 import { ImageCropModal } from "@/components/media/ImageCropModal";
 import { FormSelect } from "@/components/ui/form-select";
 import { readFileAsDataUrl } from "@/lib/image-crop";
+import { RichTextEditor } from "@/components/admin/RichTextEditor";
+import { BIO_CHAR_SUGGESTED_MAX, BIO_CHAR_SUGGESTED_RANGE } from "@/lib/content/body";
+import { isRichHtmlEmpty } from "@/lib/content/rich-html";
+import { useSubmitOnce } from "@/lib/use-submit-once";
 
 type SportMetadata = Record<string, string | boolean | string[] | unknown>;
 
@@ -95,8 +99,8 @@ export default function CreateTeamPage() {
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
   const [cropTarget, setCropTarget] = useState<"logo" | "cover" | null>(null);
   const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { run: runSubmit, isSubmitting: isSaving } = useSubmitOnce();
 
   const set = (key: keyof FormData, value: FormData[keyof FormData]) =>
     setFormData((prev) => ({ ...prev, [key]: value }));
@@ -144,16 +148,18 @@ export default function CreateTeamPage() {
   const canProceed = currentStep === 1 ? formData.sport_category !== "" && formData.name_en.trim() !== "" : true;
 
   const handleSubmit = async () => {
-    setError(null);
-    setIsSaving(true);
-    try {
+    await runSubmit(async () => {
+      setError(null);
+
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setError("請先登入才能建立團隊。"); setIsSaving(false); return; }
+      if (!user) {
+        setError("請先登入才能建立團隊。");
+        throw new Error("not authenticated");
+      }
 
       let finalLogoUrl: string | null = null;
       let finalCoverUrl: string | null = null;
 
-      // 1. 若有上傳 Logo，送至 Supabase Storage bucket: "team-assets"
       if (logoFile) {
         const ext = logoFile.name.split(".").pop();
         const path = `logos/${user.id}-${Date.now()}.${ext}`;
@@ -163,14 +169,12 @@ export default function CreateTeamPage() {
 
         if (uploadErr) {
           setError(`Logo 上傳失敗: ${uploadErr.message}`);
-          setIsSaving(false);
-          return;
+          throw uploadErr;
         }
         const { data: { publicUrl } } = supabase.storage.from("team-assets").getPublicUrl(path);
         finalLogoUrl = publicUrl;
       }
 
-      // 2. 若有上傳封面圖，送至 Supabase Storage
       if (coverFile) {
         const ext = coverFile.name.split(".").pop();
         const path = `covers/${user.id}-${Date.now()}.${ext}`;
@@ -180,8 +184,7 @@ export default function CreateTeamPage() {
 
         if (uploadErr) {
           setError(`封面圖上傳失敗: ${uploadErr.message}`);
-          setIsSaving(false);
-          return;
+          throw uploadErr;
         }
         const { data: { publicUrl } } = supabase.storage.from("team-assets").getPublicUrl(path);
         finalCoverUrl = publicUrl;
@@ -197,7 +200,7 @@ export default function CreateTeamPage() {
         recruitment_status: formData.recruitment_status,
         gender_requirement: formData.gender_requirement,
         est_year:           formData.est_year ? Number(formData.est_year) : null,
-        bio:                formData.bio.trim() || null,
+        bio:                isRichHtmlEmpty(formData.bio) ? null : formData.bio,
         logo_url:           finalLogoUrl,
         cover_url:          finalCoverUrl,
         location_region:    regionsToLocationString(regionData ?? []),
@@ -211,23 +214,19 @@ export default function CreateTeamPage() {
         created_by: user.id,
       };
 
-      // 🎯 寫入 teams 表格並取得新球隊的 ID
       const { data: newTeam, error: dbError } = await supabase
         .from("teams")
         .insert(payload)
         .select("id")
         .single();
 
-      if (dbError) { setError(dbError.message); return; }
+      if (dbError) {
+        setError(dbError.message);
+        throw dbError;
+      }
 
-      // 🚀 注意看！這裡原本寫入 team_members 的程式碼已經直接移除了！
-      // 因為後端 SQL Trigger 已經瞬間幫你加入了 admin 權限
-
-      // 直接順暢跳轉進專屬管理後台！
       router.push(`/team/${newTeam.id}/admin`);
-    } finally {
-      setIsSaving(false);
-    }
+    });
   };
 
   return (
@@ -435,7 +434,15 @@ export default function CreateTeamPage() {
 
             <div>
               <label className={labelCls}>團隊簡介 Bio <span className="normal-case font-normal text-zinc-600">(選填)</span></label>
-              <textarea className={`${inputCls} resize-none h-28`} placeholder="介紹你們的隊伍風格、目標、招募期望..." value={formData.bio} onChange={(e) => set("bio", e.target.value)} />
+              <RichTextEditor
+                value={formData.bio}
+                onChange={(bio) => set("bio", bio)}
+                placeholder={`建議 ${BIO_CHAR_SUGGESTED_RANGE} 字，介紹戰隊風格、目標與招募期望…`}
+                variant="compact"
+                minHeight="180px"
+                showCharCount
+                suggestedLength={BIO_CHAR_SUGGESTED_MAX}
+              />
             </div>
 
             {/* ✅ 聯絡方式填寫區 */}
@@ -481,7 +488,7 @@ export default function CreateTeamPage() {
               {currentStep === 1 && !canProceed ? "請選擇運動種類並填寫隊名" : "下一步 →"}
             </button>
           ) : (
-            <button onClick={handleSubmit} disabled={isSaving} className="flex-1 bg-purple-600 hover:bg-purple-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-black py-3 rounded-xl transition-all shadow-[0_0_15px_rgba(168,85,247,0.3)] active:scale-[.98]">
+            <button type="button" onClick={handleSubmit} disabled={isSaving} className="flex-1 bg-purple-600 hover:bg-purple-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-black py-3 rounded-xl transition-all shadow-[0_0_15px_rgba(168,85,247,0.3)] active:scale-[.98]">
               {isSaving ? "處理中並建立後台..." : "🚀 建立團隊"}
             </button>
           )}

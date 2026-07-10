@@ -1,13 +1,16 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { safeRedirectPath } from "@/lib/safe-redirect";
 
-export default function GatePage() {
+function GatePageContent() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const next = safeRedirectPath(searchParams.get("next"), "/");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,7 +28,7 @@ export default function GatePage() {
       });
 
       if (res.ok) {
-        router.push("/");
+        router.push(next);
         router.refresh();
       } else {
         setError("密碼錯誤，請再試一次。");
@@ -82,5 +85,19 @@ export default function GatePage() {
         </form>
       </div>
     </div>
+  );
+}
+
+export default function GatePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-slate-950 flex items-center justify-center text-zinc-500 text-sm">
+          載入中…
+        </div>
+      }
+    >
+      <GatePageContent />
+    </Suspense>
   );
 }

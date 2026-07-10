@@ -26,7 +26,7 @@ export default function HomePage() {
       category: "events",
       href: "/events",
       title: "賽事/活動",
-      subtitle: "尋找賽事/活動｜組團運動",
+      subtitle: "尋找&發起賽事/活動",
       icon: Trophy,
       badge: { label: "熱門", className: CATEGORY_COLORS.events.badge },
     },
@@ -34,7 +34,7 @@ export default function HomePage() {
       category: "network",
       href: "/network",
       title: "運動夥伴",
-      subtitle: "探索夥伴",
+      subtitle: "尋找隊友&運動夥伴",
       icon: Users,
     },
     {

@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { BackButton } from "@/components/BackButton";
 import { getCategoryMeta, normalizeCategories, normalizeSports } from "@/lib/content/constants";
 import { isHtmlBody } from "@/lib/content/body";
-import { normalizeRichHtml } from "@/lib/content/rich-html";
+import { sanitizeRichHtml } from "@/lib/content/rich-html";
 import { SITE } from "@/lib/site";
 import type { ContentLink, ContentPost } from "@/lib/types/content";
 import { ContentBadges } from "@/components/content/ContentBadges";
@@ -214,7 +214,7 @@ export default async function ContentDetailPage({ params }: PageProps) {
         {bodyIsHtml ? (
           <div
             className="content-article-body rich-body max-w-none text-[15px] sm:text-[17px] leading-relaxed text-zinc-300"
-            dangerouslySetInnerHTML={{ __html: normalizeRichHtml(article.body) }}
+            dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(article.body) }}
           />
         ) : (
           <div className="prose prose-invert max-w-none space-y-5 text-[15px] sm:text-base leading-relaxed text-zinc-300">

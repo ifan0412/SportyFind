@@ -34,6 +34,7 @@ import type { MobileFilterValues } from "@/components/filters/types";
 
 interface ProfileRow {
   id: string;
+  handle?: string | null;
   full_name: string | null;
   location: string | null;
   headline: string | null;
@@ -145,7 +146,7 @@ function NetworkPageContent() {
         .from("profiles")
         .select(
           `
-          id, full_name, location, headline, bio, avatar_url, status_tag, gender, display_sports, is_coach, coach_status, is_physio, physio_status,
+          id, full_name, location, headline, bio, avatar_url, status_tag, gender, handle, display_sports, is_coach, coach_status, is_physio, physio_status,
           height_cm, weight_kg, show_physical_stats, age, show_age, user_sports (
             metadata,
             sports ( name )

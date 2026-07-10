@@ -1,3 +1,5 @@
+import { sanitizeHtml } from "@/lib/sanitize-html";
+
 /**
  * Normalize TipTap HTML so blank lines and lists render consistently
  * (Tailwind preflight strips list styles; empty <p></p> collapses in browsers).
@@ -12,6 +14,11 @@ export function normalizeRichHtml(html: string): string {
   out = out.replace(/<p([^>]*)><br\s+class="ProseMirror-trailingBreak"\s*\/?><\/p>/gi, "<p$1><br></p>");
 
   return out;
+}
+
+/** Normalize then sanitize before render or persistence. */
+export function sanitizeRichHtml(html: string): string {
+  return sanitizeHtml(normalizeRichHtml(html));
 }
 
 /** True when HTML has no meaningful text (TipTap empty doc, <p><br></p>, etc.) */

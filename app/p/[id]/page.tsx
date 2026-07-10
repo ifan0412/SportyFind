@@ -30,6 +30,9 @@ import { QualificationBadges } from "@/components/qualifications/QualificationBa
 import { formatCoachServicePrice, formatPhysioServicePrice } from "@/lib/coach-pricing";
 import { GenderAvatarBadge } from "@/components/profile/GenderBadge";
 import { AppChromeSticky } from "@/components/layout/AppChromeSticky";
+import { getSportCategory } from "@/lib/sports-categories";
+import { listSportMetadataEntries } from "@/lib/sport-positions";
+import { isProfileUuid, profileLink, profileSlug } from "@/lib/profile-links";
 
 const FacebookIcon = ({ className }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" /></svg>
@@ -98,11 +101,12 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
 }
 
 function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
+  const { id: routeSlug } = use(params);
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const router = useRouter();
   const searchParams = useSearchParams();
   const returnTo = searchParams.get("returnTo");
+  const [profileId, setProfileId] = useState<string | null>(null);
 
   const [contactModalRole, setContactModalRole] = useState<"coach" | "physio" | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -123,20 +127,26 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
   const [friendLoading, setFriendLoading] = useState(false);
   const [showUnfriendConfirm, setShowUnfriendConfirm] = useState(false);
 
+  const publicSlug = useMemo(
+    () => (profile ? profileSlug(profile) : routeSlug),
+    [profile, routeSlug]
+  );
+  const resolvedProfileId = profile?.id ?? profileId;
+
   const handleTabChange = (role: TopRole) => {
     setActiveRole(role);
     const q = new URLSearchParams();
     if (returnTo) q.set("returnTo", returnTo);
     if (role !== "athlete") q.set("tab", role);
     const qs = q.toString();
-    router.replace(`/p/${id}${qs ? `?${qs}` : ""}`, { scroll: false });
+    router.replace(`/p/${publicSlug}${qs ? `?${qs}` : ""}`, { scroll: false });
   };
 
-  const refetchFriendshipStatus = useCallback(async (uid: string) => {
+  const refetchFriendshipStatus = useCallback(async (uid: string, targetId: string) => {
     const { data: friendData } = await supabase
       .from("friendships")
       .select("id, status, sender_id, receiver_id")
-      .or(`and(sender_id.eq.${uid},receiver_id.eq.${id}),and(sender_id.eq.${id},receiver_id.eq.${uid})`)
+      .or(`and(sender_id.eq.${uid},receiver_id.eq.${targetId}),and(sender_id.eq.${targetId},receiver_id.eq.${uid})`)
       .maybeSingle();
 
     if (friendData) {
@@ -148,39 +158,65 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
       setFriendshipId(null);
       setFriendshipStatus("none");
     }
-  }, [id, supabase]);
+  }, [supabase]);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
+        let targetId = routeSlug;
+        if (!isProfileUuid(routeSlug)) {
+          const { data: row } = await supabase
+            .from("profiles")
+            .select("id")
+            .eq("handle", routeSlug)
+            .maybeSingle();
+          if (!row?.id) {
+            setIsNotFound(true);
+            return;
+          }
+          targetId = row.id;
+        }
+        setProfileId(targetId);
+
         const [
           { data: prof, error: profErr },
           { data: usData },
           { data: reviewsData },
           { data: { user } }
         ] = await Promise.all([
-          supabase.from("profiles").select("*").eq("id", id).single(),
-          supabase.from("user_sports").select("id, metadata, sort_order, sports(name)").eq("user_id", id).order("sort_order", { ascending: true }).order("created_at", { ascending: true }),
-          supabase.from("coach_reviews").select("rating").eq("coach_id", id),
+          supabase.rpc("get_profile_for_viewer", { p_profile_id: targetId }),
+          supabase.from("user_sports").select("id, metadata, sort_order, sports(name)").eq("user_id", targetId).order("sort_order", { ascending: true }).order("created_at", { ascending: true }),
+          supabase.from("coach_reviews").select("rating").eq("coach_id", targetId),
           supabase.auth.getUser(),
         ]);
   
         if (profErr || !prof) { setIsNotFound(true); return; }
         const p = prof as Profile;
         setProfile(p);
+
+        const canonicalSlug = profileSlug(p);
+        if (routeSlug !== canonicalSlug) {
+          const q = new URLSearchParams();
+          if (returnTo) q.set("returnTo", returnTo);
+          const tabParam = searchParams.get("tab");
+          if (tabParam) q.set("tab", tabParam);
+          const qs = q.toString();
+          router.replace(`/p/${canonicalSlug}${qs ? `?${qs}` : ""}`, { scroll: false });
+        }
+
         if (usData) setUserSports(usData as unknown as UserSport[]);
 
         const uid = user?.id ?? null;
-        const isOwner = uid === id;
+        const isOwner = uid === targetId;
         setCurrentUserId(uid);
 
         const [{ data: coachSvc }, { data: physioSvc }] = await Promise.all([
           isOwner
-            ? supabase.from("coach_services").select("*").eq("coach_id", id).order("sort_order", { ascending: true }).order("created_at", { ascending: true })
-            : supabase.from("coach_services").select("*").eq("coach_id", id).eq("is_active", true).order("sort_order", { ascending: true }).order("created_at", { ascending: true }),
+            ? supabase.from("coach_services").select("*").eq("coach_id", targetId).order("sort_order", { ascending: true }).order("created_at", { ascending: true })
+            : supabase.from("coach_services").select("*").eq("coach_id", targetId).eq("is_active", true).order("sort_order", { ascending: true }).order("created_at", { ascending: true }),
           isOwner
-            ? supabase.from("physio_services").select("*").eq("physio_id", id).order("sort_order", { ascending: true }).order("created_at", { ascending: true })
-            : supabase.from("physio_services").select("*").eq("physio_id", id).eq("is_active", true).order("sort_order", { ascending: true }).order("created_at", { ascending: true }),
+            ? supabase.from("physio_services").select("*").eq("physio_id", targetId).order("sort_order", { ascending: true }).order("created_at", { ascending: true })
+            : supabase.from("physio_services").select("*").eq("physio_id", targetId).eq("is_active", true).order("sort_order", { ascending: true }).order("created_at", { ascending: true }),
         ]);
         if (coachSvc) setCoachServices(coachSvc);
         if (physioSvc) {
@@ -208,13 +244,13 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
         }
   
         if (user) {
-          if (user.id !== id) await refetchFriendshipStatus(user.id);
+          if (user.id !== targetId) await refetchFriendshipStatus(user.id, targetId);
         }
-  
-        const { data: storageFiles } = await supabase.storage.from("highlights").list(`${id}/`, { limit: 20 });
+
+        const { data: storageFiles } = await supabase.storage.from("highlights").list(`${targetId}/`, { limit: 20 });
         if (storageFiles) {
           setGalleryMedia(
-            mapHighlightGalleryFiles(supabase, id, storageFiles, "賽場高光").map(({ id: mediaId, sportName, url }) => ({
+            mapHighlightGalleryFiles(supabase, targetId, storageFiles, "賽場高光").map(({ id: mediaId, sportName, url }) => ({
               id: mediaId,
               sportName,
               url,
@@ -224,45 +260,45 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
       } catch (err) { setIsNotFound(true); } finally { setIsLoading(false); }
     };
     fetchData();
-  }, [id, supabase, refetchFriendshipStatus]);
-  
+  }, [routeSlug, returnTo, router, searchParams, supabase, refetchFriendshipStatus]);
+
   useEffect(() => {
-    if (!currentUserId || !id || currentUserId === id) return;
+    if (!currentUserId || !resolvedProfileId || currentUserId === resolvedProfileId) return;
     const channel = supabase
-      .channel(`profile-friendship-${currentUserId}-${id}`)
+      .channel(`profile-friendship-${currentUserId}-${resolvedProfileId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "friendships" }, async (payload) => {
-        const row = (payload.new || payload.old) as any; 
-        if (row && ((row.sender_id === currentUserId && row.receiver_id === id) || (row.sender_id === id && row.receiver_id === currentUserId))) {
-          await refetchFriendshipStatus(currentUserId);
+        const row = (payload.new || payload.old) as any;
+        if (row && ((row.sender_id === currentUserId && row.receiver_id === resolvedProfileId) || (row.sender_id === resolvedProfileId && row.receiver_id === currentUserId))) {
+          await refetchFriendshipStatus(currentUserId, resolvedProfileId);
         }
       }).subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [currentUserId, id, supabase, refetchFriendshipStatus]);
+  }, [currentUserId, resolvedProfileId, supabase, refetchFriendshipStatus]);
 
   const handleSendRequest = async () => {
-    if (!currentUserId) return;
+    if (!currentUserId || !resolvedProfileId) return;
     setFriendLoading(true);
     try {
-      const { friendshipId: newId, error } = await reopenOrSendFriendRequest(supabase, currentUserId, id);
+      const { friendshipId: newId, error } = await reopenOrSendFriendRequest(supabase, currentUserId, resolvedProfileId);
       if (error) throw error;
       if (newId) setFriendshipId(newId);
-      await refetchFriendshipStatus(currentUserId);
+      await refetchFriendshipStatus(currentUserId, resolvedProfileId);
       window.dispatchEvent(new CustomEvent("sync-friendship"));
       router.refresh();
     } catch (err: any) {
-      if (err?.code === "23505") await refetchFriendshipStatus(currentUserId);
+      if (err?.code === "23505") await refetchFriendshipStatus(currentUserId, resolvedProfileId);
       else toast.error(`發送失敗: ${err?.message || "發生未知錯誤"}`);
     } finally { setFriendLoading(false); }
   };
 
   const handleCancelOrUnfriend = async () => {
-    if (!friendshipId || !currentUserId) return;
+    if (!friendshipId || !currentUserId || !resolvedProfileId) return;
     setFriendLoading(true);
     try {
       const { error } = await supabase.from("friendships").delete().eq("id", friendshipId);
       if (error) throw error;
       setShowUnfriendConfirm(false);
-      await refetchFriendshipStatus(currentUserId);
+      await refetchFriendshipStatus(currentUserId, resolvedProfileId);
       window.dispatchEvent(new CustomEvent("sync-friendship")); 
       router.refresh();
     } catch (err: any) { toast.error(`解除失敗: ${err.message || "發生未知錯誤"}`);
@@ -270,12 +306,12 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
   };
 
   const handleAcceptRequest = async () => {
-    if (!friendshipId || !currentUserId) return;
+    if (!friendshipId || !currentUserId || !resolvedProfileId) return;
     setFriendLoading(true);
     try {
       const { error } = await supabase.from("friendships").update({ status: "accepted" }).eq("id", friendshipId);
       if (error) throw error;
-      await refetchFriendshipStatus(currentUserId);
+      await refetchFriendshipStatus(currentUserId, resolvedProfileId);
       window.dispatchEvent(new CustomEvent("sync-friendship")); 
       router.refresh();
     } catch (err: any) { toast.error(`接受失敗: ${err.message || "發生未知錯誤"}`);
@@ -283,12 +319,12 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
   };
 
   const handleRejectRequest = async () => {
-    if (!friendshipId || !currentUserId) return;
+    if (!friendshipId || !currentUserId || !resolvedProfileId) return;
     setFriendLoading(true);
     try {
       const { error } = await supabase.from("friendships").delete().eq("id", friendshipId);
       if (error) throw error;
-      await refetchFriendshipStatus(currentUserId);
+      await refetchFriendshipStatus(currentUserId, resolvedProfileId);
       window.dispatchEvent(new CustomEvent("sync-friendship"));
       router.refresh();
     } catch (err: any) { toast.error(`拒絕失敗: ${err.message || "發生未知錯誤"}`);
@@ -296,10 +332,10 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
   };
 
   const FriendButton = ({ compact = false }: { compact?: boolean }) => {
-    if (!currentUserId || currentUserId === id) return null;
+    if (!currentUserId || currentUserId === resolvedProfileId) return null;
     const btnClass = compact
-      ? "w-full py-2.5 px-4 rounded-full text-sm font-black transition-all duration-300 cursor-pointer"
-      : "w-full mt-4 py-2.5 px-6 rounded-full text-sm font-black transition-all duration-300 cursor-pointer";
+      ? "w-full py-2 px-3 rounded-xl text-xs font-bold leading-snug transition-all duration-300 cursor-pointer"
+      : "w-full mt-4 py-2.5 px-5 rounded-xl text-sm font-black transition-all duration-300 cursor-pointer";
     if (friendshipStatus === "accepted") {
       if (showUnfriendConfirm) {
         return (
@@ -318,7 +354,17 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
       }
       return <button onClick={() => setShowUnfriendConfirm(true)} className={`${btnClass} bg-blue-600/20 border border-blue-500/30 text-blue-400 hover:bg-red-500/20 hover:border-red-500/30 hover:text-red-400`}>✓ 已加好友</button>;
     }
-    if (friendshipStatus === "pending_sent") return <button onClick={handleCancelOrUnfriend} disabled={friendLoading} className={`${btnClass} bg-slate-800 border border-slate-700 text-zinc-400 hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-400`}>{friendLoading ? "處理中..." : "⏳ 已發送請求（點擊取消）"}</button>;
+    if (friendshipStatus === "pending_sent") {
+      return (
+        <button
+          onClick={handleCancelOrUnfriend}
+          disabled={friendLoading}
+          className={`${btnClass} bg-slate-800 border border-slate-700 text-zinc-400 hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-400`}
+        >
+          {friendLoading ? "處理中..." : "⏳ 已發送請求（點擊取消）"}
+        </button>
+      );
+    }
     if (friendshipStatus === "pending_received") {
       return (
         <div className={`${compact ? "" : "mt-4 "}space-y-2`}>
@@ -333,17 +379,11 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
     return <button onClick={handleSendRequest} disabled={friendLoading} className={`${btnClass} bg-blue-600 hover:bg-blue-500 text-white shadow-[0_0_15px_rgba(37,99,235,0.3)]`}>{friendLoading ? "處理中..." : "+ 加好友"}</button>;
   };
 
-  const showSideBySideActions =
-    currentUserId &&
-    currentUserId !== id &&
-    !showUnfriendConfirm &&
-    friendshipStatus !== "pending_received";
-
   if (isLoading) return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-zinc-500 font-mono">載入名片中...</div>;
   if (isNotFound || !profile) return <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-center"><h1 className="text-4xl font-black text-white mb-2">404</h1><p className="text-zinc-500 mb-6">查無此名片或已關閉</p><Link href="/network" className="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold">返回</Link></div>;
 
   const avatarSrc = profile.avatar_url || "";
-  const canViewFriendOnlyContact = currentUserId === id || friendshipStatus === "accepted";
+  const canViewFriendOnlyContact = currentUserId === resolvedProfileId || friendshipStatus === "accepted";
   const showPlayerEmail = !!profile.contact_email && (!profile.player_email_friends_only || canViewFriendOnlyContact);
   const showPlayerPhone = !!profile.contact_phone && (!profile.player_phone_friends_only || canViewFriendOnlyContact);
   const showPlayerWhatsapp = !!profile.player_whatsapp && (!profile.player_whatsapp_friends_only || canViewFriendOnlyContact);
@@ -369,7 +409,7 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
                 </div>
               </div>
               <h1 className="text-3xl font-black text-white tracking-tight mb-1">{profile.full_name}</h1>
-              <p className="text-blue-400 font-mono text-sm mb-4">@{profile.handle || id.slice(0, 8)}</p>
+              <p className="text-blue-400 font-mono text-sm mb-4">@{profile.handle || "會員"}</p>
 
               {hasPublicPlayer && (
                 <ProfilePhysicalStatsRow
@@ -398,28 +438,16 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
                 <span>📍 {formatDistrictList(normalizeDistrictIds(profile.districts, profile.location), 2) || profile.location || "地點未公開"}</span>
               </div>
 
-              {showSideBySideActions ? (
-                <div className="mt-4 flex gap-2">
-                  <div className="flex-1 min-w-0">
-                    <FriendButton compact />
-                  </div>
-                  <button
-                    onClick={() => router.push(`/inbox?to=${id}&role=${activeRole}`)}
-                    className="flex-1 min-w-0 py-2.5 px-4 rounded-full text-sm font-black bg-blue-600 hover:bg-blue-500 text-white transition-all duration-300 shadow-[0_0_15px_rgba(37,99,235,0.3)] cursor-pointer flex items-center justify-center gap-2"
-                  >
-                    <MessageSquare className="w-4 h-4 shrink-0" />
-                    <span className="truncate">站內訊息</span>
-                  </button>
-                </div>
-              ) : (
+              {currentUserId && currentUserId !== resolvedProfileId && (
                 <>
                   <FriendButton />
-                  {currentUserId && currentUserId !== id && (
+                  {!showUnfriendConfirm && friendshipStatus !== "pending_received" && (
                     <button
-                      onClick={() => router.push(`/inbox?to=${id}&role=${activeRole}`)}
-                      className="w-full mt-2.5 py-3 px-6 rounded-full text-sm font-black bg-blue-600 hover:bg-blue-500 text-white transition-all duration-300 shadow-[0_0_15px_rgba(37,99,235,0.3)] cursor-pointer flex items-center justify-center gap-2"
+                      onClick={() => router.push(`/inbox?to=${resolvedProfileId}&role=${activeRole}`)}
+                      className="w-full mt-2.5 py-2.5 px-5 rounded-xl text-sm font-black bg-blue-600 hover:bg-blue-500 text-white transition-all duration-300 shadow-[0_0_15px_rgba(37,99,235,0.3)] cursor-pointer flex items-center justify-center gap-2"
                     >
-                      <MessageSquare className="w-4 h-4" /> 站內訊息
+                      <MessageSquare className="w-4 h-4 shrink-0" />
+                      站內訊息
                     </button>
                   )}
                 </>
@@ -492,19 +520,37 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
                       {userSports.length === 0 ? (
                         <div className="md:col-span-2 text-center py-10 border border-dashed border-slate-800 rounded-2xl text-zinc-500 text-sm font-bold">尚未宣告專業項目。</div>
                       ) : (
-                        userSports.map((us) => (
+                        userSports.map((us) => {
+                          const metaRows = listSportMetadataEntries(
+                            us.metadata as Record<string, unknown>,
+                            us.sports?.name
+                          );
+                          const sport = getSportCategory(us.sports?.name);
+
+                          return (
                           <div key={us.id} className="bg-slate-900/50 border border-slate-800 rounded-3xl p-6 relative overflow-hidden">
-                            <span className="text-xl font-black text-white mb-4 block relative z-10">{us.sports?.name}</span>
+                            <span className="text-xl font-black text-white mb-4 block relative z-10">
+                              {sport ? `${sport.emoji} ${sport.labelZh}` : us.sports?.name}
+                            </span>
                             <div className="space-y-2 relative z-10">
-                              {Object.entries(us.metadata || {}).map(([key, val]) => (
-                                <div key={key} className="flex justify-between text-sm pb-1 border-b border-slate-800/50 last:border-0">
-                                  <span className="text-zinc-500 font-bold capitalize">{key}</span>
-                                  <span className="text-blue-400 font-black">{val as string}</span>
+                              {metaRows.map(({ key, label, value }) => (
+                                <div key={key} className="flex justify-between gap-4 text-sm pb-1 border-b border-slate-800/50 last:border-0">
+                                  <span className="text-zinc-500 font-bold shrink-0">{label}</span>
+                                  {Array.isArray(value) ? (
+                                    <span className="text-blue-400 font-black text-right flex flex-col gap-1 items-end">
+                                      {value.map((item) => (
+                                        <span key={item}>{item}</span>
+                                      ))}
+                                    </span>
+                                  ) : (
+                                    <span className="text-blue-400 font-black text-right">{value}</span>
+                                  )}
                                 </div>
                               ))}
                             </div>
                           </div>
-                        ))
+                          );
+                        })
                       )}
                     </div>
                   )}
@@ -616,7 +662,7 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
                             )}
                           </div>
 
-                          {currentUserId !== id && (
+                          {currentUserId !== resolvedProfileId && (
                             <button
                               type="button"
                               onClick={() => setContactModalRole("coach")}
@@ -643,7 +689,7 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
                                 <div className="flex flex-wrap items-center justify-between gap-2">
                                   <div className="flex items-center gap-2 flex-wrap">
                                     <SportCategoryBadge category={srv.sport_category} variant="orange" size="xs" />
-                                    {currentUserId === id && <ServicePublishBadge isActive={!!srv.is_active} />}
+                                    {currentUserId === resolvedProfileId && <ServicePublishBadge isActive={!!srv.is_active} />}
                                   </div>
                                   {(() => {
                                     const p = formatCoachServicePrice(srv);
@@ -681,7 +727,7 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
                                   >
                                     查看課程詳情 →
                                   </Link>
-                                ) : currentUserId === id ? (
+                                ) : currentUserId === resolvedProfileId ? (
                                   <p className="text-center text-xs font-bold text-zinc-500 py-2">草稿 — 發佈後才會顯示於名師榜</p>
                                 ) : null}
                               </div>
@@ -778,7 +824,7 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
                             )}
                           </div>
 
-                          {currentUserId !== id && (
+                          {currentUserId !== resolvedProfileId && (
                             <button
                               type="button"
                               onClick={() => setContactModalRole("physio")}
@@ -808,7 +854,7 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
                                   <div className="flex flex-wrap items-center justify-between gap-2">
                                     <div className="flex items-center gap-2 flex-wrap">
                                       <PhysioServiceTypeBadges types={normalizePhysioServiceTypes(srv.service_types, srv.service_type)} size="xs" />
-                                      {currentUserId === id && <ServicePublishBadge isActive={!!srv.is_active} />}
+                                      {currentUserId === resolvedProfileId && <ServicePublishBadge isActive={!!srv.is_active} />}
                                     </div>
                                   {(() => {
                                     const p = formatPhysioServicePrice(srv);
@@ -853,7 +899,7 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
                                     >
                                       查看項目詳情 →
                                     </Link>
-                                  ) : currentUserId === id ? (
+                                  ) : currentUserId === resolvedProfileId ? (
                                     <p className="text-center text-xs font-bold text-zinc-500 py-2">草稿 — 發佈後才會顯示於名錄</p>
                                   ) : null}
                                 </div>
@@ -957,7 +1003,7 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
                     ) : (
                       <div className="p-3 rounded-xl bg-slate-950/50 border border-slate-800 text-xs text-zinc-500 text-center font-bold">尚未設定 WhatsApp 聯絡電話</div>
                     )}
-                    <button onClick={() => router.push(`/inbox?to=${id}&role=${contactModalRole}`)} className="w-full flex items-center justify-between bg-blue-600 hover:bg-blue-500 text-white font-black p-4 rounded-2xl transition shadow-[0_0_15px_rgba(37,99,235,0.3)] group cursor-pointer">
+                    <button onClick={() => router.push(`/inbox?to=${resolvedProfileId}&role=${contactModalRole}`)} className="w-full flex items-center justify-between bg-blue-600 hover:bg-blue-500 text-white font-black p-4 rounded-2xl transition shadow-[0_0_15px_rgba(37,99,235,0.3)] group cursor-pointer">
                       <div className="flex items-center gap-3">
                         <Zap className="w-6 h-6 text-yellow-300" />
                         <div className="text-left">

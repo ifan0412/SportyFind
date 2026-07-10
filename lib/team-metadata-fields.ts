@@ -1,4 +1,5 @@
 import type { SportCategory } from "@/types/team";
+import { HK_DISTRICT_BY_ID, LEGACY_LOCATION_TO_DISTRICTS } from "@/lib/hk-locations";
 
 export type MetaFieldType = "text" | "select" | "boolean" | "multiselect";
 
@@ -205,16 +206,37 @@ export function getTeamLocationRegions(
   return [];
 }
 
+export function teamLocationToDistrictIds(
+  locationRegion: string | null | undefined,
+  metadata: Record<string, unknown> | null | undefined
+): string[] {
+  const teamRegions = getTeamLocationRegions(locationRegion, metadata);
+  if (!teamRegions.length) return [];
+
+  const districtIds = new Set<string>();
+  for (const region of teamRegions) {
+    if (HK_DISTRICT_BY_ID[region]) {
+      districtIds.add(region);
+      continue;
+    }
+    const mapped = LEGACY_LOCATION_TO_DISTRICTS[region];
+    if (mapped) mapped.forEach((id) => districtIds.add(id));
+  }
+  return [...districtIds];
+}
+
 export function teamMatchesRegionFilter(
   locationRegion: string | null | undefined,
   metadata: Record<string, unknown> | null | undefined,
-  filterRegions: string[]
+  filterDistrictIds: string[]
 ): boolean {
-  if (!filterRegions.length) return true;
+  if (!filterDistrictIds.length) return true;
   const teamRegions = getTeamLocationRegions(locationRegion, metadata);
   if (!teamRegions.length) return false;
   if (teamRegions.includes("全港")) return true;
-  return filterRegions.some((f) => teamRegions.includes(f));
+  const teamDistricts = teamLocationToDistrictIds(locationRegion, metadata);
+  if (!teamDistricts.length) return false;
+  return filterDistrictIds.some((id) => teamDistricts.includes(id));
 }
 
 export function cleanTeamMetadata(

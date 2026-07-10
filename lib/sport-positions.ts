@@ -79,7 +79,7 @@ export function listSportMetadataEntries(
 ): { key: string; label: string; value: string | string[] }[] {
   const slug = sportSlugFromName(sportNameOrSlug) ?? sportNameOrSlug ?? "";
   const schema = getSportSchema(slug);
-  const m = metadata || {};
+  const m = normalizeMetadataKeys(metadata || {});
   const schemaKeys = new Set(schema.map((f) => f.key));
 
   const fromSchema = schema
@@ -104,6 +104,22 @@ export function listSportMetadataEntries(
     }));
 
   return [...fromSchema, ...extras];
+}
+
+function normalizeMetadataKeys(metadata: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [key, val] of Object.entries(metadata)) {
+    const normalizedKey = key.toLowerCase();
+    const existing = out[normalizedKey];
+    if (existing == null || existing === "") {
+      out[normalizedKey] = val;
+      continue;
+    }
+    if (Array.isArray(val) && val.length > 0) {
+      out[normalizedKey] = val;
+    }
+  }
+  return out;
 }
 
 export function metadataMatchesPositionFilter(metadata: unknown, selectedPositions: string[]): boolean {

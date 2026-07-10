@@ -4,12 +4,14 @@ import Link from "next/link";
 import { useRef } from "react";
 import { Eye, Share2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { profileLink } from "@/lib/profile-links";
 import { PROFILE_HUB_TABS, type ProfileHubTabId } from "@/components/profile/ProfileHubTabNav";
 import { useAppChromeStickyTop } from "@/lib/use-app-chrome-sticky-top";
 
 interface ProfileHubBarProps {
   activeTab: ProfileHubTabId;
   userId?: string;
+  userHandle?: string | null;
   onTab: (tab: ProfileHubTabId) => void;
   onShare: () => void;
 }
@@ -29,11 +31,15 @@ function topIconBtn() {
   return "w-9 h-9 rounded-xl flex items-center justify-center bg-slate-950/80 border border-slate-700/80 text-zinc-400 hover:text-white hover:border-slate-500 transition shrink-0";
 }
 
-export function ProfileHubTopActions({ userId, onShare }: Pick<ProfileHubBarProps, "userId" | "onShare">) {
+export function ProfileHubTopActions({
+  userId,
+  userHandle,
+  onShare,
+}: Pick<ProfileHubBarProps, "userId" | "userHandle" | "onShare">) {
   return (
     <div className="flex items-center justify-between mb-4">
       {userId ? (
-        <Link href={`/p/${userId}`} className={topIconBtn()} title="預覽公開名片" aria-label="預覽公開名片">
+        <Link href={profileLink({ id: userId, handle: userHandle })} className={topIconBtn()} title="預覽公開名片" aria-label="預覽公開名片">
           <Eye className="w-4 h-4" />
         </Link>
       ) : (
@@ -89,7 +95,7 @@ export function ProfileHubMobileBar({ activeTab, onTab }: Pick<ProfileHubBarProp
 export function ProfileHubBar(props: ProfileHubBarProps) {
   return (
     <div className="space-y-4">
-      <ProfileHubTopActions userId={props.userId} onShare={props.onShare} />
+      <ProfileHubTopActions userId={props.userId} userHandle={props.userHandle} onShare={props.onShare} />
       <ProfileHubMobileBar activeTab={props.activeTab} onTab={props.onTab} />
     </div>
   );

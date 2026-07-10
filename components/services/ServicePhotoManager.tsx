@@ -1,7 +1,7 @@
 "use client";
 
 import { appConfirm } from "@/lib/app-dialog";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Image from "next/image";
 import { Trash2, UploadCloud, Loader2, Globe } from "lucide-react";
 import { ImageCropModal } from "@/components/media/ImageCropModal";
@@ -34,6 +34,7 @@ export function ServicePhotoManager({
 }: ServicePhotoManagerProps) {
   const [cropQueue, setCropQueue] = useState<File[]>([]);
   const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
+  const uploadLockRef = useRef(false);
 
   const entries = normalizeServicePhotos(photos, draftPhotos);
   const resolvedAccent = accent === "amber" ? "orange" : accent === "emerald" ? "green" : accent;
@@ -65,16 +66,22 @@ export function ServicePhotoManager({
   };
 
   const handleCropConfirm = async (file: File) => {
-    const dt = new DataTransfer();
-    dt.items.add(file);
-    await onUpload(dt.files);
+    if (uploadLockRef.current || uploading) return;
+    uploadLockRef.current = true;
+    try {
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      await onUpload(dt.files);
 
-    const rest = cropQueue.slice(1);
-    if (rest.length > 0) {
-      setCropQueue(rest);
-      setCropImageSrc(await readFileAsDataUrl(rest[0]));
-    } else {
-      closeCropModal();
+      const rest = cropQueue.slice(1);
+      if (rest.length > 0) {
+        setCropQueue(rest);
+        setCropImageSrc(await readFileAsDataUrl(rest[0]));
+      } else {
+        closeCropModal();
+      }
+    } finally {
+      uploadLockRef.current = false;
     }
   };
 

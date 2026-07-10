@@ -75,6 +75,7 @@ const LEGACY_ALIASES: Record<string, SportCategoryId> = {
   Badminton: "badminton",
   Pickleball: "pickleball",
   "Soccer / Football": "soccer",
+  "Football / Soccer": "soccer",
   "Running / Marathon": "running",
   "Gym / Fitness": "gym",
 };

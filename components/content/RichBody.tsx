@@ -1,5 +1,5 @@
 import { isHtmlBody } from "@/lib/content/body";
-import { normalizeRichHtml } from "@/lib/content/rich-html";
+import { sanitizeRichHtml } from "@/lib/content/rich-html";
 
 const richBodyClass = "rich-body max-w-none text-sm text-zinc-300 leading-relaxed";
 
@@ -21,7 +21,7 @@ export function RichBody({
     return (
       <div
         className={`${richBodyClass} ${className}`}
-        dangerouslySetInnerHTML={{ __html: normalizeRichHtml(body) }}
+        dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(body) }}
       />
     );
   }

@@ -42,6 +42,7 @@ import { ProfileSettingsList } from "@/components/profile/ProfileSettingsList";
 import { ProfileEditTab } from "@/components/profile/ProfileEditTab";
 import { LISTING_PAGE_SHELL_PADDING } from "@/lib/listing-sections";
 import { MyEventsTab } from "@/components/profile/MyEventsTab";
+import { profilePublicUrl } from "@/lib/profile-links";
 import { toast } from "sonner";
 import { appConfirm } from "@/lib/app-dialog";
 import { FormSelect } from "@/components/ui/form-select";
@@ -304,9 +305,13 @@ function ProfilePageContent() {
 
   const handleShareProfile = useCallback(() => {
     if (!user?.id) return;
-    navigator.clipboard.writeText(`${window.location.origin}/p/${user.id}`);
+    const url = profilePublicUrl(window.location.origin, {
+      id: user.id,
+      handle: profile?.handle ?? editForm.handle,
+    });
+    navigator.clipboard.writeText(url);
     toast.success("名片網址已複製！");
-  }, [user?.id]);
+  }, [user?.id, profile?.handle, editForm.handle]);
 
   const loadProfileData = useCallback(async (userId: string) => {
     const generation = ++loadGenerationRef.current;
@@ -759,7 +764,7 @@ function ProfilePageContent() {
           {/* ── Profile card ── */}
           <div className="order-1 lg:col-span-4 xl:col-span-3">
             <div className="bg-slate-900/40 backdrop-blur-xl border border-slate-800/60 rounded-3xl p-6 lg:sticky lg:top-20 shadow-2xl">
-              <ProfileHubTopActions userId={user?.id} onShare={handleShareProfile} />
+              <ProfileHubTopActions userId={user?.id} userHandle={profile?.handle} onShare={handleShareProfile} />
 
               <div className="relative w-32 h-32 mx-auto mb-6 overflow-visible">
                 <div className="w-full h-full rounded-full bg-slate-800 border-2 border-slate-700/50 shadow-xl overflow-hidden bg-cover bg-center" style={{ backgroundImage: avatarSrc ? `url(${avatarSrc})` : "none" }}>{!avatarSrc && (profile?.first_name?.[0] || profile?.full_name?.[0] || "PRO")}</div>

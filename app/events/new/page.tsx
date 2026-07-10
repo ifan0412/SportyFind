@@ -15,6 +15,7 @@ import { type GenderRequirement, GENDER_REQUIREMENT_OPTIONS } from "@/lib/gender
 import { RichTextEditor } from "@/components/admin/RichTextEditor";
 import { toast } from "sonner";
 import { FormSelect } from "@/components/ui/form-select";
+import { useSubmitOnce } from "@/lib/use-submit-once";
 
 interface TeamOption {
   id: string;
@@ -245,7 +246,7 @@ export default function CreateEventPage() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
   const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { run: runSubmit, isSubmitting } = useSubmitOnce();
   const [errorMsg, setErrorMsg] = useState("");
   const [myTeams, setMyTeams] = useState<TeamOption[]>([]);
 
@@ -350,9 +351,7 @@ export default function CreateEventPage() {
       return;
     }
 
-    setIsSubmitting(true);
-
-    try {
+    await runSubmit(async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("尚未登入");
 
@@ -398,13 +397,12 @@ export default function CreateEventPage() {
 
       toast.success("🎉 活動發佈成功！");
       router.push(`/events/${data.id}`);
-    } catch (err: any) {
+    }).catch((err: unknown) => {
       console.error("發佈失敗詳細錯誤:", JSON.stringify(err, null, 2));
-      const realMessage = err?.message || err?.details || "發佈時發生未知錯誤";
-      setErrorMsg(`發佈失敗 (${err?.code || 'ERROR'}): ${realMessage}`);
-    } finally {
-      setIsSubmitting(false);
-    }
+      const e = err as { message?: string; details?: string; code?: string };
+      const realMessage = e?.message || e?.details || "發佈時發生未知錯誤";
+      setErrorMsg(`發佈失敗 (${e?.code || "ERROR"}): ${realMessage}`);
+    });
   };
 
   if (isLoading) {

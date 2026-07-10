@@ -42,74 +42,7 @@ interface MultiSelectProps {
 // ==========================================
 // 2. Static data (outside component)
 // ==========================================
-const MOCK_PLAYERS: MockPlayer[] = [
-  {
-    id: "p1",
-    name: "Alex Chen",
-    avatar: "⚡",
-    primarySport: "tennis",
-    skillLevel: "高階 Advanced",
-    positionOrStyle: "底線型 / 慣用右手",
-    district: "港島區 Island",
-    lookingFor: "尋找平日晚上維園或中山紀念公園球友，可拉球一小時。",
-    isAvailableThisWeekend: true,
-  },
-  {
-    id: "p2",
-    name: "Sarah Wong",
-    avatar: "🏐",
-    primarySport: "volleyball",
-    skillLevel: "進階 Intermediate",
-    positionOrStyle: "二傳手 (Setter)",
-    district: "九龍區 Kowloon",
-    lookingFor: "剛搬來九龍，想找週六下午的混排或女排歡樂場。",
-    isAvailableThisWeekend: true,
-  },
-  {
-    id: "p3",
-    name: "Marcus Lau",
-    avatar: "🏀",
-    primarySport: "basketball",
-    skillLevel: "校隊/專業 Pro",
-    positionOrStyle: "控球後衛 (PG)",
-    district: "新界區 N.T.",
-    lookingFor: "全場 5v5 缺人可叫我，主攻組織與防守，不獨食。",
-    isAvailableThisWeekend: false,
-  },
-  {
-    id: "p4",
-    name: "David Pak",
-    avatar: "🎾",
-    primarySport: "tennis",
-    skillLevel: "進階 Intermediate",
-    positionOrStyle: "發球上網型",
-    district: "港島區 Island",
-    lookingFor: "誠邀實力相當球友練習雙打走位。",
-    isAvailableThisWeekend: true,
-  },
-  {
-    id: "p5",
-    name: "Elena Rostova",
-    avatar: "🏸",
-    primarySport: "badminton",
-    skillLevel: "高階 Advanced",
-    positionOrStyle: "單打 / 拉吊突擊",
-    district: "九龍區 Kowloon",
-    lookingFor: "尋找長期固定羽毛球夥伴，男女皆可，最重要準時。",
-    isAvailableThisWeekend: true,
-  },
-  {
-    id: "p6",
-    name: "Kenji Sato",
-    avatar: "⚽",
-    primarySport: "soccer",
-    skillLevel: "初學者 Beginner",
-    positionOrStyle: "右後衛 (RB)",
-    district: "港島區 Island",
-    lookingFor: "新手求收留，體能好肯奔跑，主要想享受踢球樂趣。",
-    isAvailableThisWeekend: false,
-  },
-];
+const PLAYERS: MockPlayer[] = [];
 
 const SPORT_OPTIONS: OptionItem[] = SPORT_CATEGORIES.map((s) => ({
   label: `${s.emoji} ${s.labelZh}`,
@@ -247,7 +180,7 @@ export default function PlayersPage() {
   };
 
   const filteredList = useMemo(() => {
-    return MOCK_PLAYERS.filter((p) => {
+    return PLAYERS.filter((p) => {
       const matchSport = selectedSports.length === 0 || selectedSports.includes(p.primarySport);
       const matchLevel = selectedLevels.length === 0 || selectedLevels.some((lvl) => p.skillLevel.includes(lvl));
       const matchDistrict = selectedDistricts.length === 0 || selectedDistricts.some((dist) => p.district.includes(dist));
@@ -366,8 +299,15 @@ export default function PlayersPage() {
           <div className="text-center py-20 bg-pro-slate-900/40 rounded-2xl border border-dashed border-pro-slate-800 relative z-0">
             <p className="text-4xl mb-4">📭</p>
             <h3 className="text-lg font-bold text-slate-300">
-              找不到符合條件的球友 No matches found
+              暫無球友檔案 No players yet
             </h3>
+            <p className="text-sm text-slate-500 mt-2 max-w-sm mx-auto">
+              真實運動員檔案會在註冊後顯示。請先到
+              <Link href="/network" className="text-blue-400 hover:text-blue-300 mx-1">
+                運動夥伴
+              </Link>
+              探索已註冊會員。
+            </p>
             <button
               onClick={resetFilters}
               className="mt-4 text-xs font-bold text-blue-500 underline hover:text-blue-400"

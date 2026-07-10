@@ -394,11 +394,11 @@ export default function TeamAdminDashboard() {
                   {pendingMembers.map((m) => (
                     <div key={m.user_id} className="flex items-center justify-between bg-slate-900/80 border border-slate-800 p-4 rounded-2xl shadow-lg">
                       <Link href={profileLink(m.user_id, returnTo)} className="flex items-center gap-3 min-w-0 hover:opacity-90 transition">
-                        <div
-                          className="relative w-10 h-10 shrink-0 overflow-visible"
-                          style={{ backgroundImage: m.profiles?.avatar_url ? `url(${m.profiles.avatar_url})` : "none" }}
-                        >
-                          <div className="w-full h-full rounded-xl bg-slate-800 bg-cover bg-center border border-slate-700 flex items-center justify-center overflow-hidden">
+                        <div className="relative w-10 h-10 shrink-0 overflow-visible">
+                          <div
+                            className="w-full h-full rounded-xl bg-slate-800 bg-cover bg-center border border-slate-700 flex items-center justify-center overflow-hidden text-sm font-black text-zinc-400"
+                            style={{ backgroundImage: m.profiles?.avatar_url ? `url(${m.profiles.avatar_url})` : "none" }}
+                          >
                             {!m.profiles?.avatar_url && (m.profiles?.full_name?.[0] || "U")}
                           </div>
                           <GenderAvatarBadge gender={m.profiles?.gender} size="xs" />

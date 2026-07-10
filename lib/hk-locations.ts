@@ -253,12 +253,21 @@ for (const d of HK_DISTRICTS) {
 export const HK_ALL_DISTRICT_IDS = HK_DISTRICTS.map((d) => d.id);
 
 /** Legacy 5-region strings → district ids for migration / filter compat */
+const HK_ISLAND_DISTRICT_IDS = HK_DISTRICTS.filter((d) => d.area === "hk_island").map((d) => d.id);
+const KOWLOON_DISTRICT_IDS = HK_DISTRICTS.filter((d) => d.area === "kowloon").map((d) => d.id);
+const NEW_TERRITORIES_DISTRICT_IDS = HK_DISTRICTS.filter((d) => d.area === "new_territories").map((d) => d.id);
+const ISLANDS_DISTRICT_IDS = HK_DISTRICTS.filter((d) => d.area === "islands").map((d) => d.id);
+
 export const LEGACY_LOCATION_TO_DISTRICTS: Record<string, string[]> = {
-  "港島區 (Hong Kong Island)": HK_DISTRICTS.filter((d) => d.area === "hk_island").map((d) => d.id),
-  "九龍區 (Kowloon)": HK_DISTRICTS.filter((d) => d.area === "kowloon").map((d) => d.id),
-  "新界區 (New Territories)": HK_DISTRICTS.filter((d) => d.area === "new_territories").map((d) => d.id),
-  "離島區 (Outlying Islands)": HK_DISTRICTS.filter((d) => d.area === "islands").map((d) => d.id),
+  "港島區 (Hong Kong Island)": HK_ISLAND_DISTRICT_IDS,
+  "九龍區 (Kowloon)": KOWLOON_DISTRICT_IDS,
+  "新界區 (New Territories)": NEW_TERRITORIES_DISTRICT_IDS,
+  "離島區 (Outlying Islands)": ISLANDS_DISTRICT_IDS,
   "全港 / 現場可議": HK_ALL_DISTRICT_IDS,
+  全港: HK_ALL_DISTRICT_IDS,
+  港島: HK_ISLAND_DISTRICT_IDS,
+  九龍: KOWLOON_DISTRICT_IDS,
+  新界: NEW_TERRITORIES_DISTRICT_IDS,
 };
 
 export function getDistrictLabel(id: string, lang: "zh" | "en" | "both" = "both"): string {

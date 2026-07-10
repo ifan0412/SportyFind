@@ -21,6 +21,7 @@ export type PlayerFriendshipStatus = "none" | "pending_sent" | "pending_received
 
 export interface PlayerNetworkCardProfile {
   id: string;
+  handle?: string | null;
   full_name: string | null;
   location: string | null;
   headline: string | null;
@@ -257,7 +258,7 @@ export function PlayerNetworkCard({
           </div>
 
           <Link
-            href={profileLink(profile.id, returnTo)}
+            href={profileLink(profile, returnTo)}
             className="relative shrink-0 justify-self-end group/avatar"
           >
             <div
@@ -277,7 +278,7 @@ export function PlayerNetworkCard({
 
       <div className="pt-4 mt-5 border-t border-slate-800/80 grid grid-cols-2 gap-2.5">
         <Link
-          href={profileLink(profile.id, returnTo)}
+          href={profileLink(profile, returnTo)}
           className="py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-zinc-200 hover:text-white font-bold text-xs text-center transition"
         >
           查看檔案
