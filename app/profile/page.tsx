@@ -4,6 +4,8 @@ import { useEffect, useState, useRef, useCallback, useMemo, Suspense } from "rea
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { safeSupabaseQuery } from "@/lib/supabase/safe-query";
+import { useAuth } from "@/components/SupabaseProvider";
 import { ImageCropModal } from "@/components/media/ImageCropModal";
 import { readFileAsDataUrl } from "@/lib/image-crop";
 import { BackButton } from "@/components/BackButton";
@@ -193,6 +195,8 @@ function ProfilePageContent() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { user, isLoading: authLoading } = useAuth();
+  const loadGenerationRef = useRef(0);
 
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const mediaInputRef = useRef<HTMLInputElement>(null);
@@ -200,7 +204,6 @@ function ProfilePageContent() {
   const pendingAvatarFile = useRef<File | Blob | null>(null);
   const blobUrlRef = useRef<string | null>(null);
 
-  const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [userSports, setUserSports] = useState<UserSport[]>([]);
   const [allSports, setAllSports] = useState<Sport[]>([]);
@@ -302,6 +305,7 @@ function ProfilePageContent() {
   }, [user?.id]);
 
   const loadProfileData = useCallback(async (userId: string) => {
+    const generation = ++loadGenerationRef.current;
     try {
       const [
         { data: prof },
@@ -317,19 +321,20 @@ function ProfilePageContent() {
         { data: uncontactedCoachServiceRows },
         { data: uncontactedPhysioServiceRows },
       ] = await Promise.all([
-        supabase.from("profiles").select("*").eq("id", userId).single(),
-        supabase.from("user_sports").select("id, sport_id, metadata, sort_order, sports(name)").eq("user_id", userId).order("sort_order", { ascending: true }).order("created_at", { ascending: true }),
-        supabase.from("sports").select("*").order("name", { ascending: true }),
-        supabase.from("locations").select("country, region"),
-        supabase.from("team_members").select("role, joined_at, teams(id, name_en, name_zh, sport_category, recruitment_status, logo_url)").eq("user_id", userId),
-        supabase.from("coach_services").select("*").eq("coach_id", userId).order("sort_order", { ascending: true }).order("created_at", { ascending: true }),
-        supabase.from("physio_services").select("*").eq("physio_id", userId).order("sort_order", { ascending: true }).order("created_at", { ascending: true }),
-        supabase.from("coach_reviews").select("rating").eq("coach_id", userId),
-        supabase.from("coach_enquiries").select("id", { count: "exact", head: true }).eq("coach_id", userId).neq("status", "contacted"),
-        supabase.from("physio_enquiries").select("id", { count: "exact", head: true }).eq("physio_id", userId).neq("status", "contacted"),
-        supabase.from("coach_enquiries").select("service_id, status").eq("coach_id", userId).neq("status", "contacted"),
-        supabase.from("physio_enquiries").select("service_id, status").eq("physio_id", userId).neq("status", "contacted"),
+        safeSupabaseQuery(supabase.from("profiles").select("*").eq("id", userId).single()),
+        safeSupabaseQuery(supabase.from("user_sports").select("id, sport_id, metadata, sort_order, sports(name)").eq("user_id", userId).order("sort_order", { ascending: true }).order("created_at", { ascending: true })),
+        safeSupabaseQuery(supabase.from("sports").select("*").order("name", { ascending: true })),
+        safeSupabaseQuery(supabase.from("locations").select("country, region")),
+        safeSupabaseQuery(supabase.from("team_members").select("role, joined_at, teams(id, name_en, name_zh, sport_category, recruitment_status, logo_url)").eq("user_id", userId)),
+        safeSupabaseQuery(supabase.from("coach_services").select("*").eq("coach_id", userId).order("sort_order", { ascending: true }).order("created_at", { ascending: true })),
+        safeSupabaseQuery(supabase.from("physio_services").select("*").eq("physio_id", userId).order("sort_order", { ascending: true }).order("created_at", { ascending: true })),
+        safeSupabaseQuery(supabase.from("coach_reviews").select("rating").eq("coach_id", userId)),
+        safeSupabaseQuery(supabase.from("coach_enquiries").select("id", { count: "exact", head: true }).eq("coach_id", userId).neq("status", "contacted")),
+        safeSupabaseQuery(supabase.from("physio_enquiries").select("id", { count: "exact", head: true }).eq("physio_id", userId).neq("status", "contacted")),
+        safeSupabaseQuery(supabase.from("coach_enquiries").select("service_id, status").eq("coach_id", userId).neq("status", "contacted")),
+        safeSupabaseQuery(supabase.from("physio_enquiries").select("service_id, status").eq("physio_id", userId).neq("status", "contacted")),
       ]);
+      if (generation !== loadGenerationRef.current) return;
       if (locData) {
         const locMap: Record<string, string[]> = {};
         locData.forEach(item => { if (!locMap[item.country]) locMap[item.country] = []; if (!locMap[item.country].includes(item.region)) locMap[item.country].push(item.region); });
@@ -409,9 +414,14 @@ function ProfilePageContent() {
       setUncontactedPhysioEnquiries(uncontactedPhysioCount ?? 0);
       setUncontactedCoachServiceIds(enquiryServiceIdsWithUncontacted(uncontactedCoachServiceRows));
       setUncontactedPhysioServiceIds(enquiryServiceIdsWithUncontacted(uncontactedPhysioServiceRows));
-      const { data: files } = await supabase.storage.from("highlights").list(`${userId}/`, { limit: 20, sortBy: { column: "created_at", order: "desc" } });
+      const { data: files } = await safeSupabaseQuery(
+        supabase.storage.from("highlights").list(`${userId}/`, { limit: 20, sortBy: { column: "created_at", order: "desc" } })
+      );
+      if (generation !== loadGenerationRef.current) return;
       setGalleryMedia(files ? mapHighlightGalleryFiles(supabase, userId, files) : []);
-    } catch (err) { console.error(err); } finally { setIsLoading(false); }
+    } catch (err) { console.error(err); } finally {
+      if (generation === loadGenerationRef.current) setIsLoading(false);
+    }
   }, [supabase]);
 
   const handleCancelEdit = useCallback(() => {
@@ -420,10 +430,14 @@ function ProfilePageContent() {
   }, [user, loadProfileData, handleReturnToPreview]);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user: authUser } }) => {
-      if (authUser) { setUser(authUser); loadProfileData(authUser.id); } else setIsLoading(false);
-    });
-  }, [loadProfileData, supabase]);
+    if (authLoading) return;
+    if (!user?.id) {
+      setIsLoading(false);
+      return;
+    }
+    setIsLoading(true);
+    loadProfileData(user.id);
+  }, [user?.id, authLoading, loadProfileData]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -712,7 +726,7 @@ function ProfilePageContent() {
     setGalleryMedia(prev => prev.filter(m => m.id !== post.id)); setSelectedPost(null); router.refresh();
   };
 
-  if (isLoading) return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-zinc-500 font-mono">載入總部中...</div>;
+  if (authLoading || isLoading) return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-zinc-500 font-mono">載入總部中...</div>;
   const avatarSrc = editForm.avatar_url || profile?.avatar_url || "";
 
   return (

@@ -305,21 +305,40 @@
 }
 
 /* TipTap editor — mobile focus & caret visibility */
+.rich-text-editor-surface {
+  position: relative;
+  cursor: text;
+  pointer-events: auto;
+  touch-action: auto;
+}
+
+.rich-text-editor-surface .rich-text-editor-content,
+.rich-text-editor-surface .rich-text-editor-content > div {
+  min-height: inherit;
+  height: 100%;
+}
+
 .rich-text-editor-surface .tiptap {
   -webkit-user-select: text;
   user-select: text;
   touch-action: auto;
   caret-color: #e4e4e7;
   cursor: text;
+  min-height: inherit;
+  height: 100%;
+  pointer-events: auto;
 }
 
 .rich-text-editor-surface .ProseMirror {
   outline: none;
   min-height: inherit;
+  height: 100%;
   -webkit-tap-highlight-color: transparent;
   -webkit-user-select: text;
   user-select: text;
+  -webkit-user-modify: read-write;
   touch-action: auto;
+  pointer-events: auto;
 }
 
 .rich-text-editor-surface .ProseMirror-focused {
@@ -333,6 +352,14 @@
   select {
     font-size: 16px;
   }
+}
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+textarea,
+select,
+.rich-text-editor-surface .ProseMirror {
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 /* TipTap editor placeholder */

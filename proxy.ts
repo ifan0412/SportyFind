@@ -26,7 +26,12 @@ export async function proxy(req: NextRequest) {
     }
   );
 
-  const { data: { user } } = await supabase.auth.getUser();
+  let user = null;
+  try {
+    ({ data: { user } } = await supabase.auth.getUser());
+  } catch {
+    // Transient network errors during login should not hard-fail navigation.
+  }
 
   // 只在存取 /profile 時檢查登入，其他頁面(包含 /network)放行
   if (req.nextUrl.pathname.startsWith('/profile') && !user) {

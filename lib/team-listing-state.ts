@@ -4,6 +4,7 @@ export interface TeamListingState {
   hasInteracted: boolean;
   filterSports: string[];
   filterStatuses: string[];
+  filterRegions: string[];
   searchTerm: string;
 }
 
@@ -26,6 +27,7 @@ export function readTeamListingState(): TeamListingState | null {
       hasInteracted: !!parsed.hasInteracted,
       filterSports: Array.isArray(parsed.filterSports) ? parsed.filterSports : [],
       filterStatuses: Array.isArray(parsed.filterStatuses) ? parsed.filterStatuses : [],
+      filterRegions: Array.isArray(parsed.filterRegions) ? parsed.filterRegions : [],
       searchTerm: typeof parsed.searchTerm === "string" ? parsed.searchTerm : "",
     };
   } catch {

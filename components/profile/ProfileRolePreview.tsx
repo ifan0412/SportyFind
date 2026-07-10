@@ -15,6 +15,9 @@ import { ServicePublishBadge } from "@/components/services/ServicePublishBadge";
 import { formatCoachServicePrice, formatPhysioServicePrice } from "@/lib/coach-pricing";
 import { CoachRoleLabel, PhysioRoleLabel } from "@/components/profile/RoleBadges";
 import { serviceHasUncontactedEnquiry } from "@/lib/service-enquiry";
+import { AppChromeSticky } from "@/components/layout/AppChromeSticky";
+import { QualificationBadges } from "@/components/qualifications/QualificationBadges";
+import { filterCoachQualificationTags } from "@/lib/qualifications";
 
 export type ProfileRole = "athlete" | "coach" | "physio";
 export type AthleteSubTab = "expertise" | "highlights" | "feed";
@@ -54,6 +57,8 @@ interface ProfileRolePreviewProps {
     address?: string | null;
     is_address_public?: boolean | null;
     coach_teaching_experience_years?: number | null;
+    coach_qualification_tags?: string[] | null;
+    coach_qualification_custom?: string | null;
     physio_qualifications?: string | null;
     clinic_name?: string | null;
     physio_experience_years?: string | null;
@@ -116,7 +121,8 @@ export function ProfileRolePreview({
       : "5.0";
 
   const roleTabBar = (
-    <div className="bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 p-1 rounded-2xl flex w-full shadow-sm overflow-x-auto [&::-webkit-scrollbar]:hidden mb-4">
+    <AppChromeSticky className="mb-4 lg:static lg:z-auto" desktopTopClass="lg:top-auto">
+    <div className="bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 p-1 rounded-2xl flex w-full shadow-sm overflow-x-auto [&::-webkit-scrollbar]:hidden">
         {showPlayer && (
           <button
             type="button"
@@ -166,6 +172,7 @@ export function ProfileRolePreview({
           </button>
         )}
     </div>
+    </AppChromeSticky>
   );
 
   const backendSection = (
@@ -317,6 +324,20 @@ export function ProfileRolePreview({
                       emptyText="目前尚未填寫專屬的專業教學導讀。"
                       className="text-sm leading-relaxed"
                     />
+                    {filterCoachQualificationTags(profile.coach_qualification_tags).length > 0 && (
+                      <div className="pt-2">
+                        <QualificationBadges
+                          tags={filterCoachQualificationTags(profile.coach_qualification_tags)}
+                          accent="orange"
+                          size="xs"
+                          max={6}
+                          align="left"
+                        />
+                      </div>
+                    )}
+                    {profile.coach_qualification_custom && (
+                      <p className="text-xs text-zinc-400 font-medium pt-1">{profile.coach_qualification_custom}</p>
+                    )}
                   </div>
                   <div className="bg-slate-950 px-6 py-4 rounded-2xl border border-slate-800/80 text-center shrink-0 w-full md:w-auto">
                     <div className="text-xs font-bold text-zinc-500 mb-1">學員綜合總評</div>

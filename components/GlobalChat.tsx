@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { safeSupabaseQuery } from "@/lib/supabase/safe-query";
 import { useAuth } from "@/components/SupabaseProvider";
 import { MessageCircle, X, ChevronLeft, Send, Loader2, Smile } from "lucide-react";
 import EmojiPicker, { Theme, type EmojiClickData } from "emoji-picker-react";
@@ -160,15 +161,17 @@ export function GlobalChat() {
 
   const loadFriends = useCallback(
     async (userId: string) => {
-      const { data: friendships } = await supabase
-        .from("friendships")
-        .select(`
+      const { data: friendships } = await safeSupabaseQuery(
+        supabase
+          .from("friendships")
+          .select(`
           id, sender_id, receiver_id,
           sender:sender_id   (id, full_name, avatar_url),
           receiver:receiver_id (id, full_name, avatar_url)
         `)
-        .eq("status", "accepted")
-        .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`);
+          .eq("status", "accepted")
+          .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
+      );
 
       if (friendships) {
         const friendList = friendships.map((f: any) => {

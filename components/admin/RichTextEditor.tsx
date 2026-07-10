@@ -63,7 +63,9 @@ function ToolbarButton({
       type="button"
       title={title}
       disabled={disabled}
-      onMouseDown={(e) => e.preventDefault()}
+      onPointerDown={(e) => {
+        if (e.pointerType === "mouse") e.preventDefault();
+      }}
       onClick={onClick}
       className={`p-2 rounded-lg transition touch-manipulation min-w-[2rem] min-h-[2rem] flex items-center justify-center ${
         active
@@ -89,10 +91,10 @@ export function RichTextEditor({
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const uploadingRef = useRef(false);
-  /** Tracks HTML we emitted so parent echo doesn't reset the editor mid-typing */
   const lastEmittedHtml = useRef(normalizeRichHtml(value || ""));
+  const isFocusedRef = useRef(false);
+  const toolbarRafRef = useRef(0);
   const [, setToolbarRevision] = useState(0);
-  const [charCount, setCharCount] = useState(() => plainTextLength(value || ""));
   const imagesEnabled = enableImages ?? variant === "default";
   const editorMinHeight = minHeight ?? (variant === "compact" ? "140px" : "280px");
 
@@ -143,12 +145,20 @@ export function RichTextEditor({
     valueRef.current = value;
   }, [value]);
 
+  const scheduleToolbarRefresh = useCallback(() => {
+    if (toolbarRafRef.current) return;
+    toolbarRafRef.current = requestAnimationFrame(() => {
+      toolbarRafRef.current = 0;
+      setToolbarRevision((n) => n + 1);
+    });
+  }, []);
+
   const editor = useEditor({
     extensions,
     content: normalizeRichHtml(value || ""),
     immediatelyRender: false,
     autofocus: false,
-    shouldRerenderOnTransaction: false,
+    editable: true,
     editorProps: {
       attributes: {
         class:
@@ -158,6 +168,15 @@ export function RichTextEditor({
         autocorrect: "on",
         spellcheck: "true",
         "aria-label": placeholder || "Rich text editor",
+      },
+      handleDOMEvents: {
+        keydown: (_view, event) => {
+          // Prevent parent <form> from intercepting Enter (breaks new lines + focus).
+          if (event.key === "Enter") {
+            event.stopPropagation();
+          }
+          return false;
+        },
       },
       handleDrop: imagesEnabled
         ? (view, event, _slice, moved) => {
@@ -206,43 +225,41 @@ export function RichTextEditor({
     onUpdate: ({ editor: ed }) => {
       const html = normalizeRichHtml(ed.getHTML());
       lastEmittedHtml.current = html;
-      onChangeRef.current(html);
-      setCharCount(ed.getText().length);
+      scheduleToolbarRefresh();
+      queueMicrotask(() => {
+        if (isFocusedRef.current || ed.isFocused) {
+          onChangeRef.current(html);
+        }
+      });
+    },
+    onFocus: () => {
+      isFocusedRef.current = true;
     },
     onBlur: ({ editor: ed }) => {
+      isFocusedRef.current = false;
       const html = normalizeRichHtml(ed.getHTML());
       lastEmittedHtml.current = html;
       if (!richHtmlEquivalent(html, valueRef.current)) {
         onChangeRef.current(html);
       }
     },
+    onSelectionUpdate: () => {
+      scheduleToolbarRefresh();
+    },
   }, [extensions]);
 
-  // Only apply external value changes — never reset while the user is editing
+  // Only apply external value when not editing — never reset mid-typing
   useEffect(() => {
     if (!editor) return;
+    if (isFocusedRef.current || editor.isFocused) return;
 
     const next = normalizeRichHtml(value || "");
-    if (next === lastEmittedHtml.current) return;
-    if (editor.isFocused) return;
+    if (richHtmlEquivalent(editor.getHTML(), next)) return;
 
-    if (!richHtmlEquivalent(editor.getHTML(), next)) {
-      editor.commands.setContent(next, { emitUpdate: false });
-      lastEmittedHtml.current = next;
-      setCharCount(editor.getText().length);
-    }
-  }, [editor, value]);
-
-  useEffect(() => {
-    if (!editor) return;
-    const refreshToolbar = () => setToolbarRevision((n) => n + 1);
-    editor.on("selectionUpdate", refreshToolbar);
-    editor.on("transaction", refreshToolbar);
-    return () => {
-      editor.off("selectionUpdate", refreshToolbar);
-      editor.off("transaction", refreshToolbar);
-    };
-  }, [editor]);
+    editor.commands.setContent(next, { emitUpdate: false });
+    lastEmittedHtml.current = next;
+    scheduleToolbarRefresh();
+  }, [editor, value, scheduleToolbarRefresh]);
 
   const applyFontSize = (size: string) => {
     if (!editor) return;
@@ -251,6 +268,24 @@ export function RichTextEditor({
       else editor.chain().focus().setFontSize(size).run();
     });
   };
+
+  const focusEditor = useCallback(() => {
+    if (!editor || editor.isDestroyed) return;
+    requestAnimationFrame(() => {
+      editor.chain().focus().run();
+    });
+  }, [editor]);
+
+  const handleSurfacePointerDown = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      const target = event.target as HTMLElement;
+      if (target.closest("button, select, a, input, textarea, label")) return;
+      if (target.closest(".ProseMirror, .tiptap")) return;
+
+      focusEditor();
+    },
+    [focusEditor]
+  );
 
   const setLink = () => {
     if (!editor) return;
@@ -275,6 +310,10 @@ export function RichTextEditor({
   const currentFontSize =
     (editor?.getAttributes("textStyle").fontSize as string | undefined) || "1rem";
 
+  const charCount = editor
+    ? plainTextLength(editor.getText())
+    : plainTextLength(value || "");
+
   if (!editor) {
     return (
       <div
@@ -287,7 +326,14 @@ export function RichTextEditor({
   const counterOverSuggested = suggestedLength != null && charCount > suggestedLength;
 
   return (
-    <div className="border border-slate-800 rounded-2xl overflow-hidden bg-slate-950">
+    <div
+      className="border border-slate-800 rounded-2xl overflow-hidden bg-slate-950"
+      onKeyDown={(e) => {
+        if (e.key === "Enter" && (e.target as HTMLElement).closest(".ProseMirror")) {
+          e.stopPropagation();
+        }
+      }}
+    >
       <div className="border-b border-slate-800 bg-slate-900/80 overflow-x-auto [&::-webkit-scrollbar]:hidden touch-pan-x">
         <div className="flex items-center gap-0.5 p-2 flex-nowrap min-w-max">
         <ToolbarButton onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive("bold")} title="粗體">
@@ -372,10 +418,11 @@ export function RichTextEditor({
       </div>
 
       <div
-        className="rich-text-editor-surface"
+        className="rich-text-editor-surface cursor-text"
         style={{ minHeight: editorMinHeight }}
+        onPointerDown={handleSurfacePointerDown}
       >
-        <EditorContent editor={editor} />
+        <EditorContent editor={editor} className="rich-text-editor-content min-h-[inherit] h-full" />
       </div>
 
       {showCharCount && (

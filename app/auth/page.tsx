@@ -139,7 +139,6 @@ export default function AuthPage() {
       } else {
         toast.success("歡迎回來！");
         router.push("/profile");
-        router.refresh();
       }
     }
 

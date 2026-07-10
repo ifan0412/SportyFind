@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { safeSupabaseQuery } from "@/lib/supabase/safe-query";
 import type { ProfileNavData } from "@/components/NavbarProfileMenu";
 
 const EMPTY: ProfileNavData = { is_coach: false, is_physio: false, adminTeams: [] };
@@ -13,12 +14,14 @@ export function useProfileNav(userId: string | undefined) {
   const fetchProfileNav = useCallback(
     async (uid: string) => {
       const [{ data: prof }, { data: teamRows }] = await Promise.all([
-        supabase.from("profiles").select("is_coach, is_physio").eq("id", uid).maybeSingle(),
-        supabase
-          .from("team_members")
-          .select("teams(id, name_en, name_zh)")
-          .eq("user_id", uid)
-          .eq("role", "admin"),
+        safeSupabaseQuery(supabase.from("profiles").select("is_coach, is_physio").eq("id", uid).maybeSingle()),
+        safeSupabaseQuery(
+          supabase
+            .from("team_members")
+            .select("teams(id, name_en, name_zh)")
+            .eq("user_id", uid)
+            .eq("role", "admin")
+        ),
       ]);
 
       const adminTeams = (teamRows ?? [])

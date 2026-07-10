@@ -28,6 +28,7 @@ import { filterPhysioQualificationTags, filterCoachQualificationTags } from "@/l
 import { QualificationBadges } from "@/components/qualifications/QualificationBadges";
 import { formatCoachServicePrice, formatPhysioServicePrice } from "@/lib/coach-pricing";
 import { GenderAvatarBadge } from "@/components/profile/GenderBadge";
+import { AppChromeSticky } from "@/components/layout/AppChromeSticky";
 
 const FacebookIcon = ({ className }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" /></svg>
@@ -426,7 +427,8 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
           </div>
 
           <div className="lg:col-span-8 xl:col-span-9 flex flex-col">
-            <div className="bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 p-1 rounded-2xl flex w-full sticky top-16 z-30 mb-8 shadow-sm overflow-x-auto [&::-webkit-scrollbar]:hidden">
+            <AppChromeSticky className="mb-8">
+            <div className="bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 p-1 rounded-2xl flex w-full shadow-sm overflow-x-auto [&::-webkit-scrollbar]:hidden">
               {hasPublicPlayer && (
                 <button onClick={() => handleTabChange("athlete")} className={`flex-1 flex flex-col items-center justify-center py-2 px-3 rounded-xl transition-all duration-300 min-w-[100px] cursor-pointer ${activeRole === "athlete" ? "bg-slate-50 text-black shadow-lg scale-[1.02]" : "text-zinc-500 hover:text-white hover:bg-slate-800/50"}`}><Users className="w-5 h-5 mb-0.5" strokeWidth={2.5} /><span className="text-[10px] md:text-xs font-black leading-tight">運動員簡歷</span></button>
               )}
@@ -437,6 +439,7 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
                 <button onClick={() => handleTabChange("physio")} className={`flex-1 flex flex-col items-center justify-center py-2 px-3 rounded-xl transition-all duration-300 min-w-[100px] cursor-pointer ${activeRole === "physio" ? "bg-green-500 text-black shadow-lg scale-[1.02]" : "text-zinc-500 hover:text-green-400 hover:bg-slate-800/50"}`}><Activity className="w-5 h-5 mb-0.5" strokeWidth={2.5} /><span className="text-[10px] md:text-xs font-black leading-tight">運動/物理治療</span></button>
               )}
             </div>
+            </AppChromeSticky>
 
             <div className="flex-1 animate-fadeIn">
               {activeRole === "athlete" && hasPublicPlayer && (
@@ -565,6 +568,7 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
                                 accent="orange"
                                 size="xs"
                                 max={6}
+                                align="left"
                               />
                             </div>
                           )}

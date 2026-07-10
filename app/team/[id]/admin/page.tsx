@@ -195,12 +195,15 @@ export default function TeamAdminDashboard() {
     try {
       const cleanedMeta = cleanTeamMetadata(editSportMetadata);
       const regions = (cleanedMeta.location_regions as string[] | undefined) ?? [];
+      const bioPlainLen = plainTextLength(editBio || "");
+
       const { error } = await supabase
         .from("teams")
         .update({
           est_year: editEstYear.trim() ? Number(editEstYear) : null,
           sport_metadata: cleanedMeta,
           location_region: regionsToLocationString(regions),
+          bio: bioPlainLen > 0 ? editBio : null,
         })
         .eq("id", id);
 
@@ -238,8 +241,6 @@ export default function TeamAdminDashboard() {
         threads: editThreads.trim() || undefined,
       };
 
-      const bioPlainLen = plainTextLength(editBio || "");
-
       const { error } = await supabase
         .from("teams")
         .update({
@@ -247,7 +248,6 @@ export default function TeamAdminDashboard() {
           name_zh: editNameZh.trim() || null,
           recruitment_status: editStatus,
           gender_requirement: editGenderRequirement,
-          bio: bioPlainLen > 0 ? editBio : null,
           social_links: updatedSocial,
         })
         .eq("id", id);
@@ -453,6 +453,18 @@ export default function TeamAdminDashboard() {
               onEstYearChange={setEditEstYear}
               onMetadataChange={setEditSportMetadata}
             />
+            <div>
+              <label className={labelCls}>修改群組與戰隊介紹 Bio</label>
+              <RichTextEditor
+                value={editBio}
+                onChange={setEditBio}
+                placeholder={`建議 ${BIO_CHAR_SUGGESTED_RANGE} 字，介紹戰隊風格、目標與招募期望…`}
+                variant="compact"
+                minHeight="180px"
+                showCharCount
+                suggestedLength={BIO_CHAR_SUGGESTED_MAX}
+              />
+            </div>
             <button type="submit" disabled={isSavingDetails} className="w-full bg-purple-600 hover:bg-purple-500 disabled:bg-slate-800 text-white font-black py-3.5 rounded-xl transition">
               {isSavingDetails ? "儲存中..." : "💾 儲存群組詳情與規格"}
             </button>
@@ -556,19 +568,6 @@ export default function TeamAdminDashboard() {
                     </button>
                   </div>
                 )}
-              </div>
-
-              <div>
-                <label className={labelCls}>修改群組與戰隊介紹 Bio</label>
-                <RichTextEditor
-                  value={editBio}
-                  onChange={setEditBio}
-                  placeholder={`建議 ${BIO_CHAR_SUGGESTED_RANGE} 字，介紹戰隊風格、目標與招募期望…`}
-                  variant="compact"
-                  minHeight="180px"
-                  showCharCount
-                  suggestedLength={BIO_CHAR_SUGGESTED_MAX}
-                />
               </div>
 
               <button

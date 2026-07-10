@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { safeSupabaseQuery } from "@/lib/supabase/safe-query";
 
 export type ConversationSummary = {
   peerId: string;
@@ -38,18 +39,22 @@ export async function loadConversationSummaries(
   if (peerIds.length === 0) return {};
 
   const [{ data: unreadRows }, { data: recentMsgs }] = await Promise.all([
-    supabase
-      .from("messages")
-      .select("sender_id")
-      .eq("receiver_id", userId)
-      .eq("is_read", false)
-      .in("sender_id", peerIds),
-    supabase
-      .from("messages")
-      .select("sender_id, receiver_id, content, created_at")
-      .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
-      .order("created_at", { ascending: false })
-      .limit(Math.max(peerIds.length * 4, 80)),
+    safeSupabaseQuery(
+      supabase
+        .from("messages")
+        .select("sender_id")
+        .eq("receiver_id", userId)
+        .eq("is_read", false)
+        .in("sender_id", peerIds)
+    ),
+    safeSupabaseQuery(
+      supabase
+        .from("messages")
+        .select("sender_id, receiver_id, content, created_at")
+        .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
+        .order("created_at", { ascending: false })
+        .limit(Math.max(peerIds.length * 4, 80))
+    ),
   ]);
 
   const unreadByPeer: Record<string, number> = {};

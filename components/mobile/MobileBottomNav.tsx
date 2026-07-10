@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/SupabaseProvider";
 import { useProfileNav } from "@/lib/hooks/useProfileNav";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { safeSupabaseQuery } from "@/lib/supabase/safe-query";
 import { loadConversationSummaries, totalUnreadCount } from "@/lib/chat-summaries";
 import { MobileNavDrawer } from "@/components/mobile/MobileNavDrawer";
 
@@ -85,11 +86,13 @@ export function MobileBottomNav() {
       setDmUnread(0);
       return;
     }
-    const { data: friendships } = await supabase
-      .from("friendships")
-      .select("sender_id, receiver_id")
-      .eq("status", "accepted")
-      .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`);
+    const { data: friendships } = await safeSupabaseQuery(
+      supabase
+        .from("friendships")
+        .select("sender_id, receiver_id")
+        .eq("status", "accepted")
+        .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
+    );
 
     const peerIds = (friendships ?? []).map((f) =>
       f.sender_id === user.id ? f.receiver_id : f.sender_id

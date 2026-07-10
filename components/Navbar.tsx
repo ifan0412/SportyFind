@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { isSiteAdmin } from "@/lib/admin";
 import { navLinks } from "@/lib/nav-links";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { safeSupabaseQuery } from "@/lib/supabase/safe-query";
 import { useAuth } from "@/components/SupabaseProvider";
 import { useProfileNav } from "@/lib/hooks/useProfileNav";
 import { useScrollHideHeader } from "@/lib/use-scroll-hide-header";
@@ -198,14 +199,16 @@ export function Navbar() {
 
   const fetchNotifications = useCallback(
     async (uid: string) => {
-      const { data } = await supabase
-        .from("notifications")
-        .select(
-          `id, type, is_read, created_at, friendship_id, team_id, event_id,
+      const { data } = await safeSupabaseQuery(
+        supabase
+          .from("notifications")
+          .select(
+            `id, type, is_read, created_at, friendship_id, team_id, event_id,
          sender:sender_id (id, full_name, avatar_url)`
-        )
-        .eq("user_id", uid)
-        .order("created_at", { ascending: false });
+          )
+          .eq("user_id", uid)
+          .order("created_at", { ascending: false })
+      );
 
       if (data) setNotifications(data as unknown as Notification[]);
     },

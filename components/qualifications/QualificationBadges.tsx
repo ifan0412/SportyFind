@@ -18,7 +18,7 @@ export function QualificationBadges({
   accent = "orange",
   size = "sm",
   max = 4,
-  align = "center",
+  align = "left",
 }: {
   tags: string[];
   accent?: "orange" | "green" | "blue" | "amber" | "emerald";

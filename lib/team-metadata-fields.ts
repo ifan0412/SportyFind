@@ -187,6 +187,36 @@ export function regionsToLocationString(regions: string[]): string | null {
   return clean.length > 0 ? clean.join("、") : null;
 }
 
+/** Activity regions stored on a team (metadata array or legacy location_region string). */
+export function getTeamLocationRegions(
+  locationRegion: string | null | undefined,
+  metadata: Record<string, unknown> | null | undefined
+): string[] {
+  const meta = metadata?.location_regions;
+  if (Array.isArray(meta)) {
+    return meta.filter((r): r is string => typeof r === "string" && !isTeamMetaValueEmpty(r));
+  }
+  if (locationRegion && !isTeamMetaValueEmpty(locationRegion)) {
+    return locationRegion
+      .split(/[、,]/)
+      .map((s) => s.trim())
+      .filter((s) => !isTeamMetaValueEmpty(s));
+  }
+  return [];
+}
+
+export function teamMatchesRegionFilter(
+  locationRegion: string | null | undefined,
+  metadata: Record<string, unknown> | null | undefined,
+  filterRegions: string[]
+): boolean {
+  if (!filterRegions.length) return true;
+  const teamRegions = getTeamLocationRegions(locationRegion, metadata);
+  if (!teamRegions.length) return false;
+  if (teamRegions.includes("全港")) return true;
+  return filterRegions.some((f) => teamRegions.includes(f));
+}
+
 export function cleanTeamMetadata(
   metadata: Record<string, string | boolean | string[]>
 ): Record<string, string | boolean | string[]> {

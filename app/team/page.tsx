@@ -16,6 +16,8 @@ import {
   getTeamCardBio,
   isTeamMetaValueEmpty,
   metadataSearchText,
+  TEAM_REGION_OPTIONS,
+  teamMatchesRegionFilter,
 } from "@/lib/team-metadata-fields";
 import { stripHtml } from "@/lib/content/body";
 import { ListingFilterBar } from "@/components/filters/ListingFilterBar";
@@ -93,6 +95,7 @@ function TeamPageContent() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterSports, setFilterSports] = useState<string[]>([]);
   const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
+  const [filterRegions, setFilterRegions] = useState<string[]>([]);
   const [listingReady, setListingReady] = useState(false);
 
   const [visibleCount, setVisibleCount] = useState(12);
@@ -117,11 +120,13 @@ function TeamPageContent() {
         setHasInteracted(true);
         setFilterSports([urlSport]);
         setFilterStatuses([]);
+        setFilterRegions([]);
         setSearchTerm("");
       } else {
         setHasInteracted(false);
         setFilterSports([]);
         setFilterStatuses([]);
+        setFilterRegions([]);
         setSearchTerm("");
       }
       setListingReady(true);
@@ -132,6 +137,7 @@ function TeamPageContent() {
       setHasInteracted(true);
       setFilterSports([urlSport]);
       setFilterStatuses([]);
+      setFilterRegions([]);
       setSearchTerm("");
       setListingReady(true);
       return;
@@ -142,6 +148,7 @@ function TeamPageContent() {
       setHasInteracted(saved.hasInteracted);
       setFilterSports(saved.filterSports);
       setFilterStatuses(saved.filterStatuses);
+      setFilterRegions(saved.filterRegions);
       setSearchTerm(saved.searchTerm);
       setListingReady(true);
       return;
@@ -150,6 +157,7 @@ function TeamPageContent() {
     setHasInteracted(true);
     setFilterSports([]);
     setFilterStatuses([]);
+    setFilterRegions([]);
     setSearchTerm("");
     setListingReady(true);
   }, [urlBrowse, urlSport]);
@@ -161,16 +169,18 @@ function TeamPageContent() {
         hasInteracted,
         filterSports,
         filterStatuses,
+        filterRegions,
         searchTerm,
       });
     }
-  }, [listingReady, hasInteracted, filterSports, filterStatuses, searchTerm]);
+  }, [listingReady, hasInteracted, filterSports, filterStatuses, filterRegions, searchTerm]);
 
   const persistListingState = () => {
     saveTeamListingState({
       hasInteracted: true,
       filterSports,
       filterStatuses,
+      filterRegions,
       searchTerm,
     });
   };
@@ -186,6 +196,24 @@ function TeamPageContent() {
     [teams]
   );
 
+  const activeRegions = useMemo(() => {
+    const regions = new Set<string>();
+    for (const t of teams) {
+      const meta = t.sport_metadata?.location_regions;
+      if (Array.isArray(meta)) {
+        for (const r of meta) {
+          if (typeof r === "string" && !isTeamMetaValueEmpty(r)) regions.add(r);
+        }
+      } else if (t.location_region && !isTeamMetaValueEmpty(t.location_region)) {
+        for (const r of t.location_region.split(/[、,]/)) {
+          const trimmed = r.trim();
+          if (!isTeamMetaValueEmpty(trimmed)) regions.add(trimmed);
+        }
+      }
+    }
+    return regions;
+  }, [teams]);
+
   const mobileFilterCategories = useMemo(() => {
     const sportOpts = SPORT_OPTIONS.filter((s) =>
       activeCategories.includes(s.value.toLowerCase())
@@ -193,19 +221,24 @@ function TeamPageContent() {
       id: s.value.toLowerCase(),
       label: `${s.emoji} ${s.labelZh}`,
     }));
+    const regionOpts = TEAM_REGION_OPTIONS.filter((r) => activeRegions.has(r.value)).map((r) => ({
+      id: r.value,
+      label: r.label,
+    }));
     return [
       multiSelectCategory("sports", "項目", sportOpts),
+      multiSelectCategory("regions", "地區", regionOpts),
       multiSelectCategory("statuses", "狀態", [
         { id: "open", label: "🟢 公開招募" },
         { id: "invite_only", label: "🔵 邀請制" },
         { id: "closed", label: "🔴 暫停招募" },
       ]),
     ];
-  }, [activeCategories]);
+  }, [activeCategories, activeRegions]);
 
   const appliedMobileFilters: MobileFilterValues = useMemo(
-    () => ({ sports: filterSports, statuses: filterStatuses }),
-    [filterSports, filterStatuses]
+    () => ({ sports: filterSports, regions: filterRegions, statuses: filterStatuses }),
+    [filterSports, filterRegions, filterStatuses]
   );
 
   const mobileFilters = useMobileFilterDraft(appliedMobileFilters);
@@ -214,6 +247,7 @@ function TeamPageContent() {
     const d = mobileFilters.draft;
     setHasInteracted(true);
     setFilterSports(Array.isArray(d.sports) ? d.sports : []);
+    setFilterRegions(Array.isArray(d.regions) ? d.regions : []);
     setFilterStatuses(Array.isArray(d.statuses) ? d.statuses : []);
     mobileFilters.close();
   };
@@ -233,9 +267,14 @@ function TeamPageContent() {
         filterSports.length === 0 || filterSports.includes(t.sport_category.toLowerCase());
       const matchesStatus =
         filterStatuses.length === 0 || filterStatuses.includes(t.recruitment_status);
-      return matchesSearch && matchesSport && matchesStatus;
+      const matchesRegion = teamMatchesRegionFilter(
+        t.location_region,
+        t.sport_metadata,
+        filterRegions
+      );
+      return matchesSearch && matchesSport && matchesStatus && matchesRegion;
     });
-  }, [teams, searchTerm, filterSports, filterStatuses]);
+  }, [teams, searchTerm, filterSports, filterStatuses, filterRegions]);
 
   const visibleTeams = filteredTeams.slice(0, visibleCount);
 
@@ -250,7 +289,7 @@ function TeamPageContent() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, [filteredTeams.length]);
 
-  useEffect(() => { setVisibleCount(12); }, [searchTerm, filterSports, filterStatuses]);
+  useEffect(() => { setVisibleCount(12); }, [searchTerm, filterSports, filterStatuses, filterRegions]);
 
   const toggleSport = (sportId: string) => {
     setHasInteracted(true);
@@ -263,6 +302,13 @@ function TeamPageContent() {
     setHasInteracted(true);
     setFilterStatuses((prev) =>
       prev.includes(statusId) ? prev.filter((s) => s !== statusId) : [...prev, statusId]
+    );
+  };
+
+  const toggleRegion = (regionId: string) => {
+    setHasInteracted(true);
+    setFilterRegions((prev) =>
+      prev.includes(regionId) ? prev.filter((r) => r !== regionId) : [...prev, regionId]
     );
   };
 
@@ -355,6 +401,33 @@ function TeamPageContent() {
                 </div>
 
                 <div className="flex items-center gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                  <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest whitespace-nowrap mr-1">地區</span>
+                  <button
+                    onClick={() => { setHasInteracted(true); setFilterRegions([]); }}
+                    className={`whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold border transition ${
+                      filterRegions.length === 0
+                        ? "bg-emerald-600 border-emerald-500 text-white shadow-[0_0_10px_rgba(16,185,129,0.3)]"
+                        : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500 hover:text-white"
+                    }`}
+                  >
+                    全部
+                  </button>
+                  {TEAM_REGION_OPTIONS.filter((r) => activeRegions.has(r.value)).map((region) => (
+                    <button
+                      key={region.value}
+                      onClick={() => toggleRegion(region.value)}
+                      className={`whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold border transition ${
+                        filterRegions.includes(region.value)
+                          ? "bg-emerald-600 border-emerald-500 text-white shadow-[0_0_10px_rgba(16,185,129,0.3)]"
+                          : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500 hover:text-white"
+                      }`}
+                    >
+                      {region.label.split(" ")[0]}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                   <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest whitespace-nowrap mr-1">狀態</span>
                   <button
                     onClick={() => { setHasInteracted(true); setFilterStatuses([]); }}
@@ -434,7 +507,7 @@ function TeamPageContent() {
             <div className="bg-slate-900/40 border border-dashed border-slate-700/50 rounded-3xl py-20 text-center px-4">
               <p className="text-zinc-400 font-bold text-sm">沒有符合條件的團隊。</p>
               <button
-                onClick={() => { setSearchTerm(""); setFilterSports([]); setFilterStatuses([]); }}
+                onClick={() => { setSearchTerm(""); setFilterSports([]); setFilterStatuses([]); setFilterRegions([]); }}
                 className="mt-4 text-sm text-blue-400 hover:text-blue-300 font-bold px-4 py-2 bg-blue-500/10 rounded-lg"
               >
                 清除所有篩選

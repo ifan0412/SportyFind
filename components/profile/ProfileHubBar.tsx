@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useRef } from "react";
 import { Eye, Share2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PROFILE_HUB_TABS, type ProfileHubTabId } from "@/components/profile/ProfileHubTabNav";
+import { useAppChromeStickyTop } from "@/lib/use-app-chrome-sticky-top";
 
 interface ProfileHubBarProps {
   activeTab: ProfileHubTabId;
@@ -71,8 +73,14 @@ export function ProfileHubIconRow({ activeTab, onTab }: Pick<ProfileHubBarProps,
 
 /** Sticky hub bar below navbar — outside profile card */
 export function ProfileHubMobileBar({ activeTab, onTab }: Pick<ProfileHubBarProps, "activeTab" | "onTab">) {
+  const ref = useRef<HTMLDivElement>(null);
+  useAppChromeStickyTop(ref);
+
   return (
-    <div className="lg:hidden sticky top-14 z-40 -mx-4 sm:-mx-6 px-4 sm:px-6 py-1.5 bg-slate-950/95 backdrop-blur-md shadow-sm">
+    <div
+      ref={ref}
+      className="lg:hidden sticky z-40 -mx-4 sm:-mx-6 px-4 sm:px-6 py-1.5 bg-slate-950/95 backdrop-blur-md shadow-sm"
+    >
       <ProfileHubIconRow activeTab={activeTab} onTab={onTab} />
     </div>
   );

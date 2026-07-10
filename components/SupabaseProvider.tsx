@@ -1,7 +1,7 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react"; // 💡 移除 useMemo
-import { createSupabaseBrowserClient } from "@/lib/supabase/client"; 
+import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import type { User, Session } from "@supabase/supabase-js";
 
@@ -22,8 +22,16 @@ export default function SupabaseProvider({ children }: { children: React.ReactNo
 
   // 💡 關鍵修正：改用 useState 來鎖死 Supabase 實例，確保它絕對不會在背景被 React 丟棄
   const [supabase] = useState(() => createSupabaseBrowserClient());
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    const scheduleRefresh = () => {
+      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+      refreshTimerRef.current = setTimeout(() => {
+        router.refresh();
+      }, 150);
+    };
+
     const initializeAuth = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
@@ -44,13 +52,14 @@ export default function SupabaseProvider({ children }: { children: React.ReactNo
       setUser(newSession?.user ?? null);
       setIsLoading(false);
 
-      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
-        router.refresh(); 
+      if (event === "SIGNED_IN" || event === "SIGNED_OUT") {
+        scheduleRefresh();
       }
     });
 
     return () => {
       subscription.unsubscribe();
+      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
     };
   }, [supabase, router]);
 

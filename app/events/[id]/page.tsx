@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { safeSupabaseQuery } from "@/lib/supabase/safe-query";
+import { useAuth } from "@/components/SupabaseProvider";
 import { 
   Calendar, MapPin, Users, Shield, Trophy, AlertTriangle, 
   UserCheck, ArrowLeft, Loader2, User as UserIcon, Trash2, Share2, Check, Pencil
@@ -32,6 +34,7 @@ import {
   normalizeGenderRequirement,
 } from "@/lib/gender";
 import { GenderAvatarBadge } from "@/components/profile/GenderBadge";
+import { useFetchGeneration } from "@/lib/use-fetch-generation";
 
 export default function EventDetailPage() {
   const params = useParams();
@@ -40,8 +43,8 @@ export default function EventDetailPage() {
   const returnTo = `/events/${eventId}`;
 
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+  const { user: authUser, isLoading: authLoading } = useAuth();
 
-  const [currentUser, setCurrentUser] = useState<any>(null);
   const [currentUserGender, setCurrentUserGender] = useState<string | null>(null);
   const [event, setEvent] = useState<any>(null);
   const [registrations, setRegistrations] = useState<any[]>([]);
@@ -75,74 +78,101 @@ export default function EventDetailPage() {
     previousStatus: string;
   } | null>(null);
 
-  const fetchEventDetails = useCallback(async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      setCurrentUser(user);
+  const fetchGeneration = useFetchGeneration();
+  const fetchRealtimeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fetchEventDetailsRef = useRef<() => Promise<void>>(async () => {});
 
-      const { data: ev, error: evErr } = await supabase
-        .from("events")
-        .select(`
+  const fetchEventDetails = useCallback(async () => {
+    const generation = fetchGeneration.nextGeneration();
+    try {
+      const { data: ev, error: evErr } = await safeSupabaseQuery(
+        supabase
+          .from("events")
+          .select(`
           *,
           organizer_team:teams!organizer_team_id (id, name_zh, name_en, logo_url),
           creator_profile:profiles!creator_id (id, full_name, avatar_url)
         `)
-        .eq("id", eventId)
-        .single();
+          .eq("id", eventId)
+          .single()
+      );
 
-      if (evErr) throw evErr;
+      if (!fetchGeneration.isCurrent(generation)) return;
+
+      if (evErr || !ev) {
+        if (evErr) console.error("無法載入活動:", evErr.message, evErr);
+        setEvent(null);
+        return;
+      }
+
       setEvent(ev);
 
-      const { data: regs, error: regsErr } = await supabase
-        .from("event_registrations")
-        .select(`
+      const { data: regs, error: regsErr } = await safeSupabaseQuery(
+        supabase
+          .from("event_registrations")
+          .select(`
           *,
           profiles:user_id (id, full_name, avatar_url, gender),
           team:teams!team_id (id, name_zh, name_en)
         `)
-        .eq("event_id", eventId)
-        .order("registered_at", { ascending: true });
+          .eq("event_id", eventId)
+          .order("registered_at", { ascending: true })
+      );
+
+      if (!fetchGeneration.isCurrent(generation)) return;
 
       if (regsErr) {
-        console.error("載入報名名單失敗:", regsErr.message, regsErr.details);
+        console.error("載入報名名單失敗:", regsErr.message, regsErr);
       } else if (regs) {
         setRegistrations([...regs]);
       }
 
-      if (user) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("gender")
-          .eq("id", user.id)
-          .maybeSingle();
+      if (authUser) {
+        const { data: profile } = await safeSupabaseQuery(
+          supabase.from("profiles").select("gender").eq("id", authUser.id).maybeSingle()
+        );
+        if (!fetchGeneration.isCurrent(generation)) return;
         setCurrentUserGender(profile?.gender ?? null);
 
-        const { data: tm } = await supabase
-          .from("team_members")
-          .select("team_id, teams (id, name_zh, name_en, sport_category)")
-          .eq("user_id", user.id)
-          .in("role", ["admin", "coach"]);
+        const { data: tm } = await safeSupabaseQuery(
+          supabase
+            .from("team_members")
+            .select("team_id, teams (id, name_zh, name_en, sport_category)")
+            .eq("user_id", authUser.id)
+            .in("role", ["admin", "coach"])
+        );
+
+        if (!fetchGeneration.isCurrent(generation)) return;
 
         if (tm) {
-          const managedTeams = tm.filter(t => t.teams).map((t: any) => t.teams);
+          const managedTeams = tm.filter((t) => t.teams).map((t: any) => t.teams);
           const sportFiltered = ev?.sport_category
             ? managedTeams.filter((t: any) => t.sport_category === ev.sport_category)
             : managedTeams;
           setMyManagedTeams(sportFiltered);
+        } else {
+          setMyManagedTeams([]);
         }
       } else {
         setCurrentUserGender(null);
+        setMyManagedTeams([]);
       }
     } catch (err) {
       console.error("無法載入活動:", err);
     } finally {
-      setIsLoading(false);
+      if (fetchGeneration.isCurrent(generation)) {
+        setIsLoading(false);
+      }
     }
-  }, [supabase, eventId]);
+  }, [supabase, eventId, authUser, fetchGeneration]);
+
+  fetchEventDetailsRef.current = fetchEventDetails;
 
   useEffect(() => {
-    fetchEventDetails();
-  }, [fetchEventDetails]);
+    if (authLoading) return;
+    setIsLoading(true);
+    void fetchEventDetails();
+  }, [authLoading, fetchEventDetails]);
 
   useEffect(() => {
     if (!eventId) return;
@@ -154,18 +184,23 @@ export default function EventDetailPage() {
         "postgres_changes",
         { event: "*", schema: "public", table: "event_registrations", filter: `event_id=eq.${eventId}` },
         () => {
-          if (isMounted) fetchEventDetails();
+          if (!isMounted) return;
+          if (fetchRealtimeTimerRef.current) clearTimeout(fetchRealtimeTimerRef.current);
+          fetchRealtimeTimerRef.current = setTimeout(() => {
+            if (isMounted) void fetchEventDetailsRef.current();
+          }, 250);
         }
       )
       .subscribe();
 
     return () => {
       isMounted = false;
+      if (fetchRealtimeTimerRef.current) clearTimeout(fetchRealtimeTimerRef.current);
       supabase.removeChannel(channel);
     };
-  }, [supabase, eventId, fetchEventDetails]);
+  }, [supabase, eventId]);
 
-  if (isLoading) {
+  if (authLoading || isLoading) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center text-zinc-500 font-mono">
         <Loader2 className="w-6 h-6 animate-spin mr-2 text-blue-500" />
@@ -185,20 +220,20 @@ export default function EventDetailPage() {
   }
 
   const isOrganizer = Boolean(
-    currentUser && (
-      event.creator_id === currentUser.id ||
+    authUser && (
+      event.creator_id === authUser.id ||
       (event.organizer_team_id && myManagedTeams.some(t => t.id === event.organizer_team_id))
     )
   );
-  const isCreator = Boolean(currentUser && event.creator_id === currentUser.id);
+  const isCreator = Boolean(authUser && event.creator_id === authUser.id);
   const acceptingGuests = isEventAcceptingGuests(event);
 
   const activeIndivReg = registrations.find(r => 
-    r.user_id === currentUser?.id && 
+    r.user_id === authUser?.id && 
     ["going", "confirmed", "accepted", "waitlist", "waiting", "pending", "reviewing"].includes(String(r.status || "").toLowerCase())
   );
   const rejectedIndivReg = registrations.find(r => 
-    r.user_id === currentUser?.id && 
+    r.user_id === authUser?.id && 
     ["kicked", "rejected"].includes(String(r.status || "").toLowerCase())
   );
 
@@ -217,7 +252,7 @@ export default function EventDetailPage() {
   const approvalMode = getEventApprovalMode(event);
   const visibleRegistrations = getVisibleRegistrations(registrations, {
     isOrganizer,
-    currentUserId: currentUser?.id,
+    currentUserId: authUser?.id,
     registrationType: event.registration_type,
     approvalMode,
   });
@@ -341,7 +376,7 @@ export default function EventDetailPage() {
             </span>
           )}
 
-          {isOrganizer && reg.user_id !== currentUser?.id && (
+          {isOrganizer && reg.user_id !== authUser?.id && (
             <div className="flex items-center gap-1">
               {!isConfirmedRegStatus(normRegStatus) && (
                 <button
@@ -410,11 +445,11 @@ export default function EventDetailPage() {
     if (!confirm("⚠️ 確定要澈底刪除這場賽事活動嗎？此動作將發送推播通知給所有已報名球友，且無法復原！")) return;
     setActionLoading(true);
     try {
-      const activeRegs = registrations.filter(r => r.status !== "cancelled" && r.user_id !== currentUser?.id);
+      const activeRegs = registrations.filter(r => r.status !== "cancelled" && r.user_id !== authUser?.id);
       if (activeRegs.length > 0) {
         const notifPayloads = activeRegs.map(reg => ({
           user_id: reg.user_id,
-          sender_id: currentUser?.id,
+          sender_id: authUser?.id,
           type: "event_cancelled",
           is_read: false,
           event_id: null,
@@ -473,7 +508,7 @@ export default function EventDetailPage() {
   };
 
   const handleIndividualJoin = async () => {
-    if (!currentUser) return router.push("/auth");
+    if (!authUser) return router.push("/auth");
 
     const requirement = event?.gender_requirement ?? "both";
     if (!genderMeetsRequirement(currentUserGender, requirement)) {
@@ -577,6 +612,7 @@ export default function EventDetailPage() {
       setIsQuitModalOpen(false);
       setQuitReason("");
       alert(data?.message || "已成功退出活動");
+      fetchGeneration.invalidate();
       await fetchEventDetails();
       router.refresh();
     } catch (err: any) {
@@ -718,6 +754,7 @@ export default function EventDetailPage() {
       }
 
       setHostAction(null);
+      fetchGeneration.invalidate();
       await fetchEventDetails();
       router.refresh();
     } catch (err: any) {
@@ -1315,7 +1352,7 @@ export default function EventDetailPage() {
 
         {/* 活動討論大廳 */}
         {canViewLobby && (
-          <EventLobbyBoard eventId={eventId} currentUser={currentUser} isOrganizer={isOrganizer} returnTo={returnTo} />
+          <EventLobbyBoard eventId={eventId} currentUser={authUser} isOrganizer={isOrganizer} returnTo={returnTo} />
         )}
 
       </div>
