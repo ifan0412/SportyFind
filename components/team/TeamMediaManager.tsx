@@ -1,5 +1,6 @@
 "use client";
 
+import { toast } from "sonner";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { Loader2, Trash2, UploadCloud } from "lucide-react";
@@ -149,10 +150,10 @@ export function TeamMediaManager({
       setCoverFile(null);
       setPendingGalleryFiles([]);
       setPhotos(finalGallery);
-      alert("🎉 媒體檔案已更新！");
+      toast.success("🎉 媒體檔案已更新！");
       onUpdated();
     } catch (err) {
-      alert("儲存失敗：" + (err instanceof Error ? err.message : "未知錯誤"));
+      toast.error("儲存失敗：" + (err instanceof Error ? err.message : "未知錯誤"));
     } finally {
       setIsSaving(false);
     }

@@ -13,6 +13,8 @@ import { HKDistrictPicker } from "@/components/location/HKDistrictPicker";
 import { normalizeDistrictIds, normalizeSubdistrictIds } from "@/lib/hk-locations";
 import { type GenderRequirement, GENDER_REQUIREMENT_OPTIONS } from "@/lib/gender";
 import { RichTextEditor } from "@/components/admin/RichTextEditor";
+import { toast } from "sonner";
+import { FormSelect } from "@/components/ui/form-select";
 
 interface TeamOption {
   id: string;
@@ -394,7 +396,7 @@ export default function CreateEventPage() {
         if (hostRegErr) throw hostRegErr;
       }
 
-      alert("🎉 活動發佈成功！");
+      toast.success("🎉 活動發佈成功！");
       router.push(`/events/${data.id}`);
     } catch (err: any) {
       console.error("發佈失敗詳細錯誤:", JSON.stringify(err, null, 2));
@@ -524,15 +526,14 @@ export default function CreateEventPage() {
 
             <div>
               <label className="block text-xs font-black text-zinc-300 mb-2">報名性別要求</label>
-              <select
+              <FormSelect
                 value={genderRequirement}
-                onChange={(e) => setGenderRequirement(e.target.value as GenderRequirement)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white font-bold focus:outline-none focus:border-blue-500 transition cursor-pointer"
-              >
-                {GENDER_REQUIREMENT_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </select>
+                onValueChange={(value) => setGenderRequirement(value as GenderRequirement)}
+                options={GENDER_REQUIREMENT_OPTIONS.map((opt) => ({
+                  value: opt.value,
+                  label: opt.label,
+                }))}
+              />
               <p className="text-[10px] text-zinc-500 mt-1.5">不符合性別要求的用戶將無法報名或申請參加。</p>
             </div>
 
@@ -540,31 +541,29 @@ export default function CreateEventPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-black text-blue-400 mb-2">運動項目 *</label>
-                <select
+                <FormSelect
                   value={sportCategory}
-                  onChange={(e) => setSportCategory(e.target.value)}
-                  className="w-full bg-slate-950 border border-blue-500/50 rounded-xl px-4 py-3 text-sm text-white font-bold focus:outline-none focus:border-blue-500 transition cursor-pointer"
-                >
-                  {SPORT_CATEGORIES.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.emoji} {s.labelZh}
-                    </option>
-                  ))}
-                </select>
+                  onValueChange={setSportCategory}
+                  triggerClassName="border-blue-500/50"
+                  options={SPORT_CATEGORIES.map((s) => ({
+                    value: s.id,
+                    label: `${s.emoji} ${s.labelZh}`,
+                  }))}
+                />
               </div>
 
               <div>
                 <label className="block text-xs font-black text-zinc-300 mb-2">活動性質</label>
-                <select
+                <FormSelect
                   value={eventType}
-                  onChange={(e) => setEventType(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500 transition cursor-pointer"
-                >
-                  <option value="practice">訓練 / 團練</option>
-                  <option value="match">友誼賽 / 對戰</option>
-                  <option value="social">聚會 / 休閒</option>
-                  <option value="tournament">正式盃賽</option>
-                </select>
+                  onValueChange={setEventType}
+                  options={[
+                    { value: "practice", label: "訓練 / 團練" },
+                    { value: "match", label: "友誼賽 / 對戰" },
+                    { value: "social", label: "聚會 / 休閒" },
+                    { value: "tournament", label: "正式盃賽" },
+                  ]}
+                />
               </div>
             </div>
 
@@ -574,18 +573,17 @@ export default function CreateEventPage() {
                 代表主辦團隊（僅顯示與「{sportCategory}」類別相符的球隊）
               </label>
               {filteredTeams.length > 0 ? (
-                <select
+                <FormSelect
                   value={organizerTeamId}
-                  onChange={(e) => setOrganizerTeamId(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500 transition cursor-pointer"
-                >
-                  <option value="">個人獨立主辦 (無歸屬球隊)</option>
-                  {filteredTeams.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      🛡️ {t.name} ({t.role === "admin" ? "管理員" : "教練"})
-                    </option>
-                  ))}
-                </select>
+                  onValueChange={setOrganizerTeamId}
+                  options={[
+                    { value: "", label: "個人獨立主辦 (無歸屬球隊)" },
+                    ...filteredTeams.map((t) => ({
+                      value: t.id,
+                      label: `🛡️ ${t.name} (${t.role === "admin" ? "管理員" : "教練"})`,
+                    })),
+                  ]}
+                />
               ) : (
                 <div className="p-3.5 bg-slate-950 border border-dashed border-slate-800 rounded-xl text-xs text-zinc-500">
                   您目前沒有管理任何「{sportCategory}」類別的球隊，將以個人名義發起此活動。

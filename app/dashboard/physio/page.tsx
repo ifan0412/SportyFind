@@ -1,5 +1,7 @@
 "use client";
 
+import { toast } from "sonner";
+import { appConfirm } from "@/lib/app-dialog";
 import { useEffect, useState, useCallback, Suspense, useRef } from "react";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -73,16 +75,16 @@ function PhysioEnquiriesInbox({
   const toggleContacted = async (id: string, currentStatus: string) => {
     const newStatus = currentStatus === "contacted" ? "seen" : "contacted";
     const { error } = await supabase.from("physio_enquiries").update({ status: newStatus }).eq("id", id);
-    if (error) { alert("狀態更新失敗: " + error.message); return; }
+    if (error) { toast.error("狀態更新失敗: " + error.message); return; }
     setLeads(prev => prev.map(l => l.id === id ? { ...l, status: newStatus } : l));
     onEnquiriesChanged?.();
     window.dispatchEvent(new CustomEvent("sync-physio-enquiries"));
   };
 
   const handleDeleteLead = async (id: string) => {
-    if (!confirm("確定要刪除此諮詢單嗎？此動作無法復原。")) return;
+    if (!(await appConfirm("確定要刪除此諮詢單嗎？此動作無法復原。"))) return;
     const { error } = await supabase.from("physio_enquiries").delete().eq("id", id);
-    if (error) { alert("刪除失敗: " + error.message); return; }
+    if (error) { toast.error("刪除失敗: " + error.message); return; }
     setLeads(prev => prev.filter(l => l.id !== id));
     window.dispatchEvent(new CustomEvent("sync-physio-enquiries"));
   };
@@ -277,7 +279,7 @@ function PhysioServicesManager({
   const handleCreateNewService = async () => {
     const payload = { physio_id: physioId, title: "", service_type: "運動復健", service_types: [] as string[], session_rate: 0, pricing_mode: "session", districts: [], subdistricts: [], description: "", photos: [], draft_photos: [], sort_order: services.length + 1, is_active: false, service_centre: "", full_address: "" };
     const { data, error } = await supabase.from("physio_services").insert(payload).select().single();
-    if (error) { alert("新增失敗: " + error.message); return; }
+    if (error) { toast.error("新增失敗: " + error.message); return; }
     if (data) { setServices([data, ...services]); setSelectedService(data); setEditForm({ ...data, districts: [], subdistricts: [] }); setIsEditingInfo(true); setDetailTab("info"); }
   };
 
@@ -286,19 +288,19 @@ function PhysioServicesManager({
     const districts = Array.isArray(editForm.districts) ? editForm.districts : [];
     if (publish && !districts.length) {
       setIsSavingInfo(false);
-      alert("發佈前請至少選擇一個診療地區");
+      toast.error("發佈前請至少選擇一個診療地區");
       return;
     }
     const serviceTypes = normalizePhysioServiceTypes(editForm.service_types, editForm.service_type);
     if (publish && !serviceTypes.length) {
       setIsSavingInfo(false);
-      alert("發佈前請至少選擇一個診療類別");
+      toast.error("發佈前請至少選擇一個診療類別");
       return;
     }
     const pricingMode = normalizeServicePricingMode(editForm.pricing_mode || "session");
     if (publish && pricingMode !== "dm" && !(Number(editForm.session_rate) > 0)) {
       setIsSavingInfo(false);
-      alert("發佈前請填寫項目標價，或改選「私訊詢價」");
+      toast.error("發佈前請填寫項目標價，或改選「私訊詢價」");
       return;
     }
     const payload = {
@@ -317,7 +319,7 @@ function PhysioServicesManager({
     };
     const { error } = await supabase.from("physio_services").update(payload).eq("id", editForm.id);
     setIsSavingInfo(false);
-    if (error) { alert("更新失敗: " + error.message); return; }
+    if (error) { toast.error("更新失敗: " + error.message); return; }
     const updated = { ...editForm, ...payload };
     setSelectedService(updated);
     setServices(services.map(s => s.id === editForm.id ? updated : s));
@@ -325,31 +327,31 @@ function PhysioServicesManager({
   };
 
   const handleDeleteService = async (id: string) => {
-    if (!confirm("確定刪除此診療項目嗎？")) return;
+    if (!(await appConfirm("確定刪除此診療項目嗎？"))) return;
     await supabase.from("physio_services").delete().eq("id", id);
     setServices(services.filter(s => s.id !== id)); setSelectedService(null);
   };
 
   const handleDeleteReview = async (revId: string) => {
-    if (!confirm("確定要刪除這條評價嗎？")) return;
+    if (!(await appConfirm("確定要刪除這條評價嗎？"))) return;
     const { error } = await supabase.from("physio_reviews").delete().eq("id", revId);
-    if (error) { alert("刪除失敗: " + error.message); return; }
+    if (error) { toast.error("刪除失敗: " + error.message); return; }
     setServiceReviews(serviceReviews.filter(r => r.id !== revId));
   };
 
   const toggleLeadContacted = async (id: string, currentStatus: string) => {
     const newStatus = currentStatus === "contacted" ? "seen" : "contacted";
     const { error } = await supabase.from("physio_enquiries").update({ status: newStatus }).eq("id", id);
-    if (error) { alert("狀態更新失敗: " + error.message); return; }
+    if (error) { toast.error("狀態更新失敗: " + error.message); return; }
     setServiceLeads(prev => prev.map(l => l.id === id ? { ...l, status: newStatus } : l));
     onEnquiriesChanged();
     window.dispatchEvent(new CustomEvent("sync-physio-enquiries"));
   };
 
   const handleDeleteLead = async (id: string) => {
-    if (!confirm("確定要刪除此諮詢單嗎？此動作無法復原。")) return;
+    if (!(await appConfirm("確定要刪除此諮詢單嗎？此動作無法復原。"))) return;
     const { error } = await supabase.from("physio_enquiries").delete().eq("id", id);
-    if (error) { alert("刪除失敗: " + error.message); return; }
+    if (error) { toast.error("刪除失敗: " + error.message); return; }
     setServiceLeads((prev) => prev.filter((l) => l.id !== id));
     onEnquiriesChanged();
     window.dispatchEvent(new CustomEvent("sync-physio-enquiries"));
@@ -768,8 +770,8 @@ function PhysioSettingsPanel({ profile, onSaved }: { profile: any; onSaved: () =
       physio_is_address_public: form.physio_is_address_public,
     }).eq("id", profile.id);
     setSaving(false);
-    if (error) { alert("儲存失敗: " + error.message); return; }
-    alert("✅ 治療師名片設定已儲存！");
+    if (error) { toast.error("儲存失敗: " + error.message); return; }
+    toast.success("✅ 治療師名片設定已儲存！");
     onSaved();
   };
 

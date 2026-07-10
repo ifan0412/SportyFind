@@ -21,7 +21,10 @@ export function getPositionOptionsForSports(sportSlugs: string[]): string[] {
   return [...new Set(all)];
 }
 
-export function positionsFromMetadata(metadata: unknown): string[] {
+export function positionsFromMetadata(
+  metadata: unknown,
+  sportSlug?: string | null
+): string[] {
   if (!metadata || typeof metadata !== "object") return [];
   const m = metadata as Record<string, unknown>;
   if (Array.isArray(m.positions)) {
@@ -30,7 +33,77 @@ export function positionsFromMetadata(metadata: unknown): string[] {
   if (typeof m.position === "string" && m.position.trim()) {
     return [m.position.trim()];
   }
+  if (typeof m.positions === "string" && m.positions.trim()) {
+    const raw = m.positions.trim();
+    if (sportSlug) {
+      const options = getPositionOptionsForSport(sportSlug);
+      const matched = options.filter((opt) => raw.includes(opt));
+      if (matched.length) return matched;
+    }
+    if (raw.includes("、")) {
+      return raw.split("、").map((s) => s.trim()).filter(Boolean);
+    }
+    return [raw];
+  }
   return [];
+}
+
+function matchSelectOption(value: unknown, options?: string[]): string {
+  if (value == null) return "";
+  const text = String(value).trim();
+  if (!text || !options?.length) return text;
+  if (options.includes(text)) return text;
+  const lower = text.toLowerCase();
+  const found = options.find((opt) => opt.toLowerCase() === lower);
+  return found ?? text;
+}
+
+export function formatMetadataFieldValue(
+  val: unknown,
+  field?: FieldDef | null,
+  sportSlug?: string | null
+): string | string[] {
+  if (field?.multi || Array.isArray(val)) {
+    if (Array.isArray(val)) {
+      return val.filter((v): v is string => typeof v === "string" && v.length > 0);
+    }
+    return positionsFromMetadata({ positions: val }, sportSlug);
+  }
+  if (val == null) return "";
+  return String(val);
+}
+
+export function listSportMetadataEntries(
+  metadata: Record<string, unknown> | null | undefined,
+  sportNameOrSlug: string | null | undefined
+): { key: string; label: string; value: string | string[] }[] {
+  const slug = sportSlugFromName(sportNameOrSlug) ?? sportNameOrSlug ?? "";
+  const schema = getSportSchema(slug);
+  const m = metadata || {};
+  const schemaKeys = new Set(schema.map((f) => f.key));
+
+  const fromSchema = schema
+    .map((field) => {
+      const raw = m[field.key];
+      if (raw == null || raw === "") return null;
+      if (Array.isArray(raw) && raw.length === 0) return null;
+      return {
+        key: field.key,
+        label: field.label,
+        value: formatMetadataFieldValue(raw, field, slug),
+      };
+    })
+    .filter((row): row is { key: string; label: string; value: string | string[] } => row !== null);
+
+  const extras = Object.entries(m)
+    .filter(([key, val]) => !schemaKeys.has(key) && val != null && val !== "")
+    .map(([key, val]) => ({
+      key,
+      label: key.replace(/_/g, " "),
+      value: formatMetadataFieldValue(val, null, slug),
+    }));
+
+  return [...fromSchema, ...extras];
 }
 
 export function metadataMatchesPositionFilter(metadata: unknown, selectedPositions: string[]): boolean {
@@ -74,7 +147,10 @@ export function normalizeSportMetadataForSave(
       const arr = Array.isArray(raw) ? raw : raw ? [String(raw)] : [];
       const cleaned = arr.map((s) => s.trim()).filter(Boolean);
       if (cleaned.length) {
-        out.positions = cleaned;
+        out[field.key] = cleaned;
+        if (field.key === "positions") {
+          out.positions = cleaned;
+        }
       }
       continue;
     }
@@ -95,11 +171,24 @@ export function sportFormDataFromMetadata(
 
   for (const field of schema) {
     if (field.multi) {
-      out[field.key] = positionsFromMetadata(m);
-    } else if (typeof m[field.key] === "string") {
-      out[field.key] = m[field.key] as string;
+      const arr = positionsFromMetadata(m, sportSlug);
+      const options = field.options ?? [];
+      if (!options.length) {
+        out[field.key] = arr;
+        continue;
+      }
+      out[field.key] = arr.map((item) => {
+        if (options.includes(item)) return item;
+        const byCase = options.find((o) => o.toLowerCase() === item.toLowerCase());
+        return byCase ?? item;
+      });
     } else {
-      out[field.key] = "";
+      const raw = m[field.key];
+      if (typeof raw === "string" || typeof raw === "number") {
+        out[field.key] = matchSelectOption(raw, field.options);
+      } else {
+        out[field.key] = "";
+      }
     }
   }
   return out;

@@ -1,6 +1,7 @@
 "use client";
 
 import { getSportCategory } from "@/lib/sports-categories";
+import { listSportMetadataEntries } from "@/lib/sport-positions";
 
 interface Sport { id: string; name: string; }
 interface UserSport { id: string; sport_id: string; metadata: { position?: string; [key: string]: any }; sports: { name: string } | null; }
@@ -40,7 +41,13 @@ export function ExpertiseTab({
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {userSports.map((us) => (
+          {userSports.map((us) => {
+            const metaRows = listSportMetadataEntries(
+              us.metadata as Record<string, unknown>,
+              us.sports?.name
+            );
+
+            return (
             <div key={us.id} className="bg-slate-900/50 border border-slate-800 rounded-3xl p-5 md:p-6 flex flex-col justify-between">
               <div>
                 <div className="flex justify-between items-start mb-4">
@@ -56,10 +63,18 @@ export function ExpertiseTab({
                   </label>
                 </div>
                 <div className="space-y-2">
-                  {Object.entries(us.metadata || {}).map(([key, val]) => (
-                    <div key={key} className="flex justify-between text-xs md:text-sm pb-1 border-b border-slate-800/50 last:border-0">
-                      <span className="text-zinc-500 font-bold capitalize">{key}</span>
-                      <span className="text-blue-400 font-black">{val as string}</span>
+                  {metaRows.map(({ key, label, value }) => (
+                    <div key={key} className="flex justify-between gap-4 text-xs md:text-sm pb-1 border-b border-slate-800/50 last:border-0">
+                      <span className="text-zinc-500 font-bold shrink-0">{label}</span>
+                      {Array.isArray(value) ? (
+                        <span className="text-blue-400 font-black text-right flex flex-col gap-1 items-end">
+                          {value.map((item) => (
+                            <span key={item}>{item}</span>
+                          ))}
+                        </span>
+                      ) : (
+                        <span className="text-blue-400 font-black text-right">{value}</span>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -71,7 +86,8 @@ export function ExpertiseTab({
                 <button onClick={() => onRemoveSport(us)} className="text-red-400 text-xs font-bold px-3 py-1.5 bg-red-500/10 rounded-xl">🗑️ 移除</button>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

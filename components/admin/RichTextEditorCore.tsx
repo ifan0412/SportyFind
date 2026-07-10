@@ -13,6 +13,8 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { plainTextLength } from "@/lib/content/body";
 import { isRichHtmlEmpty, normalizeRichHtml, richHtmlEquivalent } from "@/lib/content/rich-html";
 import { FONT_SIZE_OPTIONS, FontSize } from "@/lib/tiptap/font-size";
+import { FormSelect } from "@/components/ui/form-select";
+import { appPrompt } from "@/lib/app-dialog";
 import {
   AlignCenter,
   AlignLeft,
@@ -333,11 +335,16 @@ export function RichTextEditorCore({
     bumpToolbar();
   };
 
-  const setLink = () => {
+  const setLink = async () => {
     const instance = editorRef.current;
     if (!editorIsMounted(instance)) return;
     const prev = instance.getAttributes("link").href as string | undefined;
-    const url = window.prompt("輸入連結網址", prev || "https://");
+    const url = await appPrompt({
+      title: "插入連結",
+      message: "輸入連結網址",
+      defaultValue: prev || "https://",
+      placeholder: "https://",
+    });
     if (url === null) return;
     if (url === "") {
       instance.chain().focus().extendMarkRange("link").unsetLink().run();
@@ -403,19 +410,14 @@ export function RichTextEditorCore({
 
             <div className="w-px h-6 bg-slate-700 mx-1" />
 
-            <select
-              title="字體大小"
-              value={currentFontSize}
-              onMouseDown={(e) => e.preventDefault()}
-              onChange={(e) => applyFontSize(e.target.value)}
-              className="h-8 min-w-[4.5rem] px-2 rounded-lg bg-slate-950 border border-slate-800 text-xs text-zinc-300 focus:outline-none focus:border-blue-500 touch-manipulation"
-            >
-              {FONT_SIZE_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
+            <div onMouseDown={(e) => e.preventDefault()} title="字體大小">
+              <FormSelect
+                value={currentFontSize}
+                onValueChange={applyFontSize}
+                triggerClassName="h-8 min-h-8 w-auto min-w-[4.5rem] px-2 rounded-lg bg-slate-950 border border-slate-800 text-xs text-zinc-300 focus:outline-none focus:border-blue-500 touch-manipulation"
+                options={[...FONT_SIZE_OPTIONS]}
+              />
+            </div>
 
             <div className="w-px h-6 bg-slate-700 mx-1" />
 

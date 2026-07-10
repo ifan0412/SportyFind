@@ -6,6 +6,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { SportCategory, RecruitmentStatus } from "@/types/team";
 import { SPORT_CATEGORIES } from "@/lib/sports-categories";
 import { ImageCropModal } from "@/components/media/ImageCropModal";
+import { FormSelect } from "@/components/ui/form-select";
 import { readFileAsDataUrl } from "@/lib/image-crop";
 
 type SportMetadata = Record<string, string | boolean | string[] | unknown>;
@@ -282,20 +283,26 @@ export default function CreateTeamPage() {
               </div>
               <div>
                 <label className={labelCls}>招募狀態 *</label>
-                <select className={inputCls} value={formData.recruitment_status} onChange={(e) => set("recruitment_status", e.target.value as RecruitmentStatus)}>
-                  <option value="open">🟢 公開招募</option>
-                  <option value="invite_only">🔵 邀請制</option>
-                  <option value="closed">🔴 暫停招募</option>
-                </select>
+                <FormSelect
+                  value={formData.recruitment_status}
+                  onValueChange={(v) => set("recruitment_status", v as RecruitmentStatus)}
+                  triggerClassName={inputCls}
+                  options={[
+                    { value: "open", label: "🟢 公開招募" },
+                    { value: "invite_only", label: "🔵 邀請制" },
+                    { value: "closed", label: "🔴 暫停招募" },
+                  ]}
+                />
               </div>
             </div>
             <div>
               <label className={labelCls}>加入性別要求 *</label>
-              <select className={inputCls} value={formData.gender_requirement} onChange={(e) => set("gender_requirement", e.target.value as GenderRequirement)}>
-                {GENDER_REQUIREMENT_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </select>
+              <FormSelect
+                value={formData.gender_requirement}
+                onValueChange={(v) => set("gender_requirement", v as GenderRequirement)}
+                triggerClassName={inputCls}
+                options={GENDER_REQUIREMENT_OPTIONS}
+              />
               <p className="text-[10px] text-zinc-600 mt-1.5 pl-1">不符合性別要求的用戶將無法申請加入。</p>
             </div>
           </div>
@@ -338,12 +345,13 @@ export default function CreateTeamPage() {
                   </div>
                 )}
                 {field.type === "select" && (
-                  <select className={inputCls} value={(formData.sport_metadata[field.key] as string) ?? ""} onChange={(e) => setMeta(field.key, e.target.value)}>
-                    <option value="">-- 請選擇 --</option>
-                    {field.options?.map((opt) => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                  </select>
+                  <FormSelect
+                    value={(formData.sport_metadata[field.key] as string) ?? ""}
+                    onValueChange={(v) => setMeta(field.key, v)}
+                    triggerClassName={inputCls}
+                    placeholder="-- 請選擇 --"
+                    options={field.options ?? []}
+                  />
                 )}
                 {field.type === "boolean" && (
                   <label className="flex items-center gap-3 p-3 bg-slate-950/50 border border-slate-800 rounded-xl cursor-pointer hover:bg-slate-900 transition-colors">

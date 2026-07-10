@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { BarChart3, FileText, Users } from "lucide-react";
+import { BarChart3, FileText, Users, Shield, Megaphone } from "lucide-react";
 
 const adminNav = [
   { href: "/admin/analytics", label: "數據分析", icon: BarChart3 },
   { href: "/admin/content", label: "內容 CMS", icon: FileText },
+  { href: "/admin/announcements", label: "Pop-up", icon: Megaphone },
   { href: "/admin/users", label: "用戶管理", icon: Users },
+  { href: "/admin/moderation", label: "群組與活動", icon: Shield },
 ];
 
 export function AdminNav() {

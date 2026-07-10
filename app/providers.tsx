@@ -5,6 +5,8 @@ import { ThemeProvider } from "next-themes";
 import { Toaster } from "@/components/ui/sonner";
 import { CookieConsent } from "@/components/CookieConsent";
 import { PageViewTracker } from "@/components/analytics/PageViewTracker";
+import { AppDialogProvider } from "@/components/providers/AppDialogProvider";
+import { SiteAnnouncementHost } from "@/components/announcements/SiteAnnouncementHost";
 import { useState } from "react";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
@@ -13,7 +15,10 @@ export default function Providers({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
-        {children}
+        <AppDialogProvider>
+          {children}
+          <SiteAnnouncementHost />
+        </AppDialogProvider>
         <PageViewTracker />
         <Toaster richColors closeButton position="top-right" />
         <CookieConsent />

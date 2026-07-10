@@ -1,14 +1,18 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { appAlert } from "@/lib/app-dialog";
+import { suspendedAccountMessage } from "@/lib/account-suspension";
+import { SITE } from "@/lib/site";
 import { PasswordRequirements } from "@/components/PasswordRequirements";
 import { getPasswordValidationError } from "@/lib/password";
 import { CoachRoleLabel, PhysioRoleLabel } from "@/components/profile/RoleBadges";
 import { type ProfileGender, PROFILE_GENDER_OPTIONS } from "@/lib/gender";
+import { FormSelect } from "@/components/ui/form-select";
 
 export default function AuthPage() {
   const [email, setEmail] = useState("");
@@ -31,6 +35,44 @@ export default function AuthPage() {
 
   const supabase = createSupabaseBrowserClient();
   const router = useRouter();
+  const pageRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const syncOverflow = () => {
+      const lockScroll = mq.matches && !isSignUp;
+      document.documentElement.style.overflow = lockScroll ? "hidden" : "";
+      document.body.style.overflow = lockScroll ? "hidden" : "";
+    };
+    syncOverflow();
+    mq.addEventListener("change", syncOverflow);
+    return () => {
+      mq.removeEventListener("change", syncOverflow);
+      document.documentElement.style.overflow = "";
+      document.body.style.overflow = "";
+    };
+  }, [isSignUp]);
+
+  useEffect(() => {
+    if (!isSignUp) return;
+    const scrollTop = () => {
+      window.scrollTo(0, 0);
+      pageRef.current?.scrollTo(0, 0);
+    };
+    scrollTop();
+    requestAnimationFrame(scrollTop);
+  }, [isSignUp]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("suspended") !== "1") return;
+    const reason = params.get("reason");
+    void appAlert({
+      title: "帳戶已暫停",
+      message: suspendedAccountMessage(reason) || `請聯絡：${SITE.supportEmail}`,
+    });
+    window.history.replaceState({}, "", "/auth");
+  }, []);
 
   const isValidHandle = (val: string): boolean => {
     const handleRegex = /^[a-zA-Z0-9][a-zA-Z0-9._]{1,18}[a-zA-Z0-9]$/;
@@ -130,15 +172,29 @@ export default function AuthPage() {
         toast.success("帳戶已建立！請查收電郵完成驗證。");
       }
     } else {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data: signInData, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
       if (error) {
         toast.error(error.message);
-      } else {
-        toast.success("歡迎回來！");
-        router.push("/profile");
+      } else if (signInData.user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("is_suspended, suspended_reason")
+          .eq("id", signInData.user.id)
+          .maybeSingle();
+
+        if (profile?.is_suspended) {
+          await supabase.auth.signOut();
+          await appAlert({
+            title: "帳戶已暫停",
+            message: suspendedAccountMessage(profile.suspended_reason),
+          });
+        } else {
+          toast.success("歡迎回來！");
+          router.push("/profile");
+        }
       }
     }
 
@@ -160,9 +216,27 @@ export default function AuthPage() {
     }
   };
 
+  const toggleAuthMode = () => {
+    setIsSignUp((prev) => !prev);
+    setHandleStatus("idle");
+    setAcceptedTerms(false);
+    setGender("");
+  };
+
   return (
-    <div className="min-h-screen bg-pro-slate-950 flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-pro-slate-900 border border-pro-slate-800 p-8 rounded-2xl shadow-xl">
+    <div
+      ref={pageRef}
+      className={`bg-pro-slate-950 flex justify-center min-h-screen md:items-center md:p-4 ${
+        isSignUp
+          ? "max-md:fixed max-md:inset-x-0 max-md:top-14 max-md:bottom-0 max-md:z-40 max-md:overflow-y-auto max-md:overscroll-y-contain max-md:items-start max-md:px-4 max-md:pt-4 max-md:pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))]"
+          : "max-md:fixed max-md:inset-x-0 max-md:top-14 max-md:bottom-0 max-md:z-40 max-md:overflow-hidden max-md:items-center max-md:p-4"
+      }`}
+    >
+      <div
+        className={`w-full max-w-md bg-pro-slate-900 border border-pro-slate-800 p-8 rounded-2xl shadow-xl ${
+          isSignUp ? "max-md:mb-2" : ""
+        }`}
+      >
         <div className="mb-8">
           <h1 className="text-2xl font-black text-white">
             {isSignUp ? "建立帳戶" : "歡迎回來"}
@@ -257,18 +331,14 @@ export default function AuthPage() {
                 <label className="block text-xs font-bold text-slate-400 mb-1.5 uppercase tracking-widest">
                   性別 <span className="normal-case font-normal text-zinc-600">(顯示於報名與成員名單)</span>
                 </label>
-                <select
+                <FormSelect
                   value={gender}
-                  onChange={(e) => setGender(e.target.value as ProfileGender)}
+                  onValueChange={(value) => setGender(value as ProfileGender)}
+                  options={PROFILE_GENDER_OPTIONS}
+                  placeholder="請選擇"
                   disabled={isLoading}
-                  required={isSignUp}
-                  className="w-full p-3 bg-pro-slate-800 border border-pro-slate-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm transition disabled:opacity-50"
-                >
-                  <option value="">請選擇</option>
-                  {PROFILE_GENDER_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
+                  triggerClassName="bg-pro-slate-800 border-pro-slate-700 rounded-lg p-3 focus:ring-2 focus:ring-blue-500"
+                />
               </div>
 
               {/* Account ID (Handle) */}
@@ -403,14 +473,9 @@ export default function AuthPage() {
 
         <button
           type="button"
-          onClick={() => {
-            setIsSignUp(!isSignUp);
-            setHandleStatus("idle");
-            setAcceptedTerms(false);
-            setGender("");
-          }}
+          onClick={toggleAuthMode}
           disabled={isLoading}
-          className="mt-6 w-full text-center text-sm text-slate-400 hover:text-white underline transition disabled:opacity-50"
+          className="mt-6 mb-1 max-md:mb-2 w-full text-center text-sm text-slate-400 hover:text-white underline transition disabled:opacity-50"
         >
           {isSignUp ? "已有帳戶？登入" : "還沒有帳戶？註冊"}
         </button>

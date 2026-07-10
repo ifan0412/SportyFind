@@ -1,5 +1,6 @@
 "use client";
 
+import { toast } from "sonner";
 import { useMemo, useState } from "react";
 import { Pencil, Loader2, Check, X } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -40,7 +41,7 @@ export function ProfileCardBio({ userId, bio, onSaved, className }: ProfileCardB
       .eq("id", userId);
     setSaving(false);
     if (error) {
-      alert("儲存失敗，請稍後再試。");
+      toast.error("儲存失敗，請稍後再試。");
       return;
     }
     onSaved(cleaned);

@@ -1,5 +1,7 @@
 "use client";
 
+import { toast } from "sonner";
+import { appConfirm } from "@/lib/app-dialog";
 import { useState, useEffect, useMemo, useCallback, use } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -41,6 +43,7 @@ export default function PhysioServiceDetailPage({ params }: { params: Promise<{ 
   const [inquireMsg, setInquireMsg] = useState("");
   const [isSubmittingInquiry, setIsSubmittingInquiry] = useState(false);
   const [hasEnquired, setHasEnquired] = useState(false);
+  const [myEnquiryId, setMyEnquiryId] = useState<string | null>(null);
 
   const [ratingVal, setRatingVal] = useState(5);
   const [commentVal, setCommentVal] = useState("");
@@ -83,7 +86,13 @@ export default function PhysioServiceDetailPage({ params }: { params: Promise<{ 
           .eq("service_id", serviceId)
           .eq("patient_id", user.id)
           .maybeSingle();
-        if (myEnq) setHasEnquired(true);
+        if (myEnq) {
+          setHasEnquired(true);
+          setMyEnquiryId(myEnq.id);
+        } else {
+          setHasEnquired(false);
+          setMyEnquiryId(null);
+        }
       }
     } catch (err: any) {
       console.error("無法載入診療項目:", err?.message || err);
@@ -137,18 +146,18 @@ export default function PhysioServiceDetailPage({ params }: { params: Promise<{ 
   const handleSendInquiry = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser) return router.push("/auth");
-    if (!inquireMsg.trim()) return alert("請填寫詢問內容！");
+    if (!inquireMsg.trim()) { toast.error("請填寫詢問內容！"); return; }
     const message = clampEnquiryMessage(inquireMsg.trim());
-    if (!message) return alert("請填寫詢問內容！");
+    if (!message) { toast.error("請填寫詢問內容！"); return; }
 
     setIsSubmittingInquiry(true);
     try {
-      const { error } = await supabase.from("physio_enquiries").insert({
+      const { data: inserted, error } = await supabase.from("physio_enquiries").insert({
         service_id: serviceId,
         physio_id: service.physio_id,
         patient_id: currentUser.id,
         message,
-      });
+      }).select("id").single();
       if (error) throw error;
 
       const { error: rpcError } = await supabase.rpc("notify_physio_enquiry", {
@@ -156,12 +165,33 @@ export default function PhysioServiceDetailPage({ params }: { params: Promise<{ 
       });
       if (rpcError) console.error("通知發送失敗:", rpcError.message);
 
-      alert("🎉 預約諮詢已成功發送！");
+      toast.success("🎉 預約諮詢已成功發送！");
       setHasEnquired(true);
+      setMyEnquiryId(inserted?.id ?? null);
       setIsInquireOpen(false);
       setEnquiryCount((c) => c + 1);
     } catch (err: any) {
-      alert("發送失敗: " + err.message);
+      toast.error("發送失敗: " + err.message);
+    } finally {
+      setIsSubmittingInquiry(false);
+    }
+  };
+
+  const handleWithdrawInquiry = async () => {
+    if (!currentUser || !myEnquiryId) return;
+    if (!(await appConfirm("確定要撤回諮詢單嗎？治療師將收到通知。"))) return;
+
+    setIsSubmittingInquiry(true);
+    try {
+      const { error } = await supabase.from("physio_enquiries").delete().eq("id", myEnquiryId);
+      if (error) throw error;
+      setHasEnquired(false);
+      setMyEnquiryId(null);
+      setEnquiryCount((c) => Math.max(0, c - 1));
+      toast.success("已撤回諮詢單");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "未知錯誤";
+      toast.error("撤回失敗: " + message);
     } finally {
       setIsSubmittingInquiry(false);
     }
@@ -170,7 +200,7 @@ export default function PhysioServiceDetailPage({ params }: { params: Promise<{ 
   const handleAddReview = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser) return router.push("/auth");
-    if (!commentVal.trim()) return alert("請分享您的心得！");
+    if (!commentVal.trim()) { toast.error("請分享您的心得！"); return; }
 
     setIsSubmittingReview(true);
     try {
@@ -183,11 +213,11 @@ export default function PhysioServiceDetailPage({ params }: { params: Promise<{ 
       });
       if (error) throw error;
 
-      alert("🎉 評價已成功送出！");
+      toast.success("🎉 評價已成功送出！");
       setCommentVal("");
       setRatingVal(5);
     } catch (err: any) {
-      alert(`評價發布失敗: ${err.message || "未知錯誤"}`);
+      toast.error(`評價發布失敗: ${err.message || "未知錯誤"}`);
     } finally {
       setIsSubmittingReview(false);
     }
@@ -301,18 +331,31 @@ export default function PhysioServiceDetailPage({ params }: { params: Promise<{ 
             </div>
 
             {!isMyOwnService && (
-              <button
-                onClick={() => setIsInquireOpen(true)}
-                type="button"
-                className={`w-full sm:w-auto px-8 py-3.5 rounded-xl font-black text-sm transition shadow-lg flex items-center justify-center gap-2 cursor-pointer active:scale-95 ${
-                  hasEnquired
-                    ? "bg-slate-800 text-zinc-300 border border-slate-700"
-                    : "bg-green-600 hover:bg-green-500 text-white"
-                }`}
-              >
-                {hasEnquired ? <CheckCircle2 className="w-4 h-4 text-green-400" /> : <MessageSquare className="w-4 h-4" />}
-                {hasEnquired ? "再次發送諮詢" : "立即預約 / 發送諮詢單"}
-              </button>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+                <button
+                  onClick={() => setIsInquireOpen(true)}
+                  type="button"
+                  disabled={isSubmittingInquiry}
+                  className={`w-full sm:w-auto px-8 py-3.5 rounded-xl font-black text-sm transition shadow-lg flex items-center justify-center gap-2 cursor-pointer active:scale-95 disabled:opacity-50 ${
+                    hasEnquired
+                      ? "bg-slate-800 text-zinc-300 border border-slate-700"
+                      : "bg-green-600 hover:bg-green-500 text-white"
+                  }`}
+                >
+                  {hasEnquired ? <CheckCircle2 className="w-4 h-4 text-green-400" /> : <MessageSquare className="w-4 h-4" />}
+                  {hasEnquired ? "再次發送諮詢" : "立即預約 / 發送諮詢單"}
+                </button>
+                {hasEnquired && myEnquiryId && (
+                  <button
+                    type="button"
+                    onClick={handleWithdrawInquiry}
+                    disabled={isSubmittingInquiry}
+                    className="w-full sm:w-auto px-4 py-3.5 rounded-xl font-bold text-xs text-zinc-400 hover:text-red-400 border border-slate-700 hover:border-red-500/40 transition disabled:opacity-50"
+                  >
+                    撤回諮詢
+                  </button>
+                )}
+              </div>
             )}
           </div>
         </div>

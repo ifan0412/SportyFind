@@ -203,7 +203,7 @@ export function Navbar() {
         supabase
           .from("notifications")
           .select(
-            `id, type, is_read, created_at, friendship_id, team_id, event_id,
+            `id, type, is_read, created_at, push_eligible, friendship_id, team_id, event_id,
          sender:sender_id (id, full_name, avatar_url)`
           )
           .eq("user_id", uid)
@@ -249,7 +249,7 @@ export function Navbar() {
             const { data: newNotif } = await supabase
               .from("notifications")
               .select(
-                `id, type, is_read, created_at, friendship_id, team_id, event_id, sender:sender_id (id, full_name, avatar_url)`
+                `id, type, is_read, created_at, push_eligible, friendship_id, team_id, event_id, sender:sender_id (id, full_name, avatar_url)`
               )
               .eq("id", payload.new.id)
               .single();

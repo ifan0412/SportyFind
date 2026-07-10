@@ -5,6 +5,15 @@ import { GenderAvatarBadge } from "@/components/profile/GenderBadge";
 import { PROFILE_GENDER_OPTIONS, type ProfileGender } from "@/lib/gender";
 import { PROFILE_AGE_OPTIONS } from "@/lib/profile-age";
 import { isHongKongCountry } from "@/lib/hk-locations";
+import { FormSelect } from "@/components/ui/form-select";
+
+const STATUS_TAG_OPTIONS = [
+  { value: "recruiting", label: "🟢 尋找新血" },
+  { value: "seeking_team", label: "🔵 尋找隊伍" },
+  { value: "open_to_match", label: "🟡 開放約戰" },
+  { value: "committed", label: "⚪ 穩定狀態" },
+  { value: "hidden", label: "🔒 未發布 (隱藏中)" },
+];
 
 interface ProfileEditTabProps {
   editForm: Record<string, unknown>;
@@ -110,32 +119,21 @@ export function ProfileEditTab({
             <label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">
               性別 <span className="normal-case font-normal text-zinc-600">(顯示於報名與成員名單)</span>
             </label>
-            <select
-              className="w-full bg-slate-950/50 border border-slate-800 rounded-xl p-3 text-white text-sm"
+            <FormSelect
               value={form.gender || ""}
-              onChange={(e) => setEditForm({ ...form, gender: e.target.value as ProfileGender })}
-            >
-              <option value="">請選擇</option>
-              {PROFILE_GENDER_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
+              onValueChange={(value) => setEditForm({ ...form, gender: value as ProfileGender })}
+              options={PROFILE_GENDER_OPTIONS}
+              placeholder="請選擇"
+            />
           </div>
           <div className="space-y-1">
             <label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">年齡</label>
-            <select
-              className="w-full bg-slate-950/50 border border-slate-800 rounded-xl p-3 text-white text-sm"
+            <FormSelect
               value={form.age != null && form.age !== "" ? String(form.age) : ""}
-              onChange={(e) => setEditForm({ ...form, age: e.target.value })}
-            >
-              {PROFILE_AGE_OPTIONS.map((opt) => (
-                <option key={opt.value || "unset"} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
+              onValueChange={(value) => setEditForm({ ...form, age: value })}
+              options={PROFILE_AGE_OPTIONS.filter((opt) => opt.value !== "")}
+              placeholder="請選擇"
+            />
           </div>
         </div>
 
@@ -175,37 +173,27 @@ export function ProfileEditTab({
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1">
             <label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">國家</label>
-            <select
-              className="w-full bg-slate-950/50 border border-slate-800 rounded-xl p-3 text-white text-sm"
+            <FormSelect
               value={form.country || ""}
-              onChange={(e) =>
-                setEditForm({ ...form, country: e.target.value, region: "", districts: [], subdistricts: [] })
+              onValueChange={(value) =>
+                setEditForm({ ...form, country: value, region: "", districts: [], subdistricts: [] })
               }
-            >
-              <option value="">選擇國家</option>
-              {Object.keys(locationData).map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
+              options={Object.keys(locationData).map((c) => ({ value: c, label: c }))}
+              placeholder="選擇國家"
+            />
           </div>
           {!isHongKongCountry(form.country) && (
             <div className="space-y-1">
               <label className="text-[10px] text-zinc-500 font-bold uppercase pl-1">地區</label>
-              <select
-                className="w-full bg-slate-950/50 border border-slate-800 rounded-xl p-3 text-white text-sm"
+              <FormSelect
                 value={form.region || ""}
-                onChange={(e) => setEditForm({ ...form, region: e.target.value })}
-              >
-                <option value="">選擇區域</option>
-                {form.country &&
-                  locationData[form.country]?.map((r: string) => (
-                    <option key={r} value={r}>
-                      {r}
-                    </option>
-                  ))}
-              </select>
+                onValueChange={(value) => setEditForm({ ...form, region: value })}
+                options={(form.country ? locationData[form.country] ?? [] : []).map((r: string) => ({
+                  value: r,
+                  label: r,
+                }))}
+                placeholder="選擇區域"
+              />
             </div>
           )}
         </div>
@@ -228,17 +216,12 @@ export function ProfileEditTab({
         <div className="p-4 bg-slate-950/50 rounded-2xl border border-slate-800/80 space-y-4">
           <div>
             <label className="text-[10px] text-zinc-400 font-bold uppercase pl-1 block mb-2">運動員/一般狀態</label>
-            <select
-              className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white text-xs"
+            <FormSelect
               value={form.status_tag || "committed"}
-              onChange={(e) => setEditForm({ ...form, status_tag: e.target.value })}
-            >
-              <option value="recruiting">🟢 尋找新血</option>
-              <option value="seeking_team">🔵 尋找隊伍</option>
-              <option value="open_to_match">🟡 開放約戰</option>
-              <option value="committed">⚪ 穩定狀態</option>
-              <option value="hidden">🔒 未發布 (隱藏中)</option>
-            </select>
+              onValueChange={(value) => setEditForm({ ...form, status_tag: value })}
+              options={STATUS_TAG_OPTIONS}
+              triggerClassName="bg-slate-900 border-slate-700 rounded-lg p-2 text-xs"
+            />
           </div>
           <div className="pt-3 border-t border-slate-800/80 space-y-3">
             <label className="flex items-center gap-2 cursor-pointer">

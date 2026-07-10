@@ -40,6 +40,9 @@ import {
 } from "@/lib/gender";
 import { GenderAvatarBadge } from "@/components/profile/GenderBadge";
 import { useFetchGeneration } from "@/lib/use-fetch-generation";
+import { toast } from "sonner";
+import { appConfirm } from "@/lib/app-dialog";
+import { FormSelect } from "@/components/ui/form-select";
 
 export default function EventDetailPage() {
   const params = useParams();
@@ -461,12 +464,17 @@ export default function EventDetailPage() {
       setIsCopied(true);
       setTimeout(() => setIsCopied(false), 2000);
     } catch (err) {
-      alert("複製失敗，請直接從瀏覽器網址列複製！");
+      toast.error("複製失敗，請直接從瀏覽器網址列複製！");
     }
   };
 
   const handleDeleteEvent = async () => {
-    if (!confirm("⚠️ 確定要澈底刪除這場賽事活動嗎？此動作將發送推播通知給所有已報名球友，且無法復原！")) return;
+    const confirmed = await appConfirm({
+      title: "請確認",
+      message: "⚠️ 確定要徹底刪除這場活動嗎？此動作將通知所有已報名參加者，且無法復原！",
+      destructive: true,
+    });
+    if (!confirmed) return;
     setActionLoading(true);
     try {
       const activeRegs = registrations.filter(r => r.status !== "cancelled" && r.user_id !== authUser?.id);
@@ -485,11 +493,11 @@ export default function EventDetailPage() {
       const { error } = await supabase.from("events").delete().eq("id", eventId);
       if (error) throw error;
       
-      alert("🗑️ 活動已順利刪除，並自動發送推播通知給所有參賽球友！");
+      toast.success("🗑️ 活動已順利刪除，並自動發送推播通知給所有參賽球友！");
       router.push("/events/my");
       router.refresh();
     } catch (err: any) {
-      alert("刪除活動失敗: " + err.message);
+      toast.error("刪除活動失敗: " + err.message);
       setActionLoading(false);
     }
   };
@@ -505,9 +513,9 @@ export default function EventDetailPage() {
       if (error) throw error;
       setEvent((prev: any) => ({ ...prev, description: editDescription.trim() || null }));
       setIsEditingDescription(false);
-      alert("活動介紹已更新！");
+      toast.success("活動介紹已更新！");
     } catch (err: any) {
-      alert("儲存失敗: " + (err.message || "未知錯誤"));
+      toast.error("儲存失敗: " + (err.message || "未知錯誤"));
     } finally {
       setIsSavingDescription(false);
     }
@@ -525,7 +533,7 @@ export default function EventDetailPage() {
       if (error) throw error;
       setEvent((prev: any) => ({ ...prev, accepting_guests: nextValue }));
     } catch (err: any) {
-      alert("更新失敗: " + (err.message || "未知錯誤"));
+      toast.error("更新失敗: " + (err.message || "未知錯誤"));
     } finally {
       setActionLoading(false);
     }
@@ -537,7 +545,7 @@ export default function EventDetailPage() {
 
     const requirement = event?.gender_requirement ?? "both";
     if (!genderMeetsRequirement(currentUserGender, requirement)) {
-      alert(
+      toast.error(
         !currentUserGender
           ? "請先於個人檔案設定性別後再報名。"
           : genderRequirementRejectMessage(requirement)
@@ -553,7 +561,7 @@ export default function EventDetailPage() {
       safeCompanionCount
     );
     if (blockReason) {
-      alert(blockReason);
+      toast.error(blockReason);
       return;
     }
 
@@ -571,13 +579,13 @@ export default function EventDetailPage() {
       });
 
       if (!result.success) {
-        alert("報名失敗: " + result.message);
+        toast.error("報名失敗: " + result.message);
         return;
       }
 
       const joinedStatus = String(result.status || "").toLowerCase();
       await notifyAfterIndividualJoin(supabase, eventId, joinedStatus, { isOrganizer });
-      alert(result.message || "🎉 報名送出成功！");
+      toast.success(result.message || "🎉 報名送出成功！");
 
       setJoinAlias("");
       setJoinNote("");
@@ -586,7 +594,7 @@ export default function EventDetailPage() {
       await fetchEventDetails();
       router.refresh();
     } catch (err: any) {
-      alert("報名失敗: " + (err.message || "系統發生未知異常"));
+      toast.error("報名失敗: " + (err.message || "系統發生未知異常"));
     } finally {
       setActionLoading(false);
     }
@@ -603,37 +611,41 @@ export default function EventDetailPage() {
       });
 
       if (error) {
-        alert("取消失敗: " + error.message);
+        toast.error("取消失敗: " + error.message);
         return;
       }
       if (data && data.success === false) {
-        alert(data.message);
+        toast.error(data.message);
         return;
       }
 
       setIsQuitModalOpen(false);
       setQuitReason("");
-      alert(data?.message || "已成功退出活動");
+      toast(data?.message || "已成功退出活動");
       fetchGeneration.invalidate();
       await fetchEventDetails();
       router.refresh();
     } catch (err: any) {
-      alert("取消失敗: 系統發生未知異常");
+      toast.error("取消失敗: 系統發生未知異常");
     } finally {
       setActionLoading(false);
     }
   };
 
   const handleTeamApply = async () => {
-    if (!selectedTeamId) return alert("請選擇代表球隊");
+    if (!selectedTeamId) {
+      toast.error("請選擇代表球隊");
+      return;
+    }
     const selectedTeam = myManagedTeams.find(t => t.id === selectedTeamId);
     if (selectedTeam?.sport_category && event.sport_category && selectedTeam.sport_category !== event.sport_category) {
-      return alert("❌ 系統錯誤：所選球隊運動類別與本活動不吻合！");
+      toast.error("❌ 系統錯誤：所選球隊運動類別與本活動不吻合！");
+      return;
     }
 
     const requirement = event?.gender_requirement ?? "both";
     if (!genderMeetsRequirement(currentUserGender, requirement)) {
-      alert(
+      toast.error(
         !currentUserGender
           ? "請先於個人檔案設定性別後再申請。"
           : genderRequirementRejectMessage(requirement)
@@ -665,23 +677,23 @@ export default function EventDetailPage() {
         });
 
         if (error) {
-          alert("申請失敗: " + error.message);
+          toast.error("申請失敗: " + error.message);
           return;
         }
         if (data && data.success === false) {
-          alert(data.message);
+          toast.error(data.message);
           return;
         }
       }
 
       try { await supabase.rpc("notify_event_registration", { p_event_id: eventId }); } catch (e) {}
-      alert("🎉 球隊參賽申請已成功送出，請等候主辦方審核！");
+      toast.success("🎉 球隊參賽申請已成功送出，請等候主辦方審核！");
       setJoinAlias("");
       setJoinNote("");
       await fetchEventDetails();
       router.refresh();
     } catch (err: any) {
-      alert("申請失敗: " + (err.message || err.details || "未知錯誤"));
+      toast.error("申請失敗: " + (err.message || err.details || "未知錯誤"));
     } finally {
       setActionLoading(false);
     }
@@ -697,19 +709,24 @@ export default function EventDetailPage() {
       });
 
       if (error) {
-        alert("取消失敗: " + error.message);
+        toast.error("取消失敗: " + error.message);
         return;
       }
       if (data && data.success === false) {
-        alert(data.message);
+        toast.error(data.message);
         return;
       }
 
-      alert(data?.message || "已取消球隊參賽申請");
+      toast(data?.message || "已取消球隊參賽申請");
+      try {
+        await supabase.rpc("notify_event_leave", { p_event_id: eventId });
+      } catch {
+        // Non-blocking
+      }
       await fetchEventDetails();
       router.refresh();
     } catch (err: any) {
-      alert("取消失敗: 系統發生未知異常");
+      toast.error("取消失敗: 系統發生未知異常");
     } finally {
       setActionLoading(false);
     }
@@ -729,7 +746,7 @@ export default function EventDetailPage() {
         const slotsNeeded = event.registration_type === "individual" ? 1 + companionCount : 1;
         const filled = countFilledSlots(registrations, event.registration_type);
         if (event.max_capacity && filled + slotsNeeded > event.max_capacity) {
-          alert("名額已滿，無法批准更多參賽者。請先移除或拒絕其他申請。");
+          toast.error("名額已滿，無法批准更多參賽者。請先移除或拒絕其他申請。");
           return;
         }
       }
@@ -763,7 +780,7 @@ export default function EventDetailPage() {
       await fetchEventDetails();
       router.refresh();
     } catch (err: any) {
-      alert("狀態更新失敗: " + (err.message || err.details));
+      toast.error("狀態更新失敗: " + (err.message || err.details));
     } finally {
       setActionLoading(false);
     }
@@ -1203,16 +1220,15 @@ export default function EventDetailPage() {
 
                     <div>
                       <label className="block text-xs font-bold text-zinc-300 mb-1.5">選擇代表參賽的球隊 *</label>
-                      <select
+                      <FormSelect
                         value={selectedTeamId}
-                        onChange={(e) => setSelectedTeamId(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500 cursor-pointer"
-                      >
-                        <option value="">請選擇...</option>
-                        {myManagedTeams.map(t => (
-                          <option key={t.id} value={t.id}>{t.name_zh || t.name_en || "未命名球隊"}</option>
-                        ))}
-                      </select>
+                        onValueChange={setSelectedTeamId}
+                        placeholder="請選擇..."
+                        options={myManagedTeams.map((t) => ({
+                          value: t.id,
+                          label: t.name_zh || t.name_en || "未命名球隊",
+                        }))}
+                      />
                       <p className="text-[10px] text-zinc-500 mt-1.5 pl-1">
                         僅顯示運動項目與本活動相符的球隊
                       </p>

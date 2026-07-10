@@ -109,6 +109,12 @@ export function NotificationPanel({
                       <span className="text-white">系統通知</span>：您已從候補名單升級，成功加入活動 🎉
                     </>
                   )}
+                  {notif.type === "event_leave" && (
+                    <>
+                      <span className="text-white">{notif.sender?.full_name ?? "某人"}</span>{" "}
+                      退出了您主辦的活動
+                    </>
+                  )}
                   {notif.type === "event_kicked" && (
                     <>
                       <span className="text-white">系統通知</span>：您已被主辦方移除出某活動的參賽名單
@@ -124,10 +130,21 @@ export function NotificationPanel({
                       <span className="text-white">系統通知</span>：您已成功加入活動 🎉
                     </>
                   )}
+                  {notif.type === "event_cancelled" && (
+                    <>
+                      <span className="text-white">系統通知</span>：您報名的活動已被主辦方取消
+                    </>
+                  )}
                   {notif.type === "coach_enquiry" && (
                     <>
                       <span className="text-white">{notif.sender?.full_name ?? "某學員"}</span>{" "}
                       向您發送了一份課程諮詢單 📬
+                    </>
+                  )}
+                  {notif.type === "coach_enquiry_withdrawn" && (
+                    <>
+                      <span className="text-white">{notif.sender?.full_name ?? "某學員"}</span>{" "}
+                      撤回了課程諮詢單
                     </>
                   )}
                   {notif.type === "coach_review" && (
@@ -142,10 +159,55 @@ export function NotificationPanel({
                       向您發送了一份診療諮詢單 📬
                     </>
                   )}
+                  {notif.type === "physio_enquiry_withdrawn" && (
+                    <>
+                      <span className="text-white">{notif.sender?.full_name ?? "某運動員"}</span>{" "}
+                      撤回了診療諮詢單
+                    </>
+                  )}
                   {notif.type === "physio_review" && (
                     <>
                       <span className="text-white">{notif.sender?.full_name ?? "某運動員"}</span>{" "}
                       為您的診療項目留下了一則評價 ⭐
+                    </>
+                  )}
+                  {notif.type === "discussion_new_post" && (
+                    <>
+                      <span className="text-white">{notif.sender?.full_name ?? "某人"}</span>{" "}
+                      在討論區發佈了新貼文
+                    </>
+                  )}
+                  {notif.type === "discussion_post_like" && (
+                    <>
+                      <span className="text-white">{notif.sender?.full_name ?? "某人"}</span>{" "}
+                      讚好了您的貼文
+                    </>
+                  )}
+                  {notif.type === "discussion_post_comment" && (
+                    <>
+                      <span className="text-white">{notif.sender?.full_name ?? "某人"}</span>{" "}
+                      留言了您的貼文
+                    </>
+                  )}
+                  {notif.type === "discussion_comment_like" && (
+                    <>
+                      <span className="text-white">{notif.sender?.full_name ?? "某人"}</span>{" "}
+                      讚好了您的留言
+                    </>
+                  )}
+                  {notif.type === "account_reactivated" && (
+                    <>
+                      <span className="text-white">系統通知</span>：您的帳戶已恢復，歡迎回來！ 🎉
+                    </>
+                  )}
+                  {notif.type === "admin_team_removed" && (
+                    <>
+                      <span className="text-white">系統通知</span>：您管理的群組已被網站管理員移除
+                    </>
+                  )}
+                  {notif.type === "admin_event_removed" && (
+                    <>
+                      <span className="text-white">系統通知</span>：您主辦的活動已被網站管理員移除
                     </>
                   )}
                 </p>

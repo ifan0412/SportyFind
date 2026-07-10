@@ -15,6 +15,8 @@ import {
 } from "@/lib/discussion-board";
 import { fetchDiscussionPosts } from "@/lib/discussion-board-fetch";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import { appConfirm } from "@/lib/app-dialog";
 
 interface DiscussionBoardProps {
   contextType: DiscussionContextType;
@@ -134,8 +136,14 @@ export function DiscussionBoard({
 
   const handleSubmitPost = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentUser) return alert("請先登入才能發佈！");
-    if (!canParticipate) return alert("你目前無法在此討論區發言。");
+    if (!currentUser) {
+      toast.error("請先登入才能發佈！");
+      return;
+    }
+    if (!canParticipate) {
+      toast.error("你目前無法在此討論區發言。");
+      return;
+    }
     if (!content.trim()) return;
 
     setSubmitting(true);
@@ -152,20 +160,23 @@ export function DiscussionBoard({
       fetchPosts();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "請檢查權限設定";
-      alert("發佈失敗：" + message);
+      toast.error("發佈失敗：" + message);
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleDeletePost = async (postId: string) => {
-    if (!confirm("確定要刪除這則貼文嗎？")) return;
+    if (!(await appConfirm({ message: "確定要刪除這則貼文嗎？", destructive: true }))) return;
     const { error } = await supabase.from("discussion_posts").delete().eq("id", postId);
     if (!error) setPosts((prev) => prev.filter((p) => p.id !== postId));
   };
 
   const togglePostLike = async (post: DiscussionPostRow) => {
-    if (!currentUser) return alert("請先登入才能按讚！");
+    if (!currentUser) {
+      toast.error("請先登入才能按讚！");
+      return;
+    }
     const liked = userLiked(post.discussion_post_likes, currentUser.id);
     if (liked) {
       await supabase
@@ -183,7 +194,10 @@ export function DiscussionBoard({
   };
 
   const handleSubmitComment = async (postId: string) => {
-    if (!currentUser) return alert("請先登入才能留言！");
+    if (!currentUser) {
+      toast.error("請先登入才能留言！");
+      return;
+    }
     if (!canParticipate) return;
     const text = (commentDrafts[postId] || "").trim();
     if (!text) return;
@@ -201,20 +215,23 @@ export function DiscussionBoard({
       fetchPosts();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "請稍後再試";
-      alert("留言失敗：" + message);
+      toast.error("留言失敗：" + message);
     } finally {
       setCommentSubmitting(null);
     }
   };
 
   const handleDeleteComment = async (commentId: string) => {
-    if (!confirm("確定要刪除這則留言嗎？")) return;
+    if (!(await appConfirm({ message: "確定要刪除這則留言嗎？", destructive: true }))) return;
     const { error } = await supabase.from("discussion_comments").delete().eq("id", commentId);
     if (!error) fetchPosts();
   };
 
   const toggleCommentLike = async (comment: DiscussionCommentRow) => {
-    if (!currentUser) return alert("請先登入才能按讚！");
+    if (!currentUser) {
+      toast.error("請先登入才能按讚！");
+      return;
+    }
     const liked = userLiked(comment.discussion_comment_likes, currentUser.id);
     if (liked) {
       await supabase
@@ -236,7 +253,7 @@ export function DiscussionBoard({
   };
 
   return (
-    <div className={cn("bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-6", className)}>
+    <div className={cn("bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-6", className)} id="discussion">
       <div className="flex items-center justify-between border-b border-slate-800 pb-4">
         <h3 className="text-lg font-black text-white flex items-center gap-2">
           <MessageSquare className="w-5 h-5 text-amber-400" /> {title}

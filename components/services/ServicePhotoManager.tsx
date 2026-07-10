@@ -1,5 +1,6 @@
 "use client";
 
+import { appConfirm } from "@/lib/app-dialog";
 import { useState } from "react";
 import Image from "next/image";
 import { Trash2, UploadCloud, Loader2, Globe } from "lucide-react";
@@ -45,9 +46,9 @@ export function ServicePhotoManager({
       ? "bg-orange-600/90 hover:bg-orange-500"
       : "bg-green-600/90 hover:bg-green-500";
 
-  const handleDelete = (entry: ServicePhotoEntry) => {
+  const handleDelete = async (entry: ServicePhotoEntry) => {
     const label = entry.status === "draft" ? "確定要刪除此草稿相片嗎？" : "確定要刪除此已發佈相片嗎？此動作無法復原。";
-    if (!window.confirm(label)) return;
+    if (!(await appConfirm(label))) return;
     void onDelete(entry.url, entry.status);
   };
 

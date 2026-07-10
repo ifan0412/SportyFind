@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
+const SUPPORT_EMAIL = 'sportyfind.support@gmail.com'
+
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
@@ -48,9 +50,19 @@ export async function GET(request: Request) {
       // 透過 Google OAuth 首次登入的使用者則會是 false，需要導向角色選擇畫面補齊資訊。
       const { data: profile } = await supabase
         .from('profiles')
-        .select('roles_confirmed')
+        .select('roles_confirmed, is_suspended, suspended_reason')
         .eq('id', data.session.user.id)
         .single()
+
+      if (profile?.is_suspended) {
+        await supabase.auth.signOut()
+        const reason = profile.suspended_reason
+          ? `&reason=${encodeURIComponent(profile.suspended_reason)}`
+          : ''
+        return NextResponse.redirect(
+          `${origin}/auth?suspended=1&support=${encodeURIComponent(SUPPORT_EMAIL)}${reason}`
+        )
+      }
 
       if (profile && profile.roles_confirmed === false) {
         return NextResponse.redirect(`${origin}/onboarding/roles?next=${encodeURIComponent(next)}`)

@@ -91,7 +91,7 @@ function SelectContent({
         data-align-trigger={position === "item-aligned"}
         className={cn(
           // Base
-          "relative z-50 max-h-(--radix-select-content-available-height) min-w-36 origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-lg shadow-md duration-100",
+          "relative z-[100] max-h-(--radix-select-content-available-height) min-w-36 origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-lg shadow-md duration-100",
           // Updated: slate dark background + ring
           "bg-slate-800 text-slate-100 ring-1 ring-slate-700/50",
           // Animations

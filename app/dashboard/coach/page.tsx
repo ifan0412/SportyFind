@@ -1,5 +1,7 @@
 "use client";
 
+import { toast } from "sonner";
+import { appConfirm } from "@/lib/app-dialog";
 import { useEffect, useState, useCallback, Suspense, useRef } from "react";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -76,16 +78,16 @@ function CoachEnquiriesInbox({
   const toggleContacted = async (id: string, currentStatus: string) => {
     const newStatus = currentStatus === "contacted" ? "seen" : "contacted";
     const { error } = await supabase.from("coach_enquiries").update({ status: newStatus }).eq("id", id);
-    if (error) { alert("狀態更新失敗: " + error.message); return; }
+    if (error) { toast.error("狀態更新失敗: " + error.message); return; }
     setLeads(prev => prev.map(l => l.id === id ? { ...l, status: newStatus } : l));
     onEnquiriesChanged?.();
     window.dispatchEvent(new CustomEvent("sync-coach-enquiries"));
   };
 
   const handleDeleteLead = async (id: string) => {
-    if (!confirm("確定要刪除此諮詢單嗎？此動作無法復原。")) return;
+    if (!(await appConfirm("確定要刪除此諮詢單嗎？此動作無法復原。"))) return;
     const { error } = await supabase.from("coach_enquiries").delete().eq("id", id);
-    if (error) { alert("刪除失敗: " + error.message); return; }
+    if (error) { toast.error("刪除失敗: " + error.message); return; }
     setLeads(prev => prev.filter(l => l.id !== id));
     window.dispatchEvent(new CustomEvent("sync-coach-enquiries"));
   };
@@ -330,7 +332,7 @@ function CoachServicesManager({
       teaching_experience_years: null,
     };
     const { data, error } = await supabase.from("coach_services").insert(payload).select().single();
-    if (error) { alert("新增失敗: " + error.message); return; }
+    if (error) { toast.error("新增失敗: " + error.message); return; }
     if (data) {
       setServices([data, ...services]);
       setSelectedService(data);
@@ -345,18 +347,18 @@ function CoachServicesManager({
     const districts = Array.isArray(editForm.districts) ? editForm.districts : [];
     if (publish && !districts.length) {
       setIsSavingInfo(false);
-      alert("發佈前請至少選擇一個授課地區");
+      toast.error("發佈前請至少選擇一個授課地區");
       return;
     }
     if (publish && !editForm.sport_category) {
       setIsSavingInfo(false);
-      alert("發佈前請選擇專項類別");
+      toast.error("發佈前請選擇專項類別");
       return;
     }
     const pricingMode = normalizeCoachPricingMode(editForm.pricing_mode);
     if (publish && pricingMode !== "dm" && !(Number(editForm.hourly_rate) > 0)) {
       setIsSavingInfo(false);
-      alert("發佈前請填寫課程標價，或改選「私訊詢價」");
+      toast.error("發佈前請填寫課程標價，或改選「私訊詢價」");
       return;
     }
     const payload = {
@@ -375,7 +377,7 @@ function CoachServicesManager({
     };
     const { error } = await supabase.from("coach_services").update(payload).eq("id", editForm.id);
     setIsSavingInfo(false);
-    if (error) { alert("更新失敗: " + error.message); return; }
+    if (error) { toast.error("更新失敗: " + error.message); return; }
     const updated = { ...editForm, ...payload };
     setSelectedService(updated);
     setServices(services.map((s) => (s.id === editForm.id ? updated : s)));
@@ -383,31 +385,31 @@ function CoachServicesManager({
   };
 
   const handleDeleteCourse = async (id: string) => {
-    if (!confirm("確定刪除此課程專案嗎？")) return;
+    if (!(await appConfirm("確定刪除此課程專案嗎？"))) return;
     await supabase.from("coach_services").delete().eq("id", id);
     setServices(services.filter(s => s.id !== id)); setSelectedService(null);
   };
 
   const handleDeleteReview = async (revId: string) => {
-    if (!confirm("確定要刪除這條學員評價嗎？")) return;
+    if (!(await appConfirm("確定要刪除這條學員評價嗎？"))) return;
     const { error } = await supabase.from("coach_reviews").delete().eq("id", revId);
-    if (error) { alert("刪除失敗: " + error.message); return; }
+    if (error) { toast.error("刪除失敗: " + error.message); return; }
     setCourseReviews(courseReviews.filter(r => r.id !== revId));
   };
 
   const toggleLeadContacted = async (id: string, currentStatus: string) => {
     const newStatus = currentStatus === "contacted" ? "seen" : "contacted";
     const { error } = await supabase.from("coach_enquiries").update({ status: newStatus }).eq("id", id);
-    if (error) { alert("狀態更新失敗: " + error.message); return; }
+    if (error) { toast.error("狀態更新失敗: " + error.message); return; }
     setCourseLeads(prev => prev.map(l => l.id === id ? { ...l, status: newStatus } : l));
     onEnquiriesChanged();
     window.dispatchEvent(new CustomEvent("sync-coach-enquiries"));
   };
 
   const handleDeleteLead = async (id: string) => {
-    if (!confirm("確定要刪除此諮詢單嗎？此動作無法復原。")) return;
+    if (!(await appConfirm("確定要刪除此諮詢單嗎？此動作無法復原。"))) return;
     const { error } = await supabase.from("coach_enquiries").delete().eq("id", id);
-    if (error) { alert("刪除失敗: " + error.message); return; }
+    if (error) { toast.error("刪除失敗: " + error.message); return; }
     setCourseLeads((prev) => prev.filter((l) => l.id !== id));
     onEnquiriesChanged();
     window.dispatchEvent(new CustomEvent("sync-coach-enquiries"));
@@ -828,8 +830,8 @@ function CoachSettingsPanel({ profile, onSaved }: { profile: any; onSaved: () =>
       is_address_public: form.is_address_public,
     }).eq("id", profile.id);
     setSaving(false);
-    if (error) { alert("儲存失敗: " + error.message); return; }
-    alert("✅ 教練名片設定已儲存！");
+    if (error) { toast.error("儲存失敗: " + error.message); return; }
+    toast.success("✅ 教練名片設定已儲存！");
     onSaved();
   };
 

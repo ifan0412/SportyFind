@@ -1,5 +1,7 @@
 "use client";
 
+import { toast } from "sonner";
+import { appConfirm, appPrompt } from "@/lib/app-dialog";
 import { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -22,8 +24,22 @@ import type { SportCategory } from "@/types/team";
 import { BIO_CHAR_SUGGESTED_MAX, BIO_CHAR_SUGGESTED_RANGE, plainTextLength } from "@/lib/content/body";
 import { GenderAvatarBadge } from "@/components/profile/GenderBadge";
 import { setTeamDetailBack } from "@/lib/team-listing-state";
+import { FormSelect } from "@/components/ui/form-select";
 
 type AdminTab = "roster" | "details" | "media" | "settings";
+
+const TEAM_ROLE_OPTIONS = [
+  { value: "admin", label: "主要管理員 Admin" },
+  { value: "coach", label: "專業教練 Coach" },
+  { value: "captain", label: "領隊/隊長 Captain" },
+  { value: "player", label: "群組成員 Player" },
+];
+
+const RECRUITMENT_STATUS_OPTIONS = [
+  { value: "open", label: "🟢 開放所有人公開招募 (Open)" },
+  { value: "invite_only", label: "🔵 嚴格審查 / 邀請制 (Invite Only)" },
+  { value: "closed", label: "🔴 關閉狀態 / 暫停招募 (Closed)" },
+];
 
 function parseGalleryPhotos(raw: unknown): string[] {
   if (!Array.isArray(raw)) return [];
@@ -134,7 +150,7 @@ export default function TeamAdminDashboard() {
       if (error) {
         // 🔥 強制顯示詳細錯誤 (包括 Supabase 回傳的 hint)
         console.error("詳細錯誤訊息:", JSON.stringify(error, null, 2));
-        alert("資料庫更新失敗，錯誤代碼: " + error.code + "\n訊息: " + error.message);
+        toast.error("資料庫更新失敗，錯誤代碼: " + error.code + "\n訊息: " + error.message);
         return;
       }
 
@@ -148,18 +164,18 @@ export default function TeamAdminDashboard() {
       });
 
       // 3. 強制刷新
-      alert("🎉 已成功批准該成員！");
+      toast.success("🎉 已成功批准該成員！");
       await fetchDashboardData();
       
     } catch (err) {
       console.error("批准流程錯誤:", err);
-      alert("批准失敗: " + (err instanceof Error ? err.message : "未知的錯誤"));
+      toast.error("批准失敗: " + (err instanceof Error ? err.message : "未知的錯誤"));
     }
   };
 
   const handleRejectOrRemove = async (userId: string, isRemove = false) => {
-    if (isRemove && userId === currentUserId) { alert("身為最高管理員，您不能將自己移出群組。"); return; }
-    if (isRemove && !confirm("確定要移除此成員嗎？")) return;
+    if (isRemove && userId === currentUserId) { toast.error("身為最高管理員，您不能將自己移出群組。"); return; }
+    if (isRemove && !(await appConfirm("確定要移除此成員嗎？"))) return;
     
     try {
       // 1. 呼叫通知函數 (Reject)
@@ -176,13 +192,13 @@ export default function TeamAdminDashboard() {
       fetchDashboardData();
     } catch (err) {
       console.error("Reject/Remove error:", err);
-      alert("操作失敗");
+      toast.error("操作失敗");
     }
   };
 
   const handleRoleChange = async (userId: string, newRole: string) => {
     if (userId === currentUserId && newRole !== "admin") {
-      alert("您不能取消自己的管理員身分，群組必須至少擁有一名 Admin。");
+      toast.error("您不能取消自己的管理員身分，群組必須至少擁有一名 Admin。");
       return;
     }
     const { error } = await supabase.from("team_members").update({ role: newRole }).eq("team_id", id).eq("user_id", userId);
@@ -208,10 +224,10 @@ export default function TeamAdminDashboard() {
         .eq("id", id);
 
       if (!error) {
-        alert("🎉 群組規格與詳情已更新！");
+        toast.success("🎉 群組規格與詳情已更新！");
         fetchDashboardData();
       } else {
-        alert("儲存失敗：" + error.message);
+        toast.error("儲存失敗：" + error.message);
       }
     } finally {
       setIsSavingDetails(false);
@@ -225,7 +241,7 @@ export default function TeamAdminDashboard() {
     if (isGenderRequirementTightened(savedRequirement, editGenderRequirement)) {
       const incompatible = getIncompatibleTeamMembersForRequirement(members, editGenderRequirement);
       if (incompatible.length > 0) {
-        alert(formatIncompatibleTeamMembersMessage(incompatible, editGenderRequirement));
+        toast.error(formatIncompatibleTeamMembersMessage(incompatible, editGenderRequirement));
         return;
       }
     }
@@ -253,10 +269,10 @@ export default function TeamAdminDashboard() {
         .eq("id", id);
 
       if (!error) {
-        alert("🎉 群組設定已成功更新！");
+        toast.success("🎉 群組設定已成功更新！");
         fetchDashboardData();
       } else {
-        alert("儲存失敗：" + error.message);
+        toast.error("儲存失敗：" + error.message);
       }
     } finally {
       setIsSavingSettings(false);
@@ -265,9 +281,9 @@ export default function TeamAdminDashboard() {
 
   // ✅ 解散與刪除球隊邏輯 (升級修正版)
   const handleDeleteTeam = async () => {
-    const promptMatch = prompt(`⚠️ 極度危險操作！解散後所有成員紀錄將被清除且無法復原。\n請輸入團隊英文名稱「${team.name_en}」確認刪除：`);
+    const promptMatch = await appPrompt(`⚠️ 極度危險操作！解散後所有成員紀錄將被清除且無法復原。\n請輸入團隊英文名稱「${team.name_en}」確認刪除：`);
     if (promptMatch !== team.name_en) {
-      if (promptMatch !== null) alert("輸入名稱不吻合，已取消操作。");
+      if (promptMatch !== null) toast.error("輸入名稱不吻合，已取消操作。");
       return;
     }
 
@@ -280,7 +296,7 @@ export default function TeamAdminDashboard() {
         .eq("team_id", id);
 
       if (memberErr) {
-        alert("清除成員紀錄失敗：" + memberErr.message);
+        toast.error("清除成員紀錄失敗：" + memberErr.message);
         return;
       }
 
@@ -291,17 +307,17 @@ export default function TeamAdminDashboard() {
         .eq("id", id);
 
       if (teamErr) {
-        alert("解散群組失敗：" + teamErr.message);
+        toast.error("解散群組失敗：" + teamErr.message);
         return;
       }
 
       // 3. 成功通知並導向 Profile 管理分頁
-      alert("🗑️ 群組已成功解散並移除。");
+      toast.success("🗑️ 群組已成功解散並移除。");
       router.push("/profile?tab=teams");
       router.refresh(); // 🔥 關鍵：強制 Next.js 清除畫面快取，確保球隊卡片立刻消失！
     } catch (err: any) {
       console.error("刪除操作發生未預期例外:", err);
-      alert("發生未預期的系統錯誤：" + (err?.message || err));
+      toast.error("發生未預期的系統錯誤：" + (err?.message || err));
     } finally {
       setIsDeleting(false);
     }
@@ -421,16 +437,12 @@ export default function TeamAdminDashboard() {
                     </Link>
                     
                     <div className="flex items-center gap-2">
-                      <select
+                      <FormSelect
                         value={m.role}
-                        onChange={(e) => handleRoleChange(m.user_id, e.target.value)}
-                        className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs font-bold text-purple-400 focus:outline-none"
-                      >
-                        <option value="admin">主要管理員 Admin</option>
-                        <option value="coach">專業教練 Coach</option>
-                        <option value="captain">領隊/隊長 Captain</option>
-                        <option value="player">群組成員 Player</option>
-                      </select>
+                        onValueChange={(value) => handleRoleChange(m.user_id, value)}
+                        options={TEAM_ROLE_OPTIONS}
+                        triggerClassName="h-auto min-h-0 w-auto border-slate-800 bg-slate-900 px-3 py-1.5 text-xs font-bold text-purple-400"
+                      />
                       {m.user_id !== currentUserId && (
                         <button onClick={() => handleRejectOrRemove(m.user_id, true)} className="text-zinc-600 hover:text-red-500 p-2 text-xs transition" title="剔除成員">
                           🗑️ 踢除
@@ -528,20 +540,22 @@ export default function TeamAdminDashboard() {
 
               <div>
                 <label className={labelCls}>招募開放狀態</label>
-                <select className={inputCls} value={editStatus} onChange={(e) => setEditStatus(e.target.value)}>
-                  <option value="open">🟢 開放所有人公開招募 (Open)</option>
-                  <option value="invite_only">🔵 嚴格審查 / 邀請制 (Invite Only)</option>
-                  <option value="closed">🔴 關閉狀態 / 暫停招募 (Closed)</option>
-                </select>
+                <FormSelect
+                  value={editStatus}
+                  onValueChange={setEditStatus}
+                  options={RECRUITMENT_STATUS_OPTIONS}
+                  triggerClassName={inputCls}
+                />
               </div>
 
               <div>
                 <label className={labelCls}>加入性別要求</label>
-                <select className={inputCls} value={editGenderRequirement} onChange={(e) => setEditGenderRequirement(e.target.value as GenderRequirement)}>
-                  {GENDER_REQUIREMENT_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
+                <FormSelect
+                  value={editGenderRequirement}
+                  onValueChange={(value) => setEditGenderRequirement(value as GenderRequirement)}
+                  options={GENDER_REQUIREMENT_OPTIONS}
+                  triggerClassName={inputCls}
+                />
                 <p className="text-[10px] text-zinc-600 mt-1.5 pl-1">
                   收緊規則時，名單上所有成員（含教練／管理員）皆須符合；教練若同時為運動員，亦適用此規則。
                 </p>

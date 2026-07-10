@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { X, SlidersHorizontal, RotateCcw } from "lucide-react";
+import { FormSelect } from "@/components/ui/form-select";
 
 export interface FilterOption {
   label: string;
@@ -170,17 +171,12 @@ function FilterSingleSelect({
       <label className="mb-1.5 block pl-1 text-[10px] font-black uppercase tracking-widest text-slate-400">
         {label}
       </label>
-      <select
+      <FormSelect
         value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className={`h-[46px] w-full cursor-pointer appearance-none rounded-xl border border-pro-slate-700/80 bg-pro-slate-950 px-4 py-3 text-xs font-black transition focus:outline-none sm:text-sm ${accentClass}`}
-      >
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
+        onValueChange={onChange}
+        triggerClassName={`h-[46px] w-full cursor-pointer rounded-xl border border-pro-slate-700/80 bg-pro-slate-950 px-4 py-3 text-xs font-black transition focus:outline-none sm:text-sm ${accentClass}`}
+        options={options}
+      />
     </div>
   );
 }

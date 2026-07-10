@@ -1,5 +1,6 @@
 "use client";
 
+import { toast } from "sonner";
 import { use, useEffect, useState, useMemo, useCallback, Suspense } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { BackButton } from "@/components/BackButton";
@@ -250,7 +251,7 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
       router.refresh();
     } catch (err: any) {
       if (err?.code === "23505") await refetchFriendshipStatus(currentUserId);
-      else alert(`發送失敗: ${err?.message || "發生未知錯誤"}`);
+      else toast.error(`發送失敗: ${err?.message || "發生未知錯誤"}`);
     } finally { setFriendLoading(false); }
   };
 
@@ -264,7 +265,7 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
       await refetchFriendshipStatus(currentUserId);
       window.dispatchEvent(new CustomEvent("sync-friendship")); 
       router.refresh();
-    } catch (err: any) { alert(`解除失敗: ${err.message || "發生未知錯誤"}`);
+    } catch (err: any) { toast.error(`解除失敗: ${err.message || "發生未知錯誤"}`);
     } finally { setFriendLoading(false); }
   };
 
@@ -277,7 +278,7 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
       await refetchFriendshipStatus(currentUserId);
       window.dispatchEvent(new CustomEvent("sync-friendship")); 
       router.refresh();
-    } catch (err: any) { alert(`接受失敗: ${err.message || "發生未知錯誤"}`);
+    } catch (err: any) { toast.error(`接受失敗: ${err.message || "發生未知錯誤"}`);
     } finally { setFriendLoading(false); }
   };
 
@@ -290,7 +291,7 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
       await refetchFriendshipStatus(currentUserId);
       window.dispatchEvent(new CustomEvent("sync-friendship"));
       router.refresh();
-    } catch (err: any) { alert(`拒絕失敗: ${err.message || "發生未知錯誤"}`);
+    } catch (err: any) { toast.error(`拒絕失敗: ${err.message || "發生未知錯誤"}`);
     } finally { setFriendLoading(false); }
   };
 

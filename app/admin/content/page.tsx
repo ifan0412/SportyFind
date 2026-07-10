@@ -1,5 +1,7 @@
 "use client";
 
+import { toast } from "sonner";
+import { appConfirm } from "@/lib/app-dialog";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -34,10 +36,10 @@ function AdminContentList() {
   }, [fetchPosts]);
 
   const handleDelete = async (post: ContentPost) => {
-    if (!confirm(`確定刪除「${post.title}」？此操作無法復原。`)) return;
+    if (!(await appConfirm(`確定刪除「${post.title}」？此操作無法復原。`))) return;
     setDeletingId(post.id);
     const { error } = await supabase.from("content_posts").delete().eq("id", post.id);
-    if (error) alert(error.message);
+    if (error) toast.error(error.message);
     else setPosts((prev) => prev.filter((p) => p.id !== post.id));
     setDeletingId(null);
   };

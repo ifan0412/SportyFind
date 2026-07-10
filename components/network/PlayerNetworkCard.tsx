@@ -1,5 +1,6 @@
 "use client";
 
+import { toast } from "sonner";
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -154,7 +155,7 @@ export function PlayerNetworkCard({
       window.dispatchEvent(new CustomEvent("sync-friendship"));
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "發生未知錯誤";
-      alert(`操作失敗: ${message}`);
+      toast.error(`操作失敗: ${message}`);
     } finally {
       setFriendLoading(false);
     }

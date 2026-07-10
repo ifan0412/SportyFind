@@ -42,6 +42,9 @@ import { ProfileSettingsList } from "@/components/profile/ProfileSettingsList";
 import { ProfileEditTab } from "@/components/profile/ProfileEditTab";
 import { LISTING_PAGE_SHELL_PADDING } from "@/lib/listing-sections";
 import { MyEventsTab } from "@/components/profile/MyEventsTab";
+import { toast } from "sonner";
+import { appConfirm } from "@/lib/app-dialog";
+import { FormSelect } from "@/components/ui/form-select";
 
 interface Profile {
   id: string;
@@ -226,6 +229,7 @@ function ProfilePageContent() {
   const [selectedSportSlug, setSelectedSportSlug] = useState<SportCategoryId | "">("");
   const [sportDynamicData, setSportDynamicData] = useState<Record<string, string | string[]>>({});
   const [editingUserSportId, setEditingUserSportId] = useState<string | null>(null);
+  const [sportModalInitialSlug, setSportModalInitialSlug] = useState<SportCategoryId | "">("");
 
   const [isMediaModalOpen, setIsMediaModalOpen] = useState(false);
   const [uploadMediaSport, setUploadMediaSport] = useState("");
@@ -301,7 +305,7 @@ function ProfilePageContent() {
   const handleShareProfile = useCallback(() => {
     if (!user?.id) return;
     navigator.clipboard.writeText(`${window.location.origin}/p/${user.id}`);
-    alert("名片網址已複製！");
+    toast.success("名片網址已複製！");
   }, [user?.id]);
 
   const loadProfileData = useCallback(async (userId: string) => {
@@ -546,7 +550,7 @@ function ProfilePageContent() {
 
   const handleSaveProfile = async () => {
     if (!user || handleStatus === "taken") return;
-    if (!window.confirm("確定要儲存您的個人檔案與專業資訊變更嗎？")) return;
+    if (!(await appConfirm({ message: "確定要儲存您的個人檔案與專業資訊變更嗎？" }))) return;
     setIsSaving(true);
     let finalAvatarUrl = editForm.avatar_url;
     if (pendingAvatarFile.current) {
@@ -632,12 +636,12 @@ function ProfilePageContent() {
     if (!error) {
       setProfile(prev => ({ ...prev!, ...editForm, avatar_url: finalAvatarUrl, full_name: fullName, location: `${editForm.region}, ${editForm.country}` }));
       await loadProfileData(user.id);
-      alert("✅ 儲存成功！您的個人資料已更新。");
+      toast.success("儲存成功！您的個人資料已更新。");
       handleReturnToPreview();
       router.refresh();
     } else {
       console.error("Save Error:", error);
-      alert("❌ 同步失敗，請開啟瀏覽器主控台 (F12 Console) 檢查錯誤詳情。");
+      toast.error("同步失敗，請開啟瀏覽器主控台 (F12 Console) 檢查錯誤詳情。");
     }
     setIsSaving(false);
   };
@@ -655,23 +659,37 @@ function ProfilePageContent() {
   const handleOpenSportModal = useCallback((us?: UserSport) => {
     if (us) {
       const slug = normalizeSportCategory(us.sports?.name) || "";
+      const formData = sportFormDataFromMetadata(us.metadata as Record<string, unknown>, slug);
       setSelectedSportSlug(slug);
-      setSportDynamicData(sportFormDataFromMetadata(us.metadata as Record<string, unknown>, slug));
+      setSportDynamicData(formData);
+      setSportModalInitialSlug(slug);
       setEditingUserSportId(us.id);
     } else {
       setSelectedSportSlug("");
       setSportDynamicData({});
+      setSportModalInitialSlug("");
       setEditingUserSportId(null);
     }
     setIsSportModalOpen(true);
   }, []);
+
+  useEffect(() => {
+    if (!isSportModalOpen || !editingUserSportId) return;
+    const us = userSports.find((s) => s.id === editingUserSportId);
+    if (!us) return;
+    const slug = normalizeSportCategory(us.sports?.name) || "";
+    if (!slug) return;
+    setSelectedSportSlug(slug);
+    setSportModalInitialSlug(slug);
+    setSportDynamicData(sportFormDataFromMetadata(us.metadata as Record<string, unknown>, slug));
+  }, [isSportModalOpen, editingUserSportId, userSports]);
 
   const handleSaveSport = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedSportSlug || !user) return;
     const sportId = resolveSportId(selectedSportSlug);
     if (!sportId) {
-      alert("此運動項目尚未在資料庫中設定，請聯絡管理員或執行最新 migration。");
+      toast.error("此運動項目尚未在資料庫中設定，請聯絡管理員或執行最新 migration。");
       return;
     }
     const metadata = normalizeSportMetadataForSave(sportDynamicData, selectedSportSlug);
@@ -682,12 +700,12 @@ function ProfilePageContent() {
     setIsSportModalOpen(false);
     router.refresh();
     if (incomplete) {
-      alert("已儲存！建議填寫完整技術資料（年資、位置等），可大幅提升在人脈搜尋中的曝光率。");
+      toast.success("已儲存！建議填寫完整技術資料（年資、位置等），可大幅提升在人脈搜尋中的曝光率。");
     }
   };
 
   const handleRemoveSport = async (us: UserSport) => {
-    if (!window.confirm(`確定要移除 ${us.sports?.name} 嗎？`)) return;
+    if (!(await appConfirm({ message: `確定要移除 ${us.sports?.name} 嗎？`, destructive: true }))) return;
     await supabase.from("user_sports").delete().eq("id", us.id);
     setUserSports(prev => prev.filter(item => item.id !== us.id)); router.refresh();
   };
@@ -721,7 +739,8 @@ function ProfilePageContent() {
   };
 
   const handleDeleteMedia = async (post: MediaItem) => {
-    if (!user || !post.fileName) return; if (!window.confirm("確定刪除此影像？")) return;
+    if (!user || !post.fileName) return;
+    if (!(await appConfirm({ message: "確定刪除此影像？", destructive: true }))) return;
     await supabase.storage.from("highlights").remove([`${user.id}/${post.fileName}`]);
     setGalleryMedia(prev => prev.filter(m => m.id !== post.id)); setSelectedPost(null); router.refresh();
   };
@@ -959,7 +978,7 @@ function ProfilePageContent() {
         <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fadeIn">
           <div className="bg-slate-950 border border-slate-800 w-full max-w-sm rounded-3xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-black text-white mb-6">{editingUserSportId ? "編輯技術特長" : "添入技術特長"}</h3>
-            <form onSubmit={handleSaveSport} className="space-y-5 text-sm">
+            <form key={editingUserSportId ?? "new-sport"} onSubmit={handleSaveSport} className="space-y-5 text-sm">
               <p className="text-xs text-blue-300/90 bg-blue-500/10 border border-blue-500/20 rounded-xl px-3.5 py-2.5 leading-relaxed">
                 💡 僅運動項目為必填。其餘欄位選填，但填寫越完整，在人脈搜尋與配對中的曝光率越高。
               </p>
@@ -967,7 +986,12 @@ function ProfilePageContent() {
                 <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-2">選擇運動項目</label>
                 <SportCategoryPicker
                   value={selectedSportSlug}
-                  onChange={(id: SportCategoryId) => { setSelectedSportSlug(id); setSportDynamicData({}); }}
+                  onChange={(id: SportCategoryId) => {
+                    setSelectedSportSlug(id);
+                    if (editingUserSportId && id === sportModalInitialSlug) return;
+                    setSportDynamicData({});
+                    setSportModalInitialSlug(id);
+                  }}
                 />
               </div>
               {selectedSportSlug && getSportSchema(selectedSportSlug).map(field => (
@@ -982,14 +1006,13 @@ function ProfilePageContent() {
                       onChange={(positions) => setSportDynamicData({ ...sportDynamicData, [field.key]: positions })}
                     />
                   ) : field.type === "select" ? (
-                    <select
+                    <FormSelect
                       value={(sportDynamicData[field.key] as string) || ""}
-                      onChange={e => setSportDynamicData({ ...sportDynamicData, [field.key]: e.target.value })}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-white font-bold outline-none"
-                    >
-                      <option value="">-- 請選擇 --</option>
-                      {field.options?.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                    </select>
+                      onValueChange={(value) => setSportDynamicData({ ...sportDynamicData, [field.key]: value })}
+                      options={(field.options ?? []).map((opt) => ({ value: opt, label: opt }))}
+                      placeholder="-- 請選擇 --"
+                      triggerClassName="bg-slate-900 border-slate-700 rounded-xl p-3.5 font-bold"
+                    />
                   ) : (
                     <input
                       type={field.type}
@@ -1013,7 +1036,7 @@ function ProfilePageContent() {
           <div className="bg-slate-950 border border-slate-800 w-full max-w-sm rounded-3xl p-6 shadow-2xl">
             <h3 className="text-lg font-black text-white mb-6">歸檔雲端賽事影音</h3>
             <div className="space-y-5 text-sm">
-              <div><label className="block text-[10px] font-bold text-zinc-500 uppercase mb-2">1. 歸屬類別</label><select value={uploadMediaSport} onChange={e => setUploadMediaSport(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3.5 text-white font-bold outline-none"><option value="">-- 選擇專長 --</option>{userSports.map(us => <option key={us.id} value={us.sports?.name}>{us.sports?.name}</option>)}</select></div>
+              <div><label className="block text-[10px] font-bold text-zinc-500 uppercase mb-2">1. 歸屬類別</label><FormSelect value={uploadMediaSport} onValueChange={setUploadMediaSport} options={userSports.map(us => ({ value: us.sports?.name ?? "", label: us.sports?.name ?? "" })).filter(opt => opt.value)} placeholder="-- 選擇專長 --" triggerClassName="bg-slate-900 border-slate-800 rounded-xl p-3.5 font-bold" /></div>
               <div><label className="block text-[10px] font-bold text-zinc-500 uppercase mb-2">2. 選擇檔案</label><div className="border-2 border-dashed border-slate-800 hover:border-slate-600 transition rounded-xl p-4 text-center cursor-pointer relative overflow-hidden"><input type="file" ref={mediaInputRef} onChange={handleMediaUpload} accept="image/*" disabled={!uploadMediaSport || isUploadingMedia || cropTarget === "highlight"} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed" /><span className="text-zinc-400 font-bold block">{isUploadingMedia ? "雲端推流中..." : cropTarget === "highlight" ? "裁切處理中..." : uploadMediaSport ? "點擊選擇照片" : "請先選擇上方類別"}</span></div></div>
               <button onClick={() => setIsMediaModalOpen(false)} className="w-full bg-slate-900 text-zinc-400 font-bold py-3 rounded-xl mt-2">關閉視窗</button>
             </div>

@@ -4,7 +4,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { AdminShell } from "@/components/admin/AdminShell";
-import { Loader2, Search, User } from "lucide-react";
+import { appConfirm, appPrompt } from "@/lib/app-dialog";
+import { Loader2, Search, User, Ban, UserCheck } from "lucide-react";
+import { toast } from "sonner";
 
 interface AdminUser {
   id: string;
@@ -18,6 +20,9 @@ interface AdminUser {
   is_coach: boolean;
   is_physio: boolean;
   is_player: boolean;
+  is_suspended: boolean;
+  suspended_at: string | null;
+  suspended_reason: string | null;
 }
 
 export default function AdminUsersPage() {
@@ -25,7 +30,9 @@ export default function AdminUsersPage() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<"all" | "active" | "suspended">("all");
   const [error, setError] = useState<string | null>(null);
+  const [actingId, setActingId] = useState<string | null>(null);
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -45,16 +52,19 @@ export default function AdminUsersPage() {
   }, [fetchUsers]);
 
   const filtered = useMemo(() => {
-    if (!search.trim()) return users;
+    let list = users;
+    if (filter === "active") list = list.filter((u) => !u.is_suspended);
+    if (filter === "suspended") list = list.filter((u) => u.is_suspended);
+    if (!search.trim()) return list;
     const q = search.toLowerCase();
-    return users.filter(
+    return list.filter(
       (u) =>
         u.email?.toLowerCase().includes(q) ||
         (u.full_name || "").toLowerCase().includes(q) ||
         (u.handle || "").toLowerCase().includes(q) ||
         `${u.first_name || ""} ${u.last_name || ""}`.toLowerCase().includes(q)
     );
-  }, [users, search]);
+  }, [users, search, filter]);
 
   const displayName = (u: AdminUser) =>
     u.full_name?.trim() ||
@@ -62,28 +72,128 @@ export default function AdminUsersPage() {
     u.handle ||
     "未命名用戶";
 
+  const handleSuspend = async (u: AdminUser) => {
+    const reason = await appPrompt({
+      title: "暫停用戶",
+      message: `請輸入暫停「${displayName(u)}」的原因（選填，將顯示給用戶）：`,
+      placeholder: "違反社群守則…",
+      confirmLabel: "確認暫停",
+    });
+    if (reason === null) return;
+
+    const confirmed = await appConfirm({
+      title: "確認暫停",
+      message: `確定要暫停 ${displayName(u)}（${u.email}）嗎？對方將無法登入。`,
+      destructive: true,
+      confirmLabel: "暫停帳戶",
+    });
+    if (!confirmed) return;
+
+    setActingId(u.id);
+    try {
+      const { data, error: rpcError } = await supabase.rpc("admin_suspend_user", {
+        p_user_id: u.id,
+        p_reason: reason.trim() || null,
+      });
+      if (rpcError) throw rpcError;
+      const result = data as { success?: boolean; message?: string };
+      if (!result?.success) {
+        toast.error(result?.message || "暫停失敗");
+        return;
+      }
+      toast.success(result.message || "已暫停用戶");
+      await fetchUsers();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "暫停失敗");
+    } finally {
+      setActingId(null);
+    }
+  };
+
+  const handleReactivate = async (u: AdminUser) => {
+    const confirmed = await appConfirm({
+      title: "恢復帳戶",
+      message: `確定要恢復 ${displayName(u)}（${u.email}）的帳戶嗎？將發送站內通知及恢復電郵。`,
+      confirmLabel: "恢復帳戶",
+    });
+    if (!confirmed) return;
+
+    setActingId(u.id);
+    try {
+      const { data, error: rpcError } = await supabase.rpc("admin_reactivate_user", {
+        p_user_id: u.id,
+      });
+      if (rpcError) throw rpcError;
+      const result = data as { success?: boolean; message?: string; email?: string };
+      if (!result?.success) {
+        toast.error(result?.message || "恢復失敗");
+        return;
+      }
+
+      if (result.email) {
+        const emailRes = await fetch("/api/admin/send-reactivation-email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: result.email, name: displayName(u) }),
+        });
+        const emailJson = await emailRes.json().catch(() => ({}));
+        if (emailJson.sent) {
+          toast.success("已恢復帳戶並發送通知電郵");
+        } else {
+          toast.success("已恢復帳戶（站內通知已發送；電郵需設定 RESEND_API_KEY）");
+        }
+      } else {
+        toast.success(result.message || "已恢復帳戶");
+      }
+
+      await fetchUsers();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "恢復失敗");
+    } finally {
+      setActingId(null);
+    }
+  };
+
   return (
     <AdminShell title="用戶管理" wide>
       <p className="text-sm text-zinc-500 mb-6 -mt-2">
-        已註冊用戶列表。暫停／刪除帳戶與登入攔截功能將於後續版本加入。
+        管理已註冊用戶。可暫停違規帳戶（登入將被攔截），或恢復帳戶並發送通知。
       </p>
 
-      <div className="relative mb-6">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-        <input
-          type="search"
-          placeholder="搜尋電郵、名稱或 handle..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white focus:border-blue-500 outline-none"
-        />
+      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+          <input
+            type="search"
+            placeholder="搜尋電郵、名稱或 handle..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white focus:border-blue-500 outline-none"
+          />
+        </div>
+        <div className="flex gap-2">
+          {(["all", "active", "suspended"] as const).map((key) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setFilter(key)}
+              className={`px-3 py-2 rounded-xl text-xs font-bold border transition ${
+                filter === key
+                  ? "bg-amber-500/15 border-amber-500/40 text-amber-400"
+                  : "bg-slate-900 border-slate-800 text-zinc-400 hover:text-white"
+              }`}
+            >
+              {key === "all" ? "全部" : key === "active" ? "正常" : "已暫停"}
+            </button>
+          ))}
+        </div>
       </div>
 
       {error && (
         <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
           {error.includes("not authorized") ? "無權限存取" : error}
           {error.includes("function") && (
-            <p className="text-xs mt-2 text-red-300/80">請在 Supabase 執行 migration 006_admin_analytics.sql</p>
+            <p className="text-xs mt-2 text-red-300/80">請在 Supabase 執行 migration 041_admin_user_moderation.sql</p>
           )}
         </div>
       )}
@@ -99,7 +209,11 @@ export default function AdminUsersPage() {
             {filtered.map((u) => (
               <div
                 key={u.id}
-                className="flex flex-col sm:flex-row sm:items-center gap-4 p-4 rounded-2xl bg-slate-900/60 border border-slate-800"
+                className={`flex flex-col sm:flex-row sm:items-center gap-4 p-4 rounded-2xl border ${
+                  u.is_suspended
+                    ? "bg-red-500/5 border-red-500/20"
+                    : "bg-slate-900/60 border-slate-800"
+                }`}
               >
                 <div className="flex items-center gap-3 flex-1 min-w-0">
                   <div
@@ -112,10 +226,18 @@ export default function AdminUsersPage() {
                     <p className="text-sm font-black text-white truncate">{displayName(u)}</p>
                     <p className="text-xs text-zinc-500 truncate">{u.email}</p>
                     {u.handle && <p className="text-[11px] text-zinc-600">@{u.handle}</p>}
+                    {u.is_suspended && u.suspended_reason && (
+                      <p className="text-[11px] text-red-400/80 mt-1">原因：{u.suspended_reason}</p>
+                    )}
                   </div>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  {u.is_suspended && (
+                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-red-500/15 text-red-400 border border-red-500/30">
+                      已暫停
+                    </span>
+                  )}
                   {u.is_coach && (
                     <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
                       教練
@@ -141,6 +263,27 @@ export default function AdminUsersPage() {
                   >
                     查看檔案
                   </Link>
+                  {u.is_suspended ? (
+                    <button
+                      type="button"
+                      disabled={actingId === u.id}
+                      onClick={() => handleReactivate(u)}
+                      className="inline-flex items-center gap-1 text-xs font-bold text-emerald-400 hover:text-emerald-300 disabled:opacity-50"
+                    >
+                      <UserCheck className="w-3.5 h-3.5" />
+                      {actingId === u.id ? "處理中…" : "恢復"}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={actingId === u.id}
+                      onClick={() => handleSuspend(u)}
+                      className="inline-flex items-center gap-1 text-xs font-bold text-red-400 hover:text-red-300 disabled:opacity-50"
+                    >
+                      <Ban className="w-3.5 h-3.5" />
+                      {actingId === u.id ? "處理中…" : "暫停"}
+                    </button>
+                  )}
                 </div>
               </div>
             ))}

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { type ProfileGender, PROFILE_GENDER_OPTIONS } from "@/lib/gender";
+import { FormSelect } from "@/components/ui/form-select";
 
 interface RoleOptionProps {
   checked: boolean;
@@ -158,17 +159,14 @@ function RoleOnboardingContent() {
           <label className="block text-xs font-bold text-slate-400 mb-1.5 uppercase tracking-widest">
             性別 <span className="normal-case font-normal text-zinc-600">(顯示於報名與成員名單)</span>
           </label>
-          <select
+          <FormSelect
             value={gender}
-            onChange={(e) => setGender(e.target.value as ProfileGender)}
+            onValueChange={(v) => setGender(v as ProfileGender)}
             disabled={isSaving}
-            className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none transition disabled:opacity-50"
-          >
-            <option value="">請選擇</option>
-            {PROFILE_GENDER_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
+            placeholder="請選擇"
+            triggerClassName="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none transition disabled:opacity-50"
+            options={PROFILE_GENDER_OPTIONS}
+          />
         </div>
 
         <p className="text-[11px] text-slate-500 mt-5">

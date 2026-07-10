@@ -10,14 +10,26 @@ export interface Notification {
     | "event_waitlist_signup"
     | "event_waitlist_promoted"
     | "event_kicked"
+    | "event_leave"
+    | "event_cancelled"
     | "event_accepted"
     | "event_joined"
     | "coach_enquiry"
+    | "coach_enquiry_withdrawn"
     | "coach_review"
     | "physio_enquiry"
-    | "physio_review";
+    | "physio_enquiry_withdrawn"
+    | "physio_review"
+    | "discussion_new_post"
+    | "discussion_post_like"
+    | "discussion_post_comment"
+    | "discussion_comment_like"
+    | "account_reactivated"
+    | "admin_team_removed"
+    | "admin_event_removed";
   is_read: boolean;
   created_at: string;
+  push_eligible?: boolean;
   friendship_id: string | null;
   team_id: string | null;
   event_id: string | null;

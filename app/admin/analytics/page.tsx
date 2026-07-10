@@ -12,6 +12,7 @@ import {
   Shield,
   Users,
 } from "lucide-react";
+import { FormSelect } from "@/components/ui/form-select";
 
 interface DayCount {
   date: string;
@@ -119,15 +120,16 @@ export default function AdminAnalyticsPage() {
         <p className="text-sm text-zinc-500">
           內建第一方追蹤（頁面瀏覽）＋平台數據趨勢。尚未整合 Google Analytics 等第三方工具。
         </p>
-        <select
-          value={days}
-          onChange={(e) => setDays(Number(e.target.value))}
-          className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
-        >
-          <option value={7}>過去 7 天</option>
-          <option value={30}>過去 30 天</option>
-          <option value={90}>過去 90 天</option>
-        </select>
+        <FormSelect
+          value={String(days)}
+          onValueChange={(v) => setDays(Number(v))}
+          triggerClassName="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-blue-500 w-auto min-w-[8rem]"
+          options={[
+            { value: "7", label: "過去 7 天" },
+            { value: "30", label: "過去 30 天" },
+            { value: "90", label: "過去 90 天" },
+          ]}
+        />
       </div>
 
       {error && (

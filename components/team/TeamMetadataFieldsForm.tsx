@@ -3,6 +3,7 @@
 import type { SportCategory } from "@/types/team";
 import { SPORT_CATEGORIES } from "@/lib/sports-categories";
 import { getTeamMetaFields, TEAM_CARD_BIO_MAX } from "@/lib/team-metadata-fields";
+import { FormSelect } from "@/components/ui/form-select";
 
 const inputCls =
   "w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-500 transition";
@@ -93,18 +94,13 @@ export function TeamMetadataFieldsForm({
                 </div>
               )}
               {field.type === "select" && (
-                <select
-                  className={inputCls}
+                <FormSelect
                   value={(metadata[field.key] as string) ?? ""}
-                  onChange={(e) => setMeta(field.key, e.target.value)}
-                >
-                  <option value="">-- 請選擇 --</option>
-                  {field.options?.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
+                  onValueChange={(v) => setMeta(field.key, v)}
+                  triggerClassName={inputCls}
+                  placeholder="-- 請選擇 --"
+                  options={field.options ?? []}
+                />
               )}
               {field.type === "boolean" && (
                 <label className="flex items-center gap-3 p-3 bg-slate-950/50 border border-slate-800 rounded-xl cursor-pointer hover:bg-slate-900 transition-colors">

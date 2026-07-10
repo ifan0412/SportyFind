@@ -5,6 +5,7 @@ import { RichTextEditor } from "@/components/admin/RichTextEditor";
 import { PhysioServiceTypePicker } from "@/components/physio/PhysioServiceTypePicker";
 import { normalizePhysioProfileTags } from "@/lib/physio-service-types";
 import { BIO_CHAR_SUGGESTED_MAX, BIO_CHAR_SUGGESTED_RANGE } from "@/lib/content/body";
+import { FormSelect } from "@/components/ui/form-select";
 
 interface PhysioTabProps {
   editForm?: any;
@@ -46,15 +47,16 @@ export function PhysioTab({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label className="text-[10px] text-zinc-500 font-bold uppercase block pl-1">狀態</label>
-              <select
+              <FormSelect
                 value={editForm.physio_status || "hidden"}
-                onChange={(e) => onFieldChange("physio_status", e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:border-emerald-500 transition-colors outline-none"
-              >
-                <option value="available">🟢 開放預約</option>
-                <option value="full">🔴 滿診中</option>
-                <option value="hidden">🔒 未發布 (隱藏)</option>
-              </select>
+                onValueChange={(v) => onFieldChange?.("physio_status", v)}
+                triggerClassName="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:border-emerald-500 transition-colors outline-none"
+                options={[
+                  { value: "available", label: "🟢 開放預約" },
+                  { value: "full", label: "🔴 滿診中" },
+                  { value: "hidden", label: "🔒 未發布 (隱藏)" },
+                ]}
+              />
             </div>
             <div className="space-y-1.5">
               <label className="text-[10px] text-zinc-500 font-bold uppercase block pl-1">所屬診所 / 工作室名稱</label>

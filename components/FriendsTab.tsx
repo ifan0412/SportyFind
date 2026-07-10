@@ -5,6 +5,7 @@ import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { Users, Clock, Send, UserX, Check, X } from "lucide-react";
 import { GenderAvatarBadge } from "@/components/profile/GenderBadge";
+import { appConfirm } from "@/lib/app-dialog";
 
 // ── Supabase response shapes ───────────────────────────────────────────────
 interface ProfileJoin {
@@ -289,9 +290,11 @@ export function FriendsTab({ currentUserId }: FriendsTabProps) {
 
   // ── Unfriend ─────────────────────────────────────────────────────────────
   const handleUnfriend = async (friendship: Friendship) => {
-    // ✅ 加入確認對話框
-    const isConfirmed = window.confirm(`確定要與 ${friendship.friend.full_name || "這位運動員"} 解除好友關係嗎？`);
-    if (!isConfirmed) return; // 如果使用者點擊「取消」，則中斷執行
+    const isConfirmed = await appConfirm({
+      message: `確定要與 ${friendship.friend.full_name || "這位運動員"} 解除好友關係嗎？`,
+      destructive: true,
+    });
+    if (!isConfirmed) return;
 
     if (isProcessing(friendship.id)) return;
     startProcessing(friendship.id);
