@@ -84,14 +84,14 @@ export function ShareToFriendsModal({ open, onClose, payload }: ShareToFriendsMo
   };
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div className="fixed inset-x-0 top-0 bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] sm:inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-4">
       <button
         type="button"
         aria-label="關閉"
         className="absolute inset-0 bg-slate-950/80"
         onClick={onClose}
       />
-      <div className="relative w-full sm:max-w-md bg-slate-900 border border-slate-800 rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[85vh] flex flex-col">
+      <div className="relative w-full sm:max-w-md bg-slate-900 border border-slate-800 rounded-t-3xl sm:rounded-3xl shadow-2xl h-full sm:h-auto sm:max-h-[85vh] flex flex-col min-h-0">
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800 shrink-0">
           <h2 className="text-sm font-black text-white">分享給 SportyFind 好友</h2>
           <button
@@ -167,7 +167,7 @@ export function ShareToFriendsModal({ open, onClose, payload }: ShareToFriendsMo
           )}
         </div>
 
-        <div className="px-5 py-4 border-t border-slate-800 shrink-0 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] sm:pb-4">
+        <div className="px-5 py-4 border-t border-slate-800 shrink-0">
           <button
             type="button"
             disabled={selected.size === 0 || sending}
