@@ -31,6 +31,7 @@ import {
   sportFilterCategory,
 } from "@/components/filters/filter-helpers";
 import type { MobileFilterValues } from "@/components/filters/types";
+import { isCoachPubliclyListed } from "@/lib/role-listing";
 
 interface CoachServiceRow {
   id: string;
@@ -50,6 +51,7 @@ interface CoachServiceRow {
     avatar_url: string | null;
     coach_teaching_experience_years: number | null;
     coach_qualification_tags?: string[] | null;
+    is_coach?: boolean | null;
   } | null;
 }
 
@@ -104,11 +106,12 @@ export default function CoachesPage() {
         .select(`
           id, coach_id, sport_category, title, description, location,
           districts, subdistricts, teaching_experience_years, hourly_rate, pricing_mode,
-          profiles!coach_id (
-            full_name, headline, avatar_url, coach_teaching_experience_years, coach_qualification_tags
+          profiles!coach_id!inner (
+            full_name, headline, avatar_url, coach_teaching_experience_years, coach_qualification_tags, is_coach
           )
         `)
         .eq("is_active", true)
+        .eq("profiles.is_coach", true)
         .order("sort_order", { ascending: true })
         .order("created_at", { ascending: true });
 
@@ -116,23 +119,34 @@ export default function CoachesPage() {
 
       const { data, error } = await query;
       if (!error && data) {
-        setServices(data as unknown as CoachServiceRow[]);
-      } else if (error?.message?.includes("coach_qualification_tags")) {
+        setServices(
+          (data as unknown as CoachServiceRow[]).filter((row) =>
+            isCoachPubliclyListed(row.profiles)
+          )
+        );
+      } else if (error?.message?.includes("coach_qualification_tags") || error?.message?.includes("is_coach")) {
         let fallbackQuery = supabase
           .from("coach_services")
           .select(`
             id, coach_id, sport_category, title, description, location,
             districts, subdistricts, teaching_experience_years, hourly_rate, pricing_mode,
-            profiles!coach_id (
-              full_name, headline, avatar_url, coach_teaching_experience_years
+            profiles!coach_id!inner (
+              full_name, headline, avatar_url, coach_teaching_experience_years, is_coach
             )
           `)
           .eq("is_active", true)
+          .eq("profiles.is_coach", true)
           .order("sort_order", { ascending: true })
           .order("created_at", { ascending: true });
         if (currentUserId) fallbackQuery = fallbackQuery.neq("coach_id", currentUserId);
         const { data: fallback } = await fallbackQuery;
-        if (fallback) setServices(fallback as unknown as CoachServiceRow[]);
+        if (fallback) {
+          setServices(
+            (fallback as unknown as CoachServiceRow[]).filter((row) =>
+              isCoachPubliclyListed(row.profiles)
+            )
+          );
+        }
       }
       setIsLoading(false);
     };

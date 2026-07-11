@@ -22,6 +22,7 @@ import { RichBody } from "@/components/content/RichBody";
 import { SportCategoryBadge } from "@/components/sports/SportCategoryBadge";
 import { formatCoachServicePrice } from "@/lib/coach-pricing";
 import { ENQUIRY_MESSAGE_MAX, clampEnquiryMessage } from "@/lib/service-enquiry";
+import { isCoachServicePubliclyVisible } from "@/lib/role-listing";
 
 export default function CoachServiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: serviceId } = use(params);
@@ -56,11 +57,16 @@ export default function CoachServiceDetailPage({ params }: { params: Promise<{ i
 
       const { data: srv, error: srvErr } = await supabase
         .from("coach_services")
-        .select(`*, coach:profiles (id, full_name, avatar_url, bio)`)
+        .select(`*, coach:profiles (id, full_name, avatar_url, bio, is_coach)`)
         .eq("id", serviceId)
         .single();
 
       if (srvErr) throw new Error(srvErr.message);
+
+      if (!isCoachServicePubliclyVisible(srv, srv.coach, user?.id, srv.coach_id)) {
+        setService(null);
+        return;
+      }
       setService(srv);
 
       const { data: revs, error: revErr } = await supabase

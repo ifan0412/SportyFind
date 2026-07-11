@@ -33,6 +33,7 @@ import { AppChromeSticky } from "@/components/layout/AppChromeSticky";
 import { getSportCategory } from "@/lib/sports-categories";
 import { listSportMetadataEntries } from "@/lib/sport-positions";
 import { isProfileUuid, profileLink, profileSlug } from "@/lib/profile-links";
+import { isCoachPubliclyListed, isPhysioPubliclyListed } from "@/lib/role-listing";
 
 const FacebookIcon = ({ className }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" /></svg>
@@ -210,13 +211,26 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
         const isOwner = uid === targetId;
         setCurrentUserId(uid);
 
+        const coachServicesQuery = supabase
+          .from("coach_services")
+          .select("*")
+          .eq("coach_id", targetId)
+          .order("sort_order", { ascending: true })
+          .order("created_at", { ascending: true });
+        const physioServicesQuery = supabase
+          .from("physio_services")
+          .select("*")
+          .eq("physio_id", targetId)
+          .order("sort_order", { ascending: true })
+          .order("created_at", { ascending: true });
+
         const [{ data: coachSvc }, { data: physioSvc }] = await Promise.all([
-          isOwner
-            ? supabase.from("coach_services").select("*").eq("coach_id", targetId).order("sort_order", { ascending: true }).order("created_at", { ascending: true })
-            : supabase.from("coach_services").select("*").eq("coach_id", targetId).eq("is_active", true).order("sort_order", { ascending: true }).order("created_at", { ascending: true }),
-          isOwner
-            ? supabase.from("physio_services").select("*").eq("physio_id", targetId).order("sort_order", { ascending: true }).order("created_at", { ascending: true })
-            : supabase.from("physio_services").select("*").eq("physio_id", targetId).eq("is_active", true).order("sort_order", { ascending: true }).order("created_at", { ascending: true }),
+          isOwner || isCoachPubliclyListed(p)
+            ? (isOwner ? coachServicesQuery : coachServicesQuery.eq("is_active", true))
+            : Promise.resolve({ data: null, error: null }),
+          isOwner || isPhysioPubliclyListed(p)
+            ? (isOwner ? physioServicesQuery : physioServicesQuery.eq("is_active", true))
+            : Promise.resolve({ data: null, error: null }),
         ]);
         if (coachSvc) setCoachServices(coachSvc);
         if (physioSvc) {
