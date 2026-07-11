@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { isSiteAdmin } from "@/lib/admin";
-import { sendAccountReactivationEmail } from "@/lib/account-suspension";
+import { sendAccountReactivationEmail } from "@/lib/account-reactivation-email";
 
 export async function POST(request: Request) {
   const cookieStore = await cookies();

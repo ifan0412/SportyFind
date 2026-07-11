@@ -128,7 +128,17 @@ export default function HomePage() {
           </div>
         </div>
 
-        <div className="w-full max-w-2xl border-t border-slate-800/60 pt-10 mt-6">
+        <div className="w-full max-w-2xl px-2 mb-10">
+          <Link
+            href="/feedback"
+            className="group flex items-center justify-center gap-2 w-full py-3.5 rounded-2xl border border-slate-800 bg-slate-900/40 text-sm font-black text-zinc-300 hover:text-white hover:border-slate-700 hover:bg-slate-900/70 transition"
+          >
+            <span className="text-blue-400 group-hover:text-blue-300">✉</span>
+            意見回饋 / 查詢 / 舉報
+          </Link>
+        </div>
+
+        <div className="w-full max-w-2xl border-t border-slate-800/60 pt-10 mt-2">
           <div className="flex flex-wrap justify-center items-center gap-4 md:gap-10 text-xs font-black tracking-[0.15em] uppercase text-slate-600">
             {(
               [
