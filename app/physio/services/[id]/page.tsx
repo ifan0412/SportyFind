@@ -23,6 +23,7 @@ import { formatPhysioServicePrice } from "@/lib/coach-pricing";
 import { PhysioServiceTypeBadges } from "@/components/physio/PhysioServiceTypePicker";
 import { normalizePhysioServiceTypes } from "@/lib/physio-service-types";
 import { ENQUIRY_MESSAGE_MAX, clampEnquiryMessage } from "@/lib/service-enquiry";
+import { isPhysioServicePubliclyVisible } from "@/lib/role-listing";
 
 export default function PhysioServiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: serviceId } = use(params);
@@ -57,11 +58,16 @@ export default function PhysioServiceDetailPage({ params }: { params: Promise<{ 
 
       const { data: srv, error: srvErr } = await supabase
         .from("physio_services")
-        .select(`*, physio:profiles!physio_id (id, full_name, avatar_url, physio_qualifications)`)
+        .select(`*, physio:profiles!physio_id (id, full_name, avatar_url, physio_qualifications, is_physio, physio_status)`)
         .eq("id", serviceId)
         .single();
 
       if (srvErr) throw new Error(srvErr.message);
+
+      if (!isPhysioServicePubliclyVisible(srv, srv.physio, user?.id, srv.physio_id)) {
+        setService(null);
+        return;
+      }
       setService(srv);
 
       const { data: revs, error: revErr } = await supabase

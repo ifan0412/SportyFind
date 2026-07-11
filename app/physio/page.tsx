@@ -29,6 +29,7 @@ import {
   physioServiceTypeCategory,
 } from "@/components/filters/filter-helpers";
 import type { MobileFilterValues } from "@/components/filters/types";
+import { isPhysioPubliclyListed } from "@/lib/role-listing";
 
 interface PhysioProfile {
   id: string;
@@ -114,7 +115,7 @@ export default function PhysioPage() {
       }
 
       if (data) {
-        const rows = data as PhysioProfile[];
+        const rows = (data as PhysioProfile[]).filter((p) => isPhysioPubliclyListed(p));
 
         const { data: tagRows } = await supabase
           .from("profiles")
