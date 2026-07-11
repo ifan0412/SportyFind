@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useLayoutEffect } from "react";
+import { createPortal } from "react-dom";
 import { Calendar, Download, ExternalLink } from "lucide-react";
 
 interface EventCalendarProps {
@@ -16,30 +17,82 @@ interface EventCalendarProps {
   menuPlacement?: "up" | "down";
 }
 
+const MENU_WIDTH = 208;
+const MENU_GAP = 8;
+const VIEWPORT_PAD = 12;
+
 export default function CalendarExportButton({
   event,
   menuPlacement = "down",
 }: EventCalendarProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
-  // 點擊選單外部自動關閉
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
+  const updateMenuPosition = () => {
+    const btn = buttonRef.current;
+    if (!btn) return;
+
+    const rect = btn.getBoundingClientRect();
+    const menuHeight = menuRef.current?.offsetHeight ?? 88;
+
+    let left = rect.left;
+    if (left + MENU_WIDTH > window.innerWidth - VIEWPORT_PAD) {
+      left = rect.right - MENU_WIDTH;
+    }
+    left = Math.max(
+      VIEWPORT_PAD,
+      Math.min(left, window.innerWidth - MENU_WIDTH - VIEWPORT_PAD)
+    );
+
+    const top =
+      menuPlacement === "up"
+        ? rect.top - menuHeight - MENU_GAP
+        : rect.bottom + MENU_GAP;
+
+    setMenuPos({ top, left });
+  };
+
+  useLayoutEffect(() => {
+    if (!isOpen) {
+      setMenuPos(null);
+      return;
+    }
+
+    updateMenuPosition();
+    requestAnimationFrame(updateMenuPosition);
+
+    window.addEventListener("resize", updateMenuPosition);
+    window.addEventListener("scroll", updateMenuPosition, true);
+    return () => {
+      window.removeEventListener("resize", updateMenuPosition);
+      window.removeEventListener("scroll", updateMenuPosition, true);
     };
+  }, [isOpen, menuPlacement]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (
+        buttonRef.current?.contains(target) ||
+        menuRef.current?.contains(target)
+      ) {
+        return;
+      }
+      setIsOpen(false);
+    };
+
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [isOpen]);
 
-  // 將 ISO 日期轉換為 iCalendar (RFC 5545) UTC 標準格式：YYYYMMDDTHHMMSSZ
   const formatIcsDate = (dateStr: string) => {
     return new Date(dateStr).toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
   };
 
-  // 下載 .ics 檔案 (支援 Apple Calendar、Outlook 與系統內建行事曆)
   const downloadIcsFile = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -78,7 +131,6 @@ export default function CalendarExportButton({
     setIsOpen(false);
   };
 
-  // 一鍵開啟 Google 行事曆新增頁面
   const openGoogleCalendar = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -98,9 +150,46 @@ export default function CalendarExportButton({
     setIsOpen(false);
   };
 
+  const menu =
+    isOpen &&
+    menuPos &&
+    typeof document !== "undefined" &&
+    createPortal(
+      <div
+        ref={menuRef}
+        style={{
+          position: "fixed",
+          top: menuPos.top,
+          left: menuPos.left,
+          width: MENU_WIDTH,
+        }}
+        className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl py-1.5 z-[200] overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+      >
+        <button
+          type="button"
+          onClick={downloadIcsFile}
+          className="w-full px-3.5 py-2.5 text-left text-xs font-bold text-zinc-200 hover:bg-slate-800 flex items-center gap-2.5 transition"
+        >
+          <Download className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+          <span>Apple／Outlook 行事曆（.ics）</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={openGoogleCalendar}
+          className="w-full px-3.5 py-2.5 text-left text-xs font-bold text-zinc-200 hover:bg-slate-800 flex items-center gap-2.5 transition"
+        >
+          <ExternalLink className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+          <span>Google 行事曆</span>
+        </button>
+      </div>,
+      document.body
+    );
+
   return (
-    <div className="relative inline-block text-left" ref={dropdownRef}>
+    <div className="relative inline-block text-left">
       <button
+        ref={buttonRef}
         type="button"
         onClick={(e) => {
           e.preventDefault();
@@ -113,32 +202,7 @@ export default function CalendarExportButton({
         <Calendar className="w-3.5 h-3.5 text-amber-400" />
         <span>加入行事曆</span>
       </button>
-
-      {isOpen && (
-        <div
-          className={`absolute right-0 w-52 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl py-1.5 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 ${
-            menuPlacement === "up" ? "bottom-full mb-2" : "top-full mt-2"
-          }`}
-        >
-          <button
-            type="button"
-            onClick={downloadIcsFile}
-            className="w-full px-3.5 py-2.5 text-left text-xs font-bold text-zinc-200 hover:bg-slate-800 flex items-center gap-2.5 transition"
-          >
-            <Download className="w-3.5 h-3.5 text-blue-400" />
-            <span>Apple／Outlook 行事曆（.ics）</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={openGoogleCalendar}
-            className="w-full px-3.5 py-2.5 text-left text-xs font-bold text-zinc-200 hover:bg-slate-800 flex items-center gap-2.5 transition"
-          >
-            <ExternalLink className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Google 行事曆</span>
-          </button>
-        </div>
-      )}
+      {menu}
     </div>
   );
 }

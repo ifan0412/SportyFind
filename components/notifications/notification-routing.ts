@@ -13,6 +13,7 @@ export function getNotificationHref(notif: Notification): string {
   if (notif.type === "admin_team_removed") return "/profile?tab=teams";
   if (notif.type === "admin_event_removed") return "/events/my";
   if (notif.type === "team_join_request" && notif.team_id) return `/team/${notif.team_id}/admin`;
+  if (notif.type === "team_member_left" && notif.team_id) return `/team/${notif.team_id}/admin`;
   if (
     (notif.type === "team_request_accepted" || notif.type === "team_request_rejected") &&
     notif.team_id

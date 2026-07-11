@@ -23,6 +23,8 @@ import { formatPhysioServicePrice } from "@/lib/coach-pricing";
 import { PhysioServiceTypeBadges } from "@/components/physio/PhysioServiceTypePicker";
 import { normalizePhysioServiceTypes } from "@/lib/physio-service-types";
 import { ENQUIRY_MESSAGE_MAX, clampEnquiryMessage } from "@/lib/service-enquiry";
+import { ShareMenu } from "@/components/share/ShareMenu";
+import type { SharePayload } from "@/lib/share-payload";
 export default function PhysioServiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: serviceId } = use(params);
   const returnTo = `/physio/services/${serviceId}`;
@@ -236,6 +238,14 @@ export default function PhysioServiceDetailPage({ params }: { params: Promise<{ 
 
   const isMyOwnService = currentUser?.id === service.physio_id;
   const priceDisplay = formatPhysioServicePrice(service);
+  const sharePayload: SharePayload = {
+    type: "physio_service",
+    id: serviceId,
+    url: typeof window !== "undefined" ? window.location.href : returnTo,
+    title: service.title,
+    subtitle: `${priceDisplay.main}${priceDisplay.unit ?? ""}`,
+    imageUrl: service.cover_image_url || service.physio?.avatar_url || undefined,
+  };
 
   return (
     <div className="bg-slate-950 min-h-screen py-10 px-4 sm:px-6 lg:px-8 text-white">
@@ -244,15 +254,18 @@ export default function PhysioServiceDetailPage({ params }: { params: Promise<{ 
           <button onClick={() => router.back()} className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white font-bold transition cursor-pointer">
             <ArrowLeft className="w-4 h-4" /> 返回上一頁
           </button>
-          {isMyOwnService && (
-            <Link
-              href={`/dashboard/physio?subtab=services&service=${serviceId}`}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-green-600 hover:bg-green-500 text-white text-sm font-black transition shadow-[0_0_15px_rgba(34,197,94,0.25)] cursor-pointer"
-            >
-              <Settings className="w-4 h-4" />
-              管理此項目 →
-            </Link>
-          )}
+          <div className="flex flex-wrap items-center gap-2 ml-auto">
+            <ShareMenu payload={sharePayload} label="分享服務" />
+            {isMyOwnService && (
+              <Link
+                href={`/dashboard/physio?subtab=services&service=${serviceId}`}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-green-600 hover:bg-green-500 text-white text-sm font-black transition shadow-[0_0_15px_rgba(34,197,94,0.25)] cursor-pointer"
+              >
+                <Settings className="w-4 h-4" />
+                管理此項目 →
+              </Link>
+            )}
+          </div>
         </div>
 
         <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl relative">

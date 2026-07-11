@@ -7,11 +7,13 @@ import { safeSupabaseQuery } from "@/lib/supabase/safe-query";
 import { useAuth } from "@/components/SupabaseProvider";
 import { 
   Calendar, MapPin, Users, Shield, Trophy, AlertTriangle, 
-  UserCheck, ArrowLeft, Loader2, User as UserIcon, Trash2, Share2, Check, Pencil
+  UserCheck, ArrowLeft, Loader2, User as UserIcon, Trash2, Pencil
 } from "lucide-react";
 import Link from "next/link";
 import EventLobbyBoard from "@/components/EventLobbyBoard";
 import CalendarExportButton from "@/components/CalendarExportButton";
+import { ShareMenu } from "@/components/share/ShareMenu";
+import type { SharePayload } from "@/lib/share-payload";
 import { profileLink } from "@/lib/profile-links";
 import { formatEventPeriod } from "@/lib/event-datetime";
 import {
@@ -61,7 +63,6 @@ export default function EventDetailPage() {
   
   const [isLoading, setIsLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
-  const [isCopied, setIsCopied] = useState(false);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [editDescription, setEditDescription] = useState("");
   const [isSavingDescription, setIsSavingDescription] = useState(false);
@@ -447,26 +448,16 @@ export default function EventDetailPage() {
   const hoursToStart = (new Date(event.start_time).getTime() - Date.now()) / (3600 * 1000);
   const isLateInfractionTrigger = hoursToStart < (event.late_cancellation_hours || 24);
 
-  const handleShare = async () => {
-    const shareUrl = window.location.href;
-    const shareTitle = `⚡ 運動約戰：${event.title}`;
-    const shareText = `時間：${formatEventPeriod(event.start_time, event.end_time)}\n地點：${event.location_name}\n快點擊連結查看詳情與報名吧！`;
-
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: shareTitle, text: shareText, url: shareUrl });
-        return;
-      } catch (err) {}
-    }
-
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-      setIsCopied(true);
-      setTimeout(() => setIsCopied(false), 2000);
-    } catch (err) {
-      toast.error("複製失敗，請直接從瀏覽器網址列複製！");
-    }
-  };
+  const sharePayload: SharePayload | null = event
+    ? {
+        type: "event",
+        id: eventId,
+        url: typeof window !== "undefined" ? window.location.href : `/events/${eventId}`,
+        title: event.title,
+        subtitle: `${formatEventPeriod(event.start_time, event.end_time)} · ${event.location_name}`,
+        imageUrl: event.cover_image_url || undefined,
+      }
+    : null;
 
   const handleDeleteEvent = async () => {
     const confirmed = await appConfirm({
@@ -836,17 +827,9 @@ export default function EventDetailPage() {
             <ArrowLeft className="w-4 h-4" /> 返回上一頁
           </button>
 
-          <button
-            type="button"
-            onClick={handleShare}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-xs font-black text-zinc-200 hover:text-white transition shadow-sm active:scale-95 cursor-pointer"
-          >
-            {isCopied ? (
-              <><Check className="w-3.5 h-3.5 text-emerald-400" /><span className="text-emerald-400">已複製連結</span></>
-            ) : (
-              <><Share2 className="w-3.5 h-3.5 text-blue-400" /><span>分享 / 轉發賽事/活動</span></>
-            )}
-          </button>
+          {sharePayload ? (
+            <ShareMenu payload={sharePayload} label="分享賽事/活動" />
+          ) : null}
         </div>
 
         {/* 頂部活動資訊卡 */}

@@ -1,5 +1,7 @@
 "use client";
 
+import { toast } from "sonner";
+import { appConfirm } from "@/lib/app-dialog";
 import { useEffect, useState, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { useParams, useRouter } from "next/navigation";
@@ -28,6 +30,8 @@ import {
   readTeamDetailBack,
 } from "@/lib/team-listing-state";
 import { GenderAvatarBadge } from "@/components/profile/GenderBadge";
+import { ShareMenu } from "@/components/share/ShareMenu";
+import type { SharePayload } from "@/lib/share-payload";
 const DiscussionBoard = dynamic(
   () => import("@/components/discussion/DiscussionBoard").then((m) => m.DiscussionBoard),
   {
@@ -154,6 +158,7 @@ export default function TeamDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [joinState, setJoinState] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [joinError, setJoinError] = useState<string | null>(null);
+  const [leaveState, setLeaveState] = useState<"idle" | "loading">("idle");
   const [activeTab, setActiveTab] = useState<"about" | "discussion" | "media" | "members">("about");
   const [backHref, setBackHref] = useState("/team");
   const [backLabel, setBackLabel] = useState("← 返回團隊列表");
@@ -274,6 +279,49 @@ export default function TeamDetailPage() {
     ]);
   };
 
+  const handleLeaveTeam = async (mode: "member" | "pending") => {
+    if (!currentUserId) {
+      router.push("/auth");
+      return;
+    }
+
+    const confirmed = await appConfirm({
+      title: mode === "pending" ? "取消申請" : "離開群組",
+      message:
+        mode === "pending"
+          ? `確定要取消加入「${team?.name_en || team?.name_zh || "此群組"}」的申請嗎？`
+          : `確定要離開「${team?.name_en || team?.name_zh || "此群組"}」嗎？`,
+      confirmLabel: mode === "pending" ? "取消申請" : "離開",
+      destructive: true,
+    });
+    if (!confirmed) return;
+
+    setLeaveState("loading");
+    setJoinError(null);
+
+    const { data, error } = await supabase.rpc("leave_team", { p_team_id: id });
+
+    if (error) {
+      setJoinError(error.message);
+      setLeaveState("idle");
+      toast.error("操作失敗，請稍後再試");
+      return;
+    }
+
+    const result = data as { success?: boolean; message?: string } | null;
+    if (!result?.success) {
+      setJoinError(result?.message || "無法離開群組");
+      setLeaveState("idle");
+      toast.error(result?.message || "無法離開群組");
+      return;
+    }
+
+    setMembers((prev) => prev.filter((m) => m.user_id !== currentUserId));
+    setJoinState("idle");
+    setLeaveState("idle");
+    toast.success(result.message || "已離開群組");
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center text-zinc-500 font-mono text-sm">
@@ -302,6 +350,15 @@ export default function TeamDetailPage() {
   const hasContactInfo = socialLinks.phone || socialLinks.email || socialLinks.ig || socialLinks.fb || socialLinks.youtube || socialLinks.threads;
   const galleryPhotos = parseGalleryPhotos(team.gallery_photos);
   const activeMemberCount = members.filter((m) => m.role !== "pending").length;
+
+  const sharePayload: SharePayload = {
+    type: "team",
+    id: team.id,
+    url: typeof window !== "undefined" ? `${window.location.origin}/team/${team.id}` : `/team/${team.id}`,
+    title: displayName,
+    subtitle: sport?.labelZh || team.sport_category,
+    imageUrl: team.logo_url || team.cover_url || undefined,
+  };
 
   const tabBtn = (tab: typeof activeTab, label: string) => (
     <button
@@ -332,13 +389,14 @@ export default function TeamDetailPage() {
       </div>
 
       <div className="w-full max-w-4xl md:max-w-5xl mx-auto px-4 sm:px-6 relative z-10">
-        <div className="-mt-36 md:-mt-52 mb-6 relative z-30">
+        <div className="-mt-36 md:-mt-52 mb-6 relative z-30 flex items-start justify-between gap-3">
           <Link
             href={backHref}
             className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-950/60 hover:bg-slate-900 border border-slate-800/80 text-sm font-black text-purple-400 hover:text-purple-300 backdrop-blur-md transition shadow-lg"
           >
             {backLabel}
           </Link>
+          {sharePayload ? <ShareMenu payload={sharePayload} label="分享隊伍" /> : null}
         </div>
 
         <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 md:p-8 mb-8 mt-4 relative z-20 shadow-2xl backdrop-blur-md">
@@ -394,13 +452,33 @@ export default function TeamDetailPage() {
                   ⚙️ 管理團隊
                 </Link>
               ) : isMember ? (
-                <span className="block text-center sm:inline-block bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm font-black px-5 py-3.5 rounded-xl">
-                  ✅ 您是成員
-                </span>
+                <div className="flex flex-col gap-2 w-full sm:w-auto">
+                  <span className="block text-center sm:inline-block bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm font-black px-5 py-3.5 rounded-xl">
+                    ✅ 您是成員
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleLeaveTeam("member")}
+                    disabled={leaveState === "loading"}
+                    className="w-full sm:w-auto flex items-center justify-center gap-2 bg-slate-900 hover:bg-red-950/40 border border-slate-700 hover:border-red-500/40 disabled:opacity-60 text-red-300 hover:text-red-200 text-sm font-black px-5 py-3 rounded-xl transition active:scale-95 cursor-pointer"
+                  >
+                    {leaveState === "loading" ? "處理中…" : "離開群組"}
+                  </button>
+                </div>
               ) : isPending ? (
-                <span className="block text-center sm:inline-block bg-slate-800 border border-slate-700 text-zinc-400 text-sm font-black px-5 py-3.5 rounded-xl">
-                  ⏳ 申請審核中
-                </span>
+                <div className="flex flex-col gap-2 w-full sm:w-auto">
+                  <span className="block text-center sm:inline-block bg-slate-800 border border-slate-700 text-zinc-400 text-sm font-black px-5 py-3.5 rounded-xl">
+                    ⏳ 申請審核中
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleLeaveTeam("pending")}
+                    disabled={leaveState === "loading"}
+                    className="w-full sm:w-auto flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 border border-slate-700 hover:border-slate-600 disabled:opacity-60 text-zinc-300 hover:text-white text-sm font-black px-5 py-3 rounded-xl transition active:scale-95 cursor-pointer"
+                  >
+                    {leaveState === "loading" ? "處理中…" : "取消申請"}
+                  </button>
+                </div>
               ) : team.recruitment_status === "open" ? (
                 joinState === "done" ? (
                   <span className="block text-center sm:inline-block bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm font-black px-5 py-3.5 rounded-xl">

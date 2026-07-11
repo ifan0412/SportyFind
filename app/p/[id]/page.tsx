@@ -33,8 +33,10 @@ import { PhoneVerifiedAvatarBadge } from "@/components/profile/PhoneVerifiedBadg
 import { AppChromeSticky } from "@/components/layout/AppChromeSticky";
 import { getSportCategory } from "@/lib/sports-categories";
 import { listSportMetadataEntries } from "@/lib/sport-positions";
-import { isProfileUuid, profileLink, profileSlug } from "@/lib/profile-links";
+import { isProfileUuid, profileLink, profileSlug, profilePublicUrl } from "@/lib/profile-links";
 import { resolveProfileDisplaySports } from "@/lib/display-sports";
+import { ShareMenu } from "@/components/share/ShareMenu";
+import type { SharePayload } from "@/lib/share-payload";
 
 const FacebookIcon = ({ className }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" /></svg>
@@ -416,10 +418,32 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
     currentUserId !== resolvedProfileId &&
     !showUnfriendConfirm &&
     friendshipStatus !== "pending_received";
+
+  const sharePayload: SharePayload | null =
+    profile && resolvedProfileId
+      ? {
+          type: "profile",
+          id: resolvedProfileId,
+        url:
+          typeof window !== "undefined"
+            ? profilePublicUrl(window.location.origin, {
+                id: resolvedProfileId,
+                handle: profile.handle,
+              })
+            : profileLink({ id: resolvedProfileId, handle: profile.handle }),
+        title: profile.full_name || "SportyFind 名片",
+        subtitle: profile.headline || truncatePlainBio(profile.bio || "") || undefined,
+        imageUrl: profile.avatar_url || undefined,
+      }
+      : null;
+
   return (
     <div className="bg-slate-950 min-h-screen text-zinc-200 font-sans selection:bg-blue-500/30">
       <div className={`max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 ${LISTING_PAGE_SHELL_PADDING}`}>
-        <BackButton label={returnTo ? "返回上一頁" : "返回"} href={returnTo || undefined} />
+        <div className="flex items-start justify-between gap-3">
+          <BackButton label={returnTo ? "返回上一頁" : "返回"} href={returnTo || undefined} />
+          {sharePayload ? <ShareMenu payload={sharePayload} label="分享名片" /> : null}
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mt-1 lg:mt-4">
           <div className="lg:col-span-4 xl:col-span-3 space-y-6">
@@ -440,7 +464,9 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
                 </div>
               </div>
               <h1 className="text-2xl font-black text-white tracking-tight mb-0.5">{profile.full_name}</h1>
-              <p className="text-blue-400 font-mono text-xs mb-2">@{profile.handle || "會員"}</p>
+              {profile.handle?.trim() ? (
+                <p className="text-blue-400 font-mono text-xs mb-2">@{profile.handle.trim()}</p>
+              ) : null}
 
               {hasPublicPlayer && (
                 <ProfilePhysicalStatsRow
@@ -466,7 +492,7 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
                 {hasPublicPhysio && <span className="bg-green-500/10 text-green-400 text-[10px] font-black px-2.5 py-0.5 rounded-full border border-green-500/20"><PhysioRoleLabel label="運動/物理治療" /></span>}
               </div>
               
-              <p className="text-xs text-zinc-300 leading-snug text-center bg-slate-900/30 px-3 py-2 rounded-xl border border-slate-800/50 mb-2 line-clamp-3">
+              <p className="text-xs text-zinc-400 leading-snug text-center mb-2 line-clamp-3">
                 {truncatePlainBio(profile.bio || "") || "這位運動員很低調，還沒有留下詳細的自介。"}
               </p>
               <div className="flex items-center justify-center gap-2 text-[11px] text-zinc-500 font-medium mb-3">
@@ -512,8 +538,8 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
             <div className="flex-1 animate-fadeIn">
               {activeRole === "athlete" && hasPublicPlayer && (
                 <div className="space-y-6">
-                  <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-5 md:p-6 shadow-xl">
-                    <h3 className="text-sm font-black text-blue-400 uppercase tracking-wider flex items-center gap-2 mb-2">
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-black text-blue-400 uppercase tracking-wider flex items-center gap-2">
                       <span>👤</span> 運動員 Bio
                     </h3>
                     <RichBody

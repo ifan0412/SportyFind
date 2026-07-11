@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { safeSupabaseQuery } from "@/lib/supabase/safe-query";
+import { sharePreviewText } from "@/lib/share-payload";
 
 export type ConversationSummary = {
   peerId: string;
@@ -11,6 +12,8 @@ export type ConversationSummary = {
 
 export function formatMessagePreview(content: string | null, fromMe: boolean): string {
   if (!content?.trim()) return "尚無訊息，點擊開始聊天…";
+  const shareText = sharePreviewText(content, fromMe);
+  if (shareText) return shareText;
   const prefix = fromMe ? "你: " : "";
   const text = content.trim();
   const clipped = text.length > 42 ? `${text.slice(0, 41)}…` : text;

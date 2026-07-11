@@ -22,6 +22,8 @@ import { RichBody } from "@/components/content/RichBody";
 import { SportCategoryBadge } from "@/components/sports/SportCategoryBadge";
 import { formatCoachServicePrice } from "@/lib/coach-pricing";
 import { ENQUIRY_MESSAGE_MAX, clampEnquiryMessage } from "@/lib/service-enquiry";
+import { ShareMenu } from "@/components/share/ShareMenu";
+import type { SharePayload } from "@/lib/share-payload";
 export default function CoachServiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: serviceId } = use(params);
   const returnTo = `/coaches/services/${serviceId}`;
@@ -243,6 +245,14 @@ export default function CoachServiceDetailPage({ params }: { params: Promise<{ i
 
   const isMyOwnCourse = currentUser?.id === service.coach_id;
   const priceDisplay = formatCoachServicePrice(service);
+  const sharePayload: SharePayload = {
+    type: "coach_service",
+    id: serviceId,
+    url: typeof window !== "undefined" ? window.location.href : returnTo,
+    title: service.title,
+    subtitle: `${priceDisplay.main}${priceDisplay.unit ?? ""}`,
+    imageUrl: service.cover_image_url || service.coach?.avatar_url || undefined,
+  };
 
   return (
     <div className="bg-slate-950 min-h-screen py-10 px-4 sm:px-6 lg:px-8 text-white">
@@ -251,15 +261,18 @@ export default function CoachServiceDetailPage({ params }: { params: Promise<{ i
           <button onClick={() => router.back()} className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white font-bold transition cursor-pointer">
             <ArrowLeft className="w-4 h-4" /> 返回上一頁
           </button>
-          {isMyOwnCourse && (
-            <Link
-              href={`/dashboard/coach?subtab=services&service=${serviceId}`}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-sm font-black transition shadow-[0_0_15px_rgba(234,88,12,0.25)] cursor-pointer"
-            >
-              <Settings className="w-4 h-4" />
-              管理此課程 →
-            </Link>
-          )}
+          <div className="flex flex-wrap items-center gap-2 ml-auto">
+            <ShareMenu payload={sharePayload} label="分享服務" />
+            {isMyOwnCourse && (
+              <Link
+                href={`/dashboard/coach?subtab=services&service=${serviceId}`}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-sm font-black transition shadow-[0_0_15px_rgba(234,88,12,0.25)] cursor-pointer"
+              >
+                <Settings className="w-4 h-4" />
+                管理此課程 →
+              </Link>
+            )}
+          </div>
         </div>
 
         {/* 課程詳細資訊主卡 */}

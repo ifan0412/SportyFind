@@ -15,6 +15,7 @@ export const PUSH_ELIGIBLE_NOTIFICATION_TYPES = [
   "team_join_request",
   "team_request_accepted",
   "team_request_rejected",
+  "team_member_left",
   "event_registration",
   "event_waitlist_signup",
   "event_waitlist_promoted",

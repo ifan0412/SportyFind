@@ -92,6 +92,12 @@ export function NotificationPanel({
                       <span className="text-white">系統通知</span>：您的加入申請已被拒絕
                     </>
                   )}
+                  {notif.type === "team_member_left" && (
+                    <>
+                      <span className="text-white">{notif.sender?.full_name ?? "某成員"}</span>{" "}
+                      已離開您的球隊
+                    </>
+                  )}
                   {notif.type === "event_registration" && (
                     <>
                       <span className="text-white">{notif.sender?.full_name ?? "某人"}</span>{" "}

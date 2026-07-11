@@ -11,6 +11,7 @@ import {
   CHAT_BUBBLE_THEM,
 } from "@/components/chat/styles";
 import { reopenOrSendFriendRequest } from "@/lib/friendships";
+import { MessageShareContent } from "@/components/share/MessageShareContent";
 
 interface Message {
   id: string;
@@ -34,26 +35,9 @@ interface ChatBoxProps {
 }
 
 const PAGE_SIZE = 50;
-const URL_REGEX = /(https?:\/\/[^\s]+)/gi;
 
 function renderMessageContent(content: string) {
-  const parts = content.split(URL_REGEX);
-  return parts.map((part, index) => {
-    if (part.match(URL_REGEX)) {
-      return (
-        <a
-          key={`link-${index}`}
-          href={part}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-blue-300 underline break-all hover:text-blue-200"
-        >
-          {part}
-        </a>
-      );
-    }
-    return <span key={`text-${index}`}>{part}</span>;
-  });
+  return <MessageShareContent content={content} />;
 }
 
 export function ChatBox({
