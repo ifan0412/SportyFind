@@ -40,7 +40,7 @@ export default function HomePage() {
     {
       category: "team",
       href: "/team",
-      title: "競技隊伍",
+      title: "隊伍/團體",
       subtitle: "探索隊伍",
       icon: Shield,
     },

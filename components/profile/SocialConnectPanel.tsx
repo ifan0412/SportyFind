@@ -39,7 +39,7 @@ export function SocialConnectPanel({
 
       <ComingSoonOverlay
         title="即將推出"
-        description="Meta 帳戶連結功能正在準備中。目前請使用電郵及手機驗證以保障帳戶真實性。"
+        description="Meta 帳戶連結功能正在準備中。目前請使用電郵驗證以保障帳戶真實性。"
       >
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 py-1">
           {PLACEHOLDER_PLATFORMS.map((platform) => (

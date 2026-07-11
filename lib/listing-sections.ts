@@ -34,7 +34,7 @@ export const LISTING_SECTIONS: Record<ListingSectionId, ListingSectionConfig> = 
     icon: Shield,
     gradient: CATEGORY_COLORS.team.iconGradient,
     shadow: CATEGORY_COLORS.team.shadow,
-    title: "競技隊伍",
+    title: "隊伍/團體",
     subtitle: "尋找你的歸屬、發起友誼賽、建立無敵陣容。",
     tagline: "探索隊伍",
   },

@@ -7,7 +7,7 @@ import { PasswordRequirements } from "@/components/PasswordRequirements";
 import { getPasswordValidationError, isPasswordValid } from "@/lib/password";
 import { toast } from "sonner";
 import { AlertTriangle, ChevronRight, KeyRound, Loader2, Shield, Trash2, X } from "lucide-react";
-import { PhoneVerificationPanel } from "@/components/profile/PhoneVerificationPanel";
+import { PhoneVerificationComingSoonPanel } from "@/components/profile/PhoneVerificationComingSoonPanel";
 import { SocialConnectPanel } from "@/components/profile/SocialConnectPanel";
 import { isEmailVerified, isOAuthUser } from "@/lib/verification";
 import type { User } from "@supabase/supabase-js";
@@ -16,18 +16,12 @@ interface AccountManagementTabProps {
   user: User;
   userEmail: string | undefined;
   identities?: { provider: string }[];
-  phoneE164?: string | null;
-  phoneVerifiedAt?: string | null;
-  phoneSmsPendingAdminReview?: boolean;
 }
 
 export function AccountManagementTab({
   user,
   userEmail,
   identities,
-  phoneE164,
-  phoneVerifiedAt,
-  phoneSmsPendingAdminReview,
 }: AccountManagementTabProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -165,7 +159,7 @@ export function AccountManagementTab({
   };
 
   return (
-    <div className="animate-fadeIn space-y-6 max-w-2xl">
+    <div className="animate-fadeIn space-y-6 max-w-2xl pb-6">
       <div>
         <h2 className="text-lg md:text-xl font-black text-white flex items-center gap-2">
           <Shield className="w-5 h-5 text-blue-400" />
@@ -201,13 +195,7 @@ export function AccountManagementTab({
         </div>
       </div>
 
-      <div id="phone-verify">
-        <PhoneVerificationPanel
-          initialPhone={phoneE164}
-          initialVerifiedAt={phoneVerifiedAt}
-          initialPendingAdminReview={phoneSmsPendingAdminReview}
-        />
-      </div>
+      <PhoneVerificationComingSoonPanel />
 
       <SocialConnectPanel userId={user.id} context="profile" accent="blue" />
 
