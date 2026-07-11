@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { safeSupabaseQuery } from "@/lib/supabase/safe-query";
 import { filterActiveAnnouncementsForPath } from "@/lib/announcements/active";
 import { dismissPopup, isPopupDismissed } from "@/lib/announcements/dismiss";
 import type { SitePopupAnnouncement } from "@/lib/announcements/types";
@@ -13,10 +14,12 @@ export function SiteAnnouncementHost() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [announcements, setAnnouncements] = useState<SitePopupAnnouncement[]>([]);
   const [tempHiddenIds, setTempHiddenIds] = useState<Set<string>>(new Set());
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
   const [queueIndex, setQueueIndex] = useState(0);
 
   useEffect(() => {
     setTempHiddenIds(new Set());
+    setDismissedIds(new Set());
     setQueueIndex(0);
   }, [pathname]);
 
@@ -24,17 +27,17 @@ export function SiteAnnouncementHost() {
     let cancelled = false;
 
     const load = async () => {
-      const { data, error } = await supabase
-        .from("site_popup_announcements")
-        .select("*")
-        .eq("status", "published");
+      const { data, error } = await safeSupabaseQuery(
+        supabase.from("site_popup_announcements").select("*").eq("status", "published")
+      );
 
-      if (cancelled || error) return;
+      if (cancelled) return;
+      if (error) return;
       setAnnouncements((data as SitePopupAnnouncement[]) || []);
     };
 
-    load();
-    const interval = window.setInterval(load, 60_000);
+    void load();
+    const interval = window.setInterval(() => void load(), 60_000);
     return () => {
       cancelled = true;
       window.clearInterval(interval);
@@ -43,12 +46,13 @@ export function SiteAnnouncementHost() {
 
   const eligible = useMemo(() => {
     return filterActiveAnnouncementsForPath(announcements, pathname).filter((a) => {
+      if (dismissedIds.has(a.id)) return false;
       if (a.dismiss_mode === "until_end") {
         return !tempHiddenIds.has(a.id);
       }
       return !isPopupDismissed(a.id, a.dismiss_mode);
     });
-  }, [announcements, pathname, tempHiddenIds]);
+  }, [announcements, pathname, tempHiddenIds, dismissedIds]);
 
   const current = eligible[queueIndex] ?? null;
 
@@ -59,6 +63,7 @@ export function SiteAnnouncementHost() {
       setTempHiddenIds((prev) => new Set(prev).add(current.id));
     } else {
       dismissPopup(current.id, current.dismiss_mode);
+      setDismissedIds((prev) => new Set(prev).add(current.id));
     }
 
     setQueueIndex(0);

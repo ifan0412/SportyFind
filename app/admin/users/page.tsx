@@ -5,7 +5,7 @@ import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { AdminShell } from "@/components/admin/AdminShell";
 import { appConfirm, appPrompt } from "@/lib/app-dialog";
-import { Loader2, Search, User, Ban, UserCheck } from "lucide-react";
+import { Loader2, Search, User, Ban, UserCheck, Trash2, Phone } from "lucide-react";
 import { toast } from "sonner";
 
 interface AdminUser {
@@ -23,6 +23,9 @@ interface AdminUser {
   is_suspended: boolean;
   suspended_at: string | null;
   suspended_reason: string | null;
+  phone_sms_pending_admin_review: boolean;
+  phone_sms_review_requested_at: string | null;
+  phone_verified_at: string | null;
 }
 
 export default function AdminUsersPage() {
@@ -30,9 +33,42 @@ export default function AdminUsersPage() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<"all" | "active" | "suspended">("all");
+  const [filter, setFilter] = useState<"all" | "active" | "suspended" | "sms_review">("all");
   const [error, setError] = useState<string | null>(null);
   const [actingId, setActingId] = useState<string | null>(null);
+  const [isCleaningSeed, setIsCleaningSeed] = useState(false);
+
+  const handleCleanupSeedProfiles = async () => {
+    const ok = await appConfirm({
+      title: "清除種子假帳號",
+      message: "永久刪除開發時植入的假運動員檔案（李慧詩 Sarah、張宇 Marco 等）？此動作無法復原。",
+      confirmLabel: "永久刪除",
+      destructive: true,
+    });
+    if (!ok) return;
+
+    setIsCleaningSeed(true);
+    const { data, error: rpcError } = await supabase.rpc("admin_cleanup_seed_profiles");
+    setIsCleaningSeed(false);
+
+    if (rpcError) {
+      toast.error(
+        rpcError.message.includes("admin_cleanup_seed_profiles")
+          ? "請先在 Supabase SQL Editor 執行 supabase/migrations/045_cleanup_seed_profiles.sql"
+          : rpcError.message
+      );
+      return;
+    }
+    const result = data as { success?: boolean; deleted_auth_users?: number; deleted_orphan_profiles?: number };
+    if (!result?.success) {
+      toast.error("清除失敗");
+      return;
+    }
+    toast.success(
+      `已清除種子假帳號（auth: ${result.deleted_auth_users ?? 0}、孤立檔案: ${result.deleted_orphan_profiles ?? 0}）`
+    );
+    fetchUsers();
+  };
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -51,10 +87,16 @@ export default function AdminUsersPage() {
     fetchUsers();
   }, [fetchUsers]);
 
+  const smsReviewCount = useMemo(
+    () => users.filter((u) => u.phone_sms_pending_admin_review).length,
+    [users]
+  );
+
   const filtered = useMemo(() => {
     let list = users;
     if (filter === "active") list = list.filter((u) => !u.is_suspended);
     if (filter === "suspended") list = list.filter((u) => u.is_suspended);
+    if (filter === "sms_review") list = list.filter((u) => u.phone_sms_pending_admin_review);
     if (!search.trim()) return list;
     const q = search.toLowerCase();
     return list.filter(
@@ -105,6 +147,62 @@ export default function AdminUsersPage() {
       await fetchUsers();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "暫停失敗");
+    } finally {
+      setActingId(null);
+    }
+  };
+
+  const handleDelete = async (u: AdminUser) => {
+    const ok = await appConfirm({
+      title: "永久刪除用戶",
+      message: `確定要永久刪除「${displayName(u)}」(${u.email})？此動作無法復原，將一併刪除檔案、訊息與相關資料。`,
+      confirmLabel: "永久刪除",
+      destructive: true,
+    });
+    if (!ok) return;
+
+    setActingId(u.id);
+    const { data, error: rpcError } = await supabase.rpc("admin_delete_user", {
+      p_user_id: u.id,
+    });
+    setActingId(null);
+
+    if (rpcError) {
+      toast.error(rpcError.message.includes("admin_delete_user") ? "請先在 Supabase 執行 migration 044_admin_delete_user.sql" : rpcError.message);
+      return;
+    }
+    const result = data as { success?: boolean; message?: string };
+    if (!result?.success) {
+      toast.error(result?.message || "刪除失敗");
+      return;
+    }
+    toast.success(result.message || "已刪除用戶");
+    fetchUsers();
+  };
+
+  const handleUnlockPhoneSms = async (u: AdminUser) => {
+    const confirmed = await appConfirm({
+      title: "解除 SMS 驗證限制",
+      message: `確定要為「${displayName(u)}」重新開放 SMS 驗證嗎？將重置發送次數（最多 3 次）。`,
+      confirmLabel: "解除限制",
+    });
+    if (!confirmed) return;
+
+    setActingId(u.id);
+    try {
+      const { data, error: rpcError } = await supabase.rpc("admin_unlock_phone_sms", {
+        p_user_id: u.id,
+      });
+      if (rpcError) throw rpcError;
+      const result = data as { success?: boolean; message?: string };
+      if (!result?.success) {
+        toast.error(result?.message || "解除失敗");
+        return;
+      }
+      toast.success(result.message || "已解除 SMS 限制");
+      await fetchUsers();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "解除失敗");
     } finally {
       setActingId(null);
     }
@@ -161,6 +259,14 @@ export default function AdminUsersPage() {
       </p>
 
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
+        <button
+          type="button"
+          disabled={isCleaningSeed}
+          onClick={handleCleanupSeedProfiles}
+          className="shrink-0 px-4 py-2.5 rounded-xl border border-red-500/30 bg-red-500/10 text-red-400 text-sm font-bold hover:bg-red-500/20 disabled:opacity-50 transition"
+        >
+          {isCleaningSeed ? "清除中…" : "🧹 清除種子假帳號"}
+        </button>
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
           <input
@@ -171,8 +277,8 @@ export default function AdminUsersPage() {
             className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white focus:border-blue-500 outline-none"
           />
         </div>
-        <div className="flex gap-2">
-          {(["all", "active", "suspended"] as const).map((key) => (
+        <div className="flex flex-wrap gap-2">
+          {(["all", "active", "suspended", "sms_review"] as const).map((key) => (
             <button
               key={key}
               type="button"
@@ -183,7 +289,13 @@ export default function AdminUsersPage() {
                   : "bg-slate-900 border-slate-800 text-zinc-400 hover:text-white"
               }`}
             >
-              {key === "all" ? "全部" : key === "active" ? "正常" : "已暫停"}
+              {key === "all"
+                ? "全部"
+                : key === "active"
+                  ? "正常"
+                  : key === "suspended"
+                    ? "已暫停"
+                    : `SMS 待審${smsReviewCount > 0 ? ` (${smsReviewCount})` : ""}`}
             </button>
           ))}
         </div>
@@ -212,7 +324,9 @@ export default function AdminUsersPage() {
                 className={`flex flex-col sm:flex-row sm:items-center gap-4 p-4 rounded-2xl border ${
                   u.is_suspended
                     ? "bg-red-500/5 border-red-500/20"
-                    : "bg-slate-900/60 border-slate-800"
+                    : u.phone_sms_pending_admin_review
+                      ? "bg-amber-500/5 border-amber-500/25"
+                      : "bg-slate-900/60 border-slate-800"
                 }`}
               >
                 <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -229,13 +343,26 @@ export default function AdminUsersPage() {
                     {u.is_suspended && u.suspended_reason && (
                       <p className="text-[11px] text-red-400/80 mt-1">原因：{u.suspended_reason}</p>
                     )}
+                    {u.phone_sms_pending_admin_review && (
+                      <p className="text-[11px] text-amber-400/90 mt-1">
+                        SMS 驗證待審
+                        {u.phone_sms_review_requested_at
+                          ? ` · ${new Date(u.phone_sms_review_requested_at).toLocaleString("zh-HK")}`
+                          : ""}
+                      </p>
+                    )}
                   </div>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 shrink-0">
-                  {u.is_suspended && (
-                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-red-500/15 text-red-400 border border-red-500/30">
-                      已暫停
+                  {u.phone_sms_pending_admin_review && (
+                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                      SMS 待審
+                    </span>
+                  )}
+                  {u.phone_verified_at && (
+                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                      手機已驗證
                     </span>
                   )}
                   {u.is_coach && (
@@ -256,6 +383,11 @@ export default function AdminUsersPage() {
                   <span className="text-[10px] text-zinc-600 font-bold">
                     {new Date(u.created_at).toLocaleDateString("zh-HK")}
                   </span>
+                  {u.is_suspended && (
+                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-red-500/15 text-red-400 border border-red-500/30">
+                      已暫停
+                    </span>
+                  )}
                   <Link
                     href={`/p/${u.id}`}
                     target="_blank"
@@ -263,6 +395,17 @@ export default function AdminUsersPage() {
                   >
                     查看檔案
                   </Link>
+                  {u.phone_sms_pending_admin_review && (
+                    <button
+                      type="button"
+                      disabled={actingId === u.id}
+                      onClick={() => handleUnlockPhoneSms(u)}
+                      className="inline-flex items-center gap-1 text-xs font-bold text-amber-400 hover:text-amber-300 disabled:opacity-50"
+                    >
+                      <Phone className="w-3.5 h-3.5" />
+                      {actingId === u.id ? "處理中…" : "解除 SMS 限制"}
+                    </button>
+                  )}
                   {u.is_suspended ? (
                     <button
                       type="button"
@@ -284,6 +427,15 @@ export default function AdminUsersPage() {
                       {actingId === u.id ? "處理中…" : "暫停"}
                     </button>
                   )}
+                  <button
+                    type="button"
+                    disabled={actingId === u.id}
+                    onClick={() => handleDelete(u)}
+                    className="inline-flex items-center gap-1 text-xs font-bold text-red-500 hover:text-red-400 disabled:opacity-50"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    {actingId === u.id ? "處理中…" : "刪除"}
+                  </button>
                 </div>
               </div>
             ))}

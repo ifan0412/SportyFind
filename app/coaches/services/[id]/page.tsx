@@ -22,7 +22,6 @@ import { RichBody } from "@/components/content/RichBody";
 import { SportCategoryBadge } from "@/components/sports/SportCategoryBadge";
 import { formatCoachServicePrice } from "@/lib/coach-pricing";
 import { ENQUIRY_MESSAGE_MAX, clampEnquiryMessage } from "@/lib/service-enquiry";
-
 export default function CoachServiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: serviceId } = use(params);
   const returnTo = `/coaches/services/${serviceId}`;

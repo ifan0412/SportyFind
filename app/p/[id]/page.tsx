@@ -29,10 +29,12 @@ import { filterPhysioQualificationTags, filterCoachQualificationTags } from "@/l
 import { QualificationBadges } from "@/components/qualifications/QualificationBadges";
 import { formatCoachServicePrice, formatPhysioServicePrice } from "@/lib/coach-pricing";
 import { GenderAvatarBadge } from "@/components/profile/GenderBadge";
+import { PhoneVerifiedAvatarBadge } from "@/components/profile/PhoneVerifiedBadge";
 import { AppChromeSticky } from "@/components/layout/AppChromeSticky";
 import { getSportCategory } from "@/lib/sports-categories";
 import { listSportMetadataEntries } from "@/lib/sport-positions";
 import { isProfileUuid, profileLink, profileSlug } from "@/lib/profile-links";
+import { resolveProfileDisplaySports } from "@/lib/display-sports";
 
 const FacebookIcon = ({ className }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" /></svg>
@@ -67,6 +69,7 @@ interface Profile {
   height_cm?: number | null; weight_kg?: number | null; show_physical_stats?: boolean | null;
   age?: number | null; show_age?: boolean | null;
   gender?: string | null;
+  phone_verified_at?: string | null;
 }
 
 interface UserSport { id: string; sports: { name: string } | null; metadata: Record<string, any>; }
@@ -331,52 +334,69 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
     } finally { setFriendLoading(false); }
   };
 
-  const FriendButton = ({ compact = false }: { compact?: boolean }) => {
+  const FriendButton = ({ inline = false }: { inline?: boolean }) => {
     if (!currentUserId || currentUserId === resolvedProfileId) return null;
-    const btnClass = compact
-      ? "w-full py-2 px-3 rounded-xl text-xs font-bold leading-snug transition-all duration-300 cursor-pointer"
-      : "w-full mt-4 py-2.5 px-5 rounded-xl text-sm font-black transition-all duration-300 cursor-pointer";
+    const btnClass = inline
+      ? "min-w-0 w-full py-2 px-2 rounded-xl text-[11px] font-black leading-tight truncate transition-all duration-300 cursor-pointer"
+      : "w-full mt-3 py-2.5 px-4 rounded-xl text-sm font-black transition-all duration-300 cursor-pointer";
     if (friendshipStatus === "accepted") {
       if (showUnfriendConfirm) {
         return (
-          <div className={`${compact ? "" : "mt-4 "}bg-slate-900 border border-slate-700 rounded-2xl p-4 shadow-xl text-center animate-fadeIn`}>
-            <p className="text-sm text-zinc-300 font-bold mb-4">確定要解除好友關係？</p>
+          <div className={`${inline ? "col-span-2" : "mt-3"} bg-slate-900 border border-slate-700 rounded-xl p-3 shadow-xl text-center animate-fadeIn`}>
+            <p className="text-xs text-zinc-300 font-bold mb-3">確定要解除好友關係？</p>
             <div className="flex gap-2">
-              <button onClick={handleCancelOrUnfriend} disabled={friendLoading} className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-black transition cursor-pointer">
+              <button onClick={handleCancelOrUnfriend} disabled={friendLoading} className="flex-1 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-[11px] font-black transition cursor-pointer">
                 {friendLoading ? "處理中..." : "解除好友"}
               </button>
-              <button onClick={() => setShowUnfriendConfirm(false)} className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-zinc-300 text-xs font-black transition cursor-pointer">
+              <button onClick={() => setShowUnfriendConfirm(false)} className="flex-1 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-zinc-300 text-[11px] font-black transition cursor-pointer">
                 取消
               </button>
             </div>
           </div>
         );
       }
-      return <button onClick={() => setShowUnfriendConfirm(true)} className={`${btnClass} bg-blue-600/20 border border-blue-500/30 text-blue-400 hover:bg-red-500/20 hover:border-red-500/30 hover:text-red-400`}>✓ 已加好友</button>;
+      return (
+        <button
+          onClick={() => setShowUnfriendConfirm(true)}
+          title="已加好友（點擊管理）"
+          className={`${btnClass} bg-blue-600/20 border border-blue-500/30 text-blue-400 hover:bg-red-500/20 hover:border-red-500/30 hover:text-red-400`}
+        >
+          ✓ 已加好友
+        </button>
+      );
     }
     if (friendshipStatus === "pending_sent") {
       return (
         <button
           onClick={handleCancelOrUnfriend}
           disabled={friendLoading}
+          title="已發送請求（點擊取消）"
           className={`${btnClass} bg-slate-800 border border-slate-700 text-zinc-400 hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-400`}
         >
-          {friendLoading ? "處理中..." : "⏳ 已發送請求（點擊取消）"}
+          {friendLoading ? "處理中..." : "⏳ 已發送"}
         </button>
       );
     }
     if (friendshipStatus === "pending_received") {
       return (
-        <div className={`${compact ? "" : "mt-4 "}space-y-2`}>
-          <p className="text-xs text-zinc-500 font-bold text-center">對方向你發送了好友請求</p>
+        <div className={`${inline ? "col-span-2" : "mt-3"} space-y-2`}>
+          <p className="text-[11px] text-zinc-500 font-bold text-center">對方向你發送了好友請求</p>
           <div className="flex gap-2">
-            <button onClick={handleAcceptRequest} disabled={friendLoading} className="flex-1 py-2.5 rounded-full text-sm font-black bg-blue-600 hover:bg-blue-500 text-white transition-all duration-300 shadow-[0_0_15px_rgba(37,99,235,0.3)] cursor-pointer">{friendLoading ? "處理中..." : "✓ 接受"}</button>
-            <button onClick={handleRejectRequest} disabled={friendLoading} className="flex-1 py-2.5 rounded-full text-sm font-black bg-slate-800 border border-slate-700 text-zinc-400 hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-400 transition-all duration-300 cursor-pointer">{friendLoading ? "處理中..." : "✕ 拒絕"}</button>
+            <button onClick={handleAcceptRequest} disabled={friendLoading} className="flex-1 py-2 rounded-xl text-[11px] font-black bg-blue-600 hover:bg-blue-500 text-white transition-all duration-300 cursor-pointer">{friendLoading ? "處理中..." : "✓ 接受"}</button>
+            <button onClick={handleRejectRequest} disabled={friendLoading} className="flex-1 py-2 rounded-xl text-[11px] font-black bg-slate-800 border border-slate-700 text-zinc-400 hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-400 transition-all duration-300 cursor-pointer">{friendLoading ? "處理中..." : "✕ 拒絕"}</button>
           </div>
         </div>
       );
     }
-    return <button onClick={handleSendRequest} disabled={friendLoading} className={`${btnClass} bg-blue-600 hover:bg-blue-500 text-white shadow-[0_0_15px_rgba(37,99,235,0.3)]`}>{friendLoading ? "處理中..." : "+ 加好友"}</button>;
+    return (
+      <button
+        onClick={handleSendRequest}
+        disabled={friendLoading}
+        className={`${btnClass} bg-blue-600 hover:bg-blue-500 text-white shadow-[0_0_12px_rgba(37,99,235,0.25)]`}
+      >
+        {friendLoading ? "處理中..." : "+ 加好友"}
+      </button>
+    );
   };
 
   if (isLoading) return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-zinc-500 font-mono">載入名片中...</div>;
@@ -390,6 +410,12 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
   const hasPublicPlayer = profile.is_player !== false;
   const hasPublicCoach = profile.is_coach === true;
   const hasPublicPhysio = profile.is_physio && profile.physio_status !== "hidden";
+  const profileSports = resolveProfileDisplaySports(profile.display_sports, userSports);
+  const showInlineFriendActions =
+    currentUserId &&
+    currentUserId !== resolvedProfileId &&
+    !showUnfriendConfirm &&
+    friendshipStatus !== "pending_received";
   return (
     <div className="bg-slate-950 min-h-screen text-zinc-200 font-sans selection:bg-blue-500/30">
       <div className={`max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 ${LISTING_PAGE_SHELL_PADDING}`}>
@@ -397,19 +423,24 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mt-1 lg:mt-4">
           <div className="lg:col-span-4 xl:col-span-3 space-y-6">
-            <div className="bg-slate-900/40 backdrop-blur-xl border border-slate-800/60 rounded-3xl p-6 sticky top-20 shadow-2xl text-center">
-              <div className="relative w-32 h-32 mx-auto mb-6 overflow-visible">
+            <div className="bg-slate-900/40 backdrop-blur-xl border border-slate-800/60 rounded-3xl p-5 sticky top-20 shadow-2xl text-center">
+              <div className="relative w-28 h-28 mx-auto mb-4 overflow-visible">
                 <div className="w-full h-full rounded-full bg-slate-800 border-2 border-slate-700/50 shadow-xl overflow-hidden bg-cover bg-center" style={{ backgroundImage: avatarSrc ? `url(${avatarSrc})` : "none" }}>
                   {!avatarSrc && <div className="w-full h-full flex items-center justify-center text-4xl font-black text-zinc-600">PRO</div>}
                 </div>
+                <PhoneVerifiedAvatarBadge
+                  verifiedAt={profile.phone_verified_at}
+                  size="sm"
+                  corner={profile.gender ? "top-left" : "top-right"}
+                />
                 <GenderAvatarBadge gender={profile.gender} size="sm" />
                 <div className="absolute -bottom-3 flex justify-center w-full z-10">
                   {activeRole === "athlete" && <StatusBadge tag={profile.status_tag} type="athlete" />}
                   {activeRole === "physio" && <StatusBadge tag={profile.physio_status} type="physio" />}
                 </div>
               </div>
-              <h1 className="text-3xl font-black text-white tracking-tight mb-1">{profile.full_name}</h1>
-              <p className="text-blue-400 font-mono text-sm mb-4">@{profile.handle || "會員"}</p>
+              <h1 className="text-2xl font-black text-white tracking-tight mb-0.5">{profile.full_name}</h1>
+              <p className="text-blue-400 font-mono text-xs mb-2">@{profile.handle || "會員"}</p>
 
               {hasPublicPlayer && (
                 <ProfilePhysicalStatsRow
@@ -419,47 +450,55 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
                   weightKg={profile.weight_kg}
                   showPhysicalStats={profile.show_physical_stats}
                   size="md"
-                  className="mb-4"
+                  className="mb-2"
                 />
               )}
 
-              <p className="text-sm font-bold text-zinc-400 mb-4">{profile.headline || "專注於每一次場上表現。"}</p>
+              <p className="text-xs font-bold text-zinc-400 mb-2 line-clamp-2">{profile.headline || "專注於每一次場上表現。"}</p>
               
-              <div className="flex flex-wrap justify-center gap-2 mb-4">
-                {hasPublicPlayer && <span className="bg-slate-800/80 text-zinc-300 text-[10px] font-black px-3 py-1 rounded-full border border-slate-700">👤 運動員</span>}
-                {hasPublicCoach && <span className="bg-orange-500/10 text-orange-400 text-[10px] font-black px-3 py-1 rounded-full border border-orange-500/20"><CoachRoleLabel /></span>}
-                {hasPublicPhysio && <span className="bg-green-500/10 text-green-400 text-[10px] font-black px-3 py-1 rounded-full border border-green-500/20"><PhysioRoleLabel label="運動/物理治療" /></span>}
+              <div className="flex flex-wrap justify-center items-center gap-1.5 mb-2">
+                {hasPublicPlayer && <span className="bg-slate-800/80 text-zinc-300 text-[10px] font-black px-2.5 py-0.5 rounded-full border border-slate-700">👤 運動員</span>}
+                {hasPublicPlayer &&
+                  profileSports.slice(0, 3).map((sport) => (
+                      <SportCategoryBadge key={sport} category={sport} variant="blue" size="xs" />
+                    ))}
+                {hasPublicCoach && <span className="bg-orange-500/10 text-orange-400 text-[10px] font-black px-2.5 py-0.5 rounded-full border border-orange-500/20"><CoachRoleLabel /></span>}
+                {hasPublicPhysio && <span className="bg-green-500/10 text-green-400 text-[10px] font-black px-2.5 py-0.5 rounded-full border border-green-500/20"><PhysioRoleLabel label="運動/物理治療" /></span>}
               </div>
               
-              <p className="text-sm text-zinc-300 leading-relaxed text-center bg-slate-900/30 p-4 rounded-2xl border border-slate-800/50 mb-6">
+              <p className="text-xs text-zinc-300 leading-snug text-center bg-slate-900/30 px-3 py-2 rounded-xl border border-slate-800/50 mb-2 line-clamp-3">
                 {truncatePlainBio(profile.bio || "") || "這位運動員很低調，還沒有留下詳細的自介。"}
               </p>
-              <div className="mt-4 flex items-center justify-center gap-2 text-xs text-zinc-500 font-medium">
+              <div className="flex items-center justify-center gap-2 text-[11px] text-zinc-500 font-medium mb-3">
                 <span>📍 {formatDistrictList(normalizeDistrictIds(profile.districts, profile.location), 2) || profile.location || "地點未公開"}</span>
               </div>
 
               {currentUserId && currentUserId !== resolvedProfileId && (
-                <>
-                  <FriendButton />
-                  {!showUnfriendConfirm && friendshipStatus !== "pending_received" && (
+                showInlineFriendActions ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    <FriendButton inline />
                     <button
+                      type="button"
                       onClick={() => router.push(`/inbox?to=${resolvedProfileId}&role=${activeRole}`)}
-                      className="w-full mt-2.5 py-2.5 px-5 rounded-xl text-sm font-black bg-blue-600 hover:bg-blue-500 text-white transition-all duration-300 shadow-[0_0_15px_rgba(37,99,235,0.3)] cursor-pointer flex items-center justify-center gap-2"
+                      title="站內訊息"
+                      className="min-w-0 py-2 px-2 rounded-xl text-[11px] font-black leading-tight bg-blue-600 hover:bg-blue-500 text-white transition-all duration-300 shadow-[0_0_12px_rgba(37,99,235,0.25)] cursor-pointer flex items-center justify-center gap-1"
                     >
-                      <MessageSquare className="w-4 h-4 shrink-0" />
-                      站內訊息
+                      <MessageSquare className="w-3.5 h-3.5 shrink-0" />
+                      <span className="truncate">訊息</span>
                     </button>
-                  )}
-                </>
+                  </div>
+                ) : (
+                  <FriendButton />
+                )
               )}
             </div>
           </div>
 
           <div className="lg:col-span-8 xl:col-span-9 flex flex-col">
-            <AppChromeSticky className="mb-8">
+            <AppChromeSticky className="mb-6">
             <div className="bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 p-1 rounded-2xl flex w-full shadow-sm overflow-x-auto [&::-webkit-scrollbar]:hidden">
               {hasPublicPlayer && (
-                <button onClick={() => handleTabChange("athlete")} className={`flex-1 flex flex-col items-center justify-center py-2 px-3 rounded-xl transition-all duration-300 min-w-[100px] cursor-pointer ${activeRole === "athlete" ? "bg-slate-50 text-black shadow-lg scale-[1.02]" : "text-zinc-500 hover:text-white hover:bg-slate-800/50"}`}><Users className="w-5 h-5 mb-0.5" strokeWidth={2.5} /><span className="text-[10px] md:text-xs font-black leading-tight">運動員簡歷</span></button>
+                <button onClick={() => handleTabChange("athlete")} className={`flex-1 flex flex-col items-center justify-center py-2 px-3 rounded-xl transition-all duration-300 min-w-[100px] cursor-pointer ${activeRole === "athlete" ? "bg-blue-600 text-white shadow-lg scale-[1.02]" : "text-zinc-500 hover:text-blue-400 hover:bg-slate-800/50"}`}><Users className="w-5 h-5 mb-0.5" strokeWidth={2.5} /><span className="text-[10px] md:text-xs font-black leading-tight">運動員簡歷</span></button>
               )}
               {hasPublicCoach && (
                 <button onClick={() => handleTabChange("coach")} className={`flex-1 flex flex-col items-center justify-center py-2 px-3 rounded-xl transition-all duration-300 min-w-[100px] cursor-pointer ${activeRole === "coach" ? "bg-orange-500 text-black shadow-lg scale-[1.02]" : "text-zinc-500 hover:text-orange-400 hover:bg-slate-800/50"}`}><GraduationCap className="w-5 h-5 mb-0.5" strokeWidth={2.5} /><span className="text-[10px] md:text-xs font-black leading-tight">教練簡介</span></button>
@@ -473,7 +512,7 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
             <div className="flex-1 animate-fadeIn">
               {activeRole === "athlete" && hasPublicPlayer && (
                 <div className="space-y-6">
-                  <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 md:p-8 shadow-xl">
+                  <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-5 md:p-6 shadow-xl">
                     <h3 className="text-sm font-black text-blue-400 uppercase tracking-wider flex items-center gap-2 mb-2">
                       <span>👤</span> 運動員 Bio
                     </h3>

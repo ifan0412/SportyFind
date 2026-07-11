@@ -11,11 +11,12 @@ import { reopenOrSendFriendRequest } from "@/lib/friendships";
 import { truncatePlainBio } from "@/lib/content/body";
 import { type ProfileGender } from "@/lib/gender";
 import { GenderAvatarBadge } from "@/components/profile/GenderBadge";
+import { PhoneVerifiedAvatarBadge } from "@/components/profile/PhoneVerifiedBadge";
 import { CoachRoleLabel, PhysioRoleLabel } from "@/components/profile/RoleBadges";
 import { ProfilePhysicalStatsRow } from "@/components/profile/ProfilePhysicalStatsRow";
 import { SportCategoryBadge } from "@/components/sports/SportCategoryBadge";
-import { getSportCategory } from "@/lib/sports-categories";
 import { cn } from "@/lib/utils";
+import { normalizeDisplaySportSlugs, displaySportsForSave, toggleDisplaySportSlug, displaySportMatchesUserSport } from "@/lib/display-sports";
 
 export type PlayerFriendshipStatus = "none" | "pending_sent" | "pending_received" | "accepted";
 
@@ -39,6 +40,7 @@ export interface PlayerNetworkCardProfile {
   coach_status: string | null;
   is_physio: boolean | null;
   physio_status: string | null;
+  phone_verified_at?: string | null;
   all_sport_names?: string[];
 }
 
@@ -69,9 +71,9 @@ function PlayerStatusBadge({ tag }: { tag: string | null }) {
 }
 
 function displaySports(profile: PlayerNetworkCardProfile): string[] {
-  const fromDisplay = profile.display_sports?.filter(Boolean) ?? [];
+  const fromDisplay = normalizeDisplaySportSlugs(profile.display_sports);
   if (fromDisplay.length > 0) return fromDisplay;
-  return profile.all_sport_names?.filter(Boolean) ?? [];
+  return normalizeDisplaySportSlugs(profile.all_sport_names);
 }
 
 const AVATAR_PX = 88; // 5.5rem
@@ -227,18 +229,9 @@ export function PlayerNetworkCard({
 
               {sports.length > 0 ? (
                 <div className="flex flex-wrap gap-1.5">
-                  {sports.slice(0, 3).map((sport) =>
-                    getSportCategory(sport) ? (
-                      <SportCategoryBadge key={sport} category={sport} variant="blue" size="xs" />
-                    ) : (
-                      <span
-                        key={sport}
-                        className="inline-flex items-center gap-1 rounded-full font-black uppercase border tracking-wider text-[10px] px-2 py-0.5 bg-blue-500/15 text-blue-400 border-blue-500/30"
-                      >
-                        {sport}
-                      </span>
-                    )
-                  )}
+                  {sports.slice(0, 3).map((sport) => (
+                    <SportCategoryBadge key={sport} category={sport} variant="blue" size="xs" />
+                  ))}
                 </div>
               ) : null}
 
@@ -259,7 +252,7 @@ export function PlayerNetworkCard({
 
           <Link
             href={profileLink(profile, returnTo)}
-            className="relative shrink-0 justify-self-end group/avatar"
+            className="relative shrink-0 justify-self-end group/avatar overflow-visible"
           >
             <div
               className="rounded-full bg-slate-800 bg-cover bg-center border-2 border-slate-700 flex items-center justify-center overflow-hidden"
@@ -271,6 +264,10 @@ export function PlayerNetworkCard({
             >
               {!profile.avatar_url && <UserIcon className="w-8 h-8 text-zinc-500" />}
             </div>
+            <PhoneVerifiedAvatarBadge
+              verifiedAt={profile.phone_verified_at}
+              corner={profile.gender ? "top-left" : "top-right"}
+            />
             <GenderAvatarBadge gender={profile.gender} />
           </Link>
         </div>

@@ -19,6 +19,12 @@ export function SiteAnnouncementPopup({
   const isText = announcement.content_type === "text";
   const isImage = announcement.content_type === "image";
 
+  const handleClose = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onClose();
+  };
+
   return (
     <div
       className="fixed inset-0 z-[250] flex items-center justify-center p-4 sm:p-6"
@@ -28,38 +34,25 @@ export function SiteAnnouncementPopup({
     >
       <button
         type="button"
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-        onClick={onClose}
+        className="absolute inset-0 bg-black/70 backdrop-blur-sm cursor-default"
+        onClick={handleClose}
         aria-label="關閉彈窗"
       />
 
       <div
         className={cn(
-          "relative w-full max-w-lg rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl overflow-hidden",
+          "relative z-[1] w-full max-w-lg rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl overflow-hidden pointer-events-auto",
           isImage && "max-w-3xl bg-transparent border-0 shadow-none"
         )}
+        onClick={(e) => e.stopPropagation()}
       >
         {preview && (
-          <div className="absolute -top-10 left-0 right-0 text-center">
+          <div className="absolute -top-10 left-0 right-0 text-center pointer-events-none">
             <span className="inline-flex px-3 py-1 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-300 text-[10px] font-black uppercase tracking-wider">
               預覽模式
             </span>
           </div>
         )}
-
-        <button
-          type="button"
-          onClick={onClose}
-          className={cn(
-            "absolute top-3 right-3 z-10 w-9 h-9 rounded-full flex items-center justify-center transition",
-            isImage
-              ? "bg-black/50 hover:bg-black/70 text-white border border-white/20"
-              : "bg-slate-800 hover:bg-slate-700 text-zinc-300 hover:text-white border border-slate-600"
-          )}
-          aria-label="關閉"
-        >
-          <X className="w-4 h-4" />
-        </button>
 
         {isText && (
           <div className="p-6 sm:p-8 pr-14">
@@ -70,7 +63,7 @@ export function SiteAnnouncementPopup({
         )}
 
         {isImage && (
-          <div className="relative w-full">
+          <div className="relative w-full pointer-events-none">
             {announcement.image_desktop_url ? (
               <div className="relative hidden md:block w-full aspect-[16/10] max-h-[80vh]">
                 <Image
@@ -106,6 +99,20 @@ export function SiteAnnouncementPopup({
             )}
           </div>
         )}
+
+        <button
+          type="button"
+          onClick={handleClose}
+          className={cn(
+            "absolute top-3 right-3 z-[60] w-11 h-11 rounded-full flex items-center justify-center transition touch-manipulation",
+            isImage
+              ? "bg-black/60 hover:bg-black/80 text-white border border-white/30 shadow-lg"
+              : "bg-slate-800 hover:bg-slate-700 text-zinc-300 hover:text-white border border-slate-600"
+          )}
+          aria-label="關閉"
+        >
+          <X className="w-5 h-5" />
+        </button>
       </div>
     </div>
   );

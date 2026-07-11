@@ -17,12 +17,19 @@ import { HighlightsTab } from "@/components/profile/HighlightsTab";
 import { ProfileRolePreview, type AthleteSubTab, type ProfileRole } from "@/components/profile/ProfileRolePreview";
 import { getSportSchema } from "@/constants/sportsSchema";
 import { getSportCategory, normalizeSportCategory, type SportCategoryId } from "@/lib/sports-categories";
+import {
+  displaySportsForSave,
+  displaySportMatchesUserSport,
+  resolveProfileDisplaySports,
+  toggleDisplaySportSlug,
+} from "@/lib/display-sports";
 import { normalizePhysioProfileTags } from "@/lib/physio-service-types";
 import { stripHtml, PROFILE_CARD_BIO_MAX } from "@/lib/content/body";
 import { enquiryServiceIdsWithUncontacted } from "@/lib/service-enquiry";
 import { SportCategoryPicker } from "@/components/sports/SportCategoryPicker";
 import { SportPositionPicker } from "@/components/sports/SportPositionPicker";
 import { normalizeSportMetadataForSave, sportFormDataFromMetadata, sportFormHasEmptyFields } from "@/lib/sport-positions";
+import { EmailVerificationBanner } from "@/components/profile/EmailVerificationBanner";
 import {
   formatDistrictList,
   isHongKongCountry,
@@ -350,7 +357,21 @@ function ProfilePageContent() {
         setLocationData(locMap);
       }
       if (prof) {
-        setProfile(prof);
+        const sportsRows = (usData ?? []) as unknown as UserSport[];
+        const resolvedDisplaySports = resolveProfileDisplaySports(
+          prof.display_sports,
+          sportsRows
+        );
+        if (
+          JSON.stringify(resolvedDisplaySports) !==
+          JSON.stringify(prof.display_sports ?? [])
+        ) {
+          void supabase
+            .from("profiles")
+            .update({ display_sports: resolvedDisplaySports })
+            .eq("id", userId);
+        }
+        setProfile({ ...prof, display_sports: resolvedDisplaySports });
         setEditForm({
           first_name: prof.first_name ?? "",
           last_name: prof.last_name ?? "",
@@ -364,7 +385,7 @@ function ProfilePageContent() {
           athlete_bio: prof.athlete_bio ?? "",
           avatar_url: prof.avatar_url ?? "",
           status_tag: prof.status_tag ?? "committed",
-          display_sports: prof.display_sports ?? [],
+          display_sports: resolvedDisplaySports,
           is_player: prof.is_player ?? true,
           is_coach: prof.is_coach ?? false,
           is_physio: prof.is_physio ?? false,
@@ -596,7 +617,7 @@ function ProfilePageContent() {
       athlete_bio: editForm.athlete_bio || null,
       avatar_url: finalAvatarUrl,
       status_tag: editForm.status_tag,
-      display_sports: editForm.display_sports,
+      display_sports: displaySportsForSave(editForm.display_sports),
       height_cm: editForm.height_cm ? Number(editForm.height_cm) : null,
       weight_kg: editForm.weight_kg ? Number(editForm.weight_kg) : null,
       show_physical_stats: editForm.show_physical_stats ?? true,
@@ -652,7 +673,10 @@ function ProfilePageContent() {
   };
 
   const toggleDisplaySport = (sportName: string) => {
-    setEditForm((prev: any) => { let current = [...prev.display_sports]; if (current.includes(sportName)) current = current.filter(s => s !== sportName); else { if (current.length >= 3) current.shift(); current.push(sportName); } return { ...prev, display_sports: current }; });
+    setEditForm((prev: any) => ({
+      ...prev,
+      display_sports: toggleDisplaySportSlug(prev.display_sports, sportName),
+    }));
   };
 
   const resolveSportId = useCallback(
@@ -756,6 +780,7 @@ function ProfilePageContent() {
   return (
     <div className="bg-slate-950 min-h-screen text-zinc-200 font-sans selection:bg-blue-500/30">
       <div className={`max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 ${LISTING_PAGE_SHELL_PADDING}`}>
+        <EmailVerificationBanner />
         <div className="hidden lg:block">
           <BackButton label="返回首頁" />
         </div>

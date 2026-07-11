@@ -6,6 +6,7 @@ import { PhysioServiceTypePicker } from "@/components/physio/PhysioServiceTypePi
 import { normalizePhysioProfileTags } from "@/lib/physio-service-types";
 import { BIO_CHAR_SUGGESTED_MAX, BIO_CHAR_SUGGESTED_RANGE } from "@/lib/content/body";
 import { FormSelect } from "@/components/ui/form-select";
+import { SocialConnectPanel } from "@/components/profile/SocialConnectPanel";
 
 interface PhysioTabProps {
   editForm?: any;
@@ -156,25 +157,13 @@ export function PhysioTab({
           </label>
         </div>
 
-        {/* 4️⃣ 社群媒體連結區塊 */}
+        {/* 4️⃣ 社群媒體連結 — OAuth 連結（取代手動貼網址） */}
         <div className="pt-6 border-t border-slate-800/80">
-          <h3 className="text-sm font-black text-emerald-400 mb-4 flex items-center gap-2">
-            <span className="w-1.5 h-4 bg-emerald-500 rounded-full"></span> 社群媒體
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="text-xs font-bold text-slate-400 mb-1.5 block">Instagram</label>
-              <input type="url" placeholder="https://instagram.com/..." value={editForm.physio_instagram_url || ""} onChange={(e) => onFieldChange("physio_instagram_url", e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-white focus:border-emerald-500 transition-colors" />
-            </div>
-            <div>
-              <label className="text-xs font-bold text-slate-400 mb-1.5 block">Facebook</label>
-              <input type="url" placeholder="https://facebook.com/..." value={editForm.physio_facebook_url || ""} onChange={(e) => onFieldChange("physio_facebook_url", e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-white focus:border-emerald-500 transition-colors" />
-            </div>
-            <div>
-              <label className="text-xs font-bold text-slate-400 mb-1.5 block">Threads</label>
-              <input type="url" placeholder="https://threads.net/..." value={editForm.physio_threads_url || ""} onChange={(e) => onFieldChange("physio_threads_url", e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-white focus:border-emerald-500 transition-colors" />
-            </div>
-          </div>
+          <SocialConnectPanel
+            userId={editForm.id || editForm.user_id || profile?.id}
+            context="physio"
+            accent="emerald"
+          />
         </div>
 
         {/* ✅ 專屬儲存按鈕 */}

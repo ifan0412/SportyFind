@@ -23,7 +23,6 @@ import { formatPhysioServicePrice } from "@/lib/coach-pricing";
 import { PhysioServiceTypeBadges } from "@/components/physio/PhysioServiceTypePicker";
 import { normalizePhysioServiceTypes } from "@/lib/physio-service-types";
 import { ENQUIRY_MESSAGE_MAX, clampEnquiryMessage } from "@/lib/service-enquiry";
-
 export default function PhysioServiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: serviceId } = use(params);
   const returnTo = `/physio/services/${serviceId}`;

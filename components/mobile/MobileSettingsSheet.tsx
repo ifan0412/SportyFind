@@ -68,7 +68,7 @@ export function MobileSettingsSheet({ open, onClose, user }: MobileSettingsSheet
             }}
           />
         ) : (
-          <AccountManagementTab userEmail={user.email} identities={user.identities} />
+          <AccountManagementTab user={user} userEmail={user.email} identities={user.identities} />
         )}
       </div>
     </div>

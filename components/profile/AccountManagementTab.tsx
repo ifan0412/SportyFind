@@ -1,24 +1,54 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useMemo, useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { PasswordRequirements } from "@/components/PasswordRequirements";
 import { getPasswordValidationError, isPasswordValid } from "@/lib/password";
 import { toast } from "sonner";
 import { AlertTriangle, ChevronRight, KeyRound, Loader2, Shield, Trash2, X } from "lucide-react";
+import { PhoneVerificationPanel } from "@/components/profile/PhoneVerificationPanel";
+import { SocialConnectPanel } from "@/components/profile/SocialConnectPanel";
+import { isEmailVerified, isOAuthUser } from "@/lib/verification";
+import type { User } from "@supabase/supabase-js";
 
 interface AccountManagementTabProps {
+  user: User;
   userEmail: string | undefined;
   identities?: { provider: string }[];
+  phoneE164?: string | null;
+  phoneVerifiedAt?: string | null;
+  phoneSmsPendingAdminReview?: boolean;
 }
 
-export function AccountManagementTab({ userEmail, identities }: AccountManagementTabProps) {
+export function AccountManagementTab({
+  user,
+  userEmail,
+  identities,
+  phoneE164,
+  phoneVerifiedAt,
+  phoneSmsPendingAdminReview,
+}: AccountManagementTabProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
   const hasEmailPassword = identities?.some((i) => i.provider === "email") ?? false;
   const oauthProvider = identities?.find((i) => i.provider !== "email")?.provider;
+  const emailVerified = isEmailVerified(user);
+  const oauthUser = isOAuthUser(user);
+
+  useEffect(() => {
+    const connected = searchParams.get("social_connected");
+    const socialError = searchParams.get("social_error");
+    if (connected) {
+      toast.success(`已成功連結 ${connected}`);
+      router.replace("/profile/settings/account");
+    } else if (socialError) {
+      toast.error(decodeURIComponent(socialError));
+      router.replace("/profile/settings/account");
+    }
+  }, [searchParams, router]);
 
   const [showResetForm, setShowResetForm] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -152,11 +182,34 @@ export function AccountManagementTab({ userEmail, identities }: AccountManagemen
             <p className="text-xs text-zinc-500">登入電郵</p>
             <p className="text-sm font-bold text-white">{userEmail || "—"}</p>
           </div>
-          <span className="text-[10px] font-black px-2.5 py-1 rounded-full bg-slate-800 text-zinc-400 border border-slate-700 w-fit">
-            {hasEmailPassword ? "電郵 + 密碼" : oauthProvider ? `${oauthProvider} 登入` : "第三方登入"}
-          </span>
+          <div className="flex flex-wrap gap-2">
+            <span className="text-[10px] font-black px-2.5 py-1 rounded-full bg-slate-800 text-zinc-400 border border-slate-700 w-fit">
+              {hasEmailPassword ? "電郵 + 密碼" : oauthProvider ? `${oauthProvider} 登入` : "第三方登入"}
+            </span>
+            {!oauthUser && (
+              <span
+                className={`text-[10px] font-black px-2.5 py-1 rounded-full border w-fit ${
+                  emailVerified
+                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                    : "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                }`}
+              >
+                {emailVerified ? "電郵已驗證" : "電郵未驗證"}
+              </span>
+            )}
+          </div>
         </div>
       </div>
+
+      <div id="phone-verify">
+        <PhoneVerificationPanel
+          initialPhone={phoneE164}
+          initialVerifiedAt={phoneVerifiedAt}
+          initialPendingAdminReview={phoneSmsPendingAdminReview}
+        />
+      </div>
+
+      <SocialConnectPanel userId={user.id} context="profile" accent="blue" />
 
       {/* Reset password */}
       <div className="bg-slate-900/60 border border-slate-800 rounded-2xl overflow-hidden">

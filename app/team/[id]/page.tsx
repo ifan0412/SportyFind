@@ -28,7 +28,6 @@ import {
   readTeamDetailBack,
 } from "@/lib/team-listing-state";
 import { GenderAvatarBadge } from "@/components/profile/GenderBadge";
-
 const DiscussionBoard = dynamic(
   () => import("@/components/discussion/DiscussionBoard").then((m) => m.DiscussionBoard),
   {
@@ -158,7 +157,6 @@ export default function TeamDetailPage() {
   const [activeTab, setActiveTab] = useState<"about" | "discussion" | "media" | "members">("about");
   const [backHref, setBackHref] = useState("/team");
   const [backLabel, setBackLabel] = useState("← 返回團隊列表");
-
   useEffect(() => {
     if (!id) return;
     let cancelled = false;

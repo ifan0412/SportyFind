@@ -21,6 +21,7 @@ import { QualificationBadges } from "@/components/qualifications/QualificationBa
 import { SportCategoryBadge } from "@/components/sports/SportCategoryBadge";
 import { formatCoachServicePrice } from "@/lib/coach-pricing";
 import { MapPin, User as UserIcon } from "lucide-react";
+import { PhoneVerifiedAvatarBadge } from "@/components/profile/PhoneVerifiedBadge";
 import { ListingFilterBar } from "@/components/filters/ListingFilterBar";
 import { ScrollRevealFilterShell } from "@/components/filters/ScrollRevealFilterShell";
 import { MobileFilterSheet } from "@/components/filters/MobileFilterSheet";
@@ -50,6 +51,7 @@ interface CoachServiceRow {
     avatar_url: string | null;
     coach_teaching_experience_years: number | null;
     coach_qualification_tags?: string[] | null;
+    phone_verified_at?: string | null;
   } | null;
 }
 
@@ -105,7 +107,7 @@ export default function CoachesPage() {
           id, coach_id, sport_category, title, description, location,
           districts, subdistricts, teaching_experience_years, hourly_rate, pricing_mode,
           profiles!coach_id (
-            full_name, headline, avatar_url, coach_teaching_experience_years, coach_qualification_tags
+            full_name, headline, avatar_url, coach_teaching_experience_years, coach_qualification_tags, phone_verified_at
           )
         `)
         .eq("is_active", true)
@@ -258,17 +260,20 @@ export default function CoachesPage() {
                         href={`/p/${srv.coach_id}?tab=coach`}
                         className="flex items-center gap-3 group/coach"
                       >
-                        <div
-                          className="w-14 h-14 rounded-full bg-slate-800 bg-cover bg-center shrink-0 border-2 border-slate-700 flex items-center justify-center overflow-hidden"
-                          style={
-                            srv.profiles?.avatar_url
-                              ? { backgroundImage: `url(${srv.profiles.avatar_url})` }
-                              : undefined
-                          }
-                        >
-                          {!srv.profiles?.avatar_url && (
-                            <UserIcon className="w-6 h-6 text-zinc-500" />
-                          )}
+                        <div className="relative shrink-0 overflow-visible">
+                          <div
+                            className="w-14 h-14 rounded-full bg-slate-800 bg-cover bg-center shrink-0 border-2 border-slate-700 flex items-center justify-center overflow-hidden"
+                            style={
+                              srv.profiles?.avatar_url
+                                ? { backgroundImage: `url(${srv.profiles.avatar_url})` }
+                                : undefined
+                            }
+                          >
+                            {!srv.profiles?.avatar_url && (
+                              <UserIcon className="w-6 h-6 text-zinc-500" />
+                            )}
+                          </div>
+                          <PhoneVerifiedAvatarBadge verifiedAt={srv.profiles?.phone_verified_at} />
                         </div>
                         <div className="min-w-0">
                           <div className="text-[10px] text-zinc-500 uppercase font-bold leading-none mb-0.5">

@@ -169,7 +169,9 @@ export default function AuthPage() {
       if (error) {
         toast.error(error.message);
       } else {
-        toast.success("帳戶已建立！請查收電郵完成驗證。");
+        toast.success("帳戶已建立！請查收電郵並點擊驗證連結後再登入。");
+        setIsSignUp(false);
+        setPassword("");
       }
     } else {
       const { data: signInData, error } = await supabase.auth.signInWithPassword({
@@ -179,6 +181,13 @@ export default function AuthPage() {
       if (error) {
         toast.error(error.message);
       } else if (signInData.user) {
+        if (!signInData.user.email_confirmed_at && !signInData.user.confirmed_at) {
+          await supabase.auth.signOut();
+          toast.error("請先驗證電郵。如未收到，請檢查垃圾郵件或重發驗證信。");
+          setIsLoading(false);
+          return;
+        }
+
         const { data: profile } = await supabase
           .from("profiles")
           .select("is_suspended, suspended_reason")
@@ -213,6 +222,21 @@ export default function AuthPage() {
     if (error) {
       toast.error(error.message);
       setIsLoading(false);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    if (!email) {
+      toast.error("請輸入電郵地址。");
+      return;
+    }
+    setIsLoading(true);
+    const { error } = await supabase.auth.resend({ type: "signup", email });
+    setIsLoading(false);
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success("驗證電郵已重新發送。");
     }
   };
 
@@ -470,6 +494,17 @@ export default function AuthPage() {
           </svg>
           {isLoading ? "正在前往 Google…" : "使用 Google 繼續"}
         </button>
+
+        {!isSignUp && email && (
+          <button
+            type="button"
+            onClick={handleResendVerification}
+            disabled={isLoading}
+            className="mt-3 w-full text-center text-xs text-slate-500 hover:text-blue-400 transition disabled:opacity-50"
+          >
+            未收到驗證電郵？重發
+          </button>
+        )}
 
         <button
           type="button"

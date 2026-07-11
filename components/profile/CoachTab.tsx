@@ -28,6 +28,7 @@ import { SportCategoryPicker } from "@/components/sports/SportCategoryPicker";
 import type { SportCategoryId } from "@/lib/sports-categories";
 import { stripHtml } from "@/lib/content/body";
 import { ServicePublishBadge } from "@/components/services/ServicePublishBadge";
+import { SocialConnectPanel } from "@/components/profile/SocialConnectPanel";
 import { ImageCropModal } from "@/components/media/ImageCropModal";
 import { readFileAsDataUrl } from "@/lib/image-crop";
 import { CoachPricingFields } from "@/components/coach/CoachPricingFields";
@@ -975,6 +976,12 @@ export function CoachTab({
               <span className="text-[10px] md:text-xs text-slate-500">關閉後，名片上將只顯示「主要服務地區」，保護您的私人隱私。</span>
             </div>
           </label>
+
+          {editForm?.id && (
+            <div className="mt-8 pt-6 border-t border-slate-800/80">
+              <SocialConnectPanel userId={editForm.id} context="profile" accent="orange" />
+            </div>
+          )}
 
           <div className="flex justify-end mt-8 pt-5 border-t border-slate-800/80">
             <button onClick={onSaveGlobal} disabled={isSaving} className="bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-500 text-white text-sm font-black px-8 py-3 rounded-xl transition-all shadow-[0_0_15px_rgba(37,99,235,0.3)] active:scale-95 flex items-center gap-2 cursor-pointer">

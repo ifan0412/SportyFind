@@ -52,6 +52,7 @@ interface ProfileRow {
   coach_status: string | null;
   is_physio: boolean | null;
   physio_status: string | null;
+  phone_verified_at?: string | null;
   all_sport_names?: string[];
   user_sports?: { sports?: { name: string } | null; metadata?: Record<string, unknown> }[];
 }
@@ -146,7 +147,7 @@ function NetworkPageContent() {
         .from("profiles")
         .select(
           `
-          id, full_name, location, headline, bio, avatar_url, status_tag, gender, handle, display_sports, is_coach, coach_status, is_physio, physio_status,
+          id, full_name, location, headline, bio, avatar_url, status_tag, gender, handle, display_sports, is_coach, coach_status, is_physio, physio_status, phone_verified_at,
           height_cm, weight_kg, show_physical_stats, age, show_age, user_sports (
             metadata,
             sports ( name )

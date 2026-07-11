@@ -1,6 +1,7 @@
 "use client";
 
 import { getSportCategory } from "@/lib/sports-categories";
+import { displaySportMatchesUserSport } from "@/lib/display-sports";
 import { listSportMetadataEntries } from "@/lib/sport-positions";
 
 interface Sport { id: string; name: string; }
@@ -58,7 +59,14 @@ export function ExpertiseTab({
                     })()}
                   </span>
                   <label className="flex items-center gap-2 cursor-pointer bg-slate-950 p-1.5 md:p-2 rounded-lg border border-slate-800">
-                    <input type="checkbox" checked={editFormDisplaySports.includes(us.sports?.name || "")} onChange={() => onToggleDisplaySport(us.sports?.name || "")} className="rounded" />
+                    <input
+                      type="checkbox"
+                      checked={editFormDisplaySports.some((stored) =>
+                        displaySportMatchesUserSport(stored, us.sports?.name)
+                      )}
+                      onChange={() => onToggleDisplaySport(us.sports?.name || "")}
+                      className="rounded"
+                    />
                     <span className="text-[10px] text-zinc-400 font-bold whitespace-nowrap">顯示於名片</span>
                   </label>
                 </div>

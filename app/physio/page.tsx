@@ -19,6 +19,7 @@ import {
   profileMatchesDistrictFilter,
 } from "@/lib/hk-locations";
 import { MapPin, User as UserIcon } from "lucide-react";
+import { PhoneVerifiedAvatarBadge } from "@/components/profile/PhoneVerifiedBadge";
 import { ListingFilterBar } from "@/components/filters/ListingFilterBar";
 import { ScrollRevealFilterShell } from "@/components/filters/ScrollRevealFilterShell";
 import { MobileFilterSheet } from "@/components/filters/MobileFilterSheet";
@@ -42,6 +43,7 @@ interface PhysioProfile {
   physio_experience_years: string | null;
   physio_service_tags?: string[] | null;
   physio_qualification_tags?: string[] | null;
+  phone_verified_at?: string | null;
 }
 
 function PhysioStatusBadge({ tag }: { tag: string | null }) {
@@ -51,7 +53,7 @@ function PhysioStatusBadge({ tag }: { tag: string | null }) {
 }
 
 const PROFILE_SELECT =
-  "id, full_name, physio_region, physio_districts, physio_status, clinic_name, physio_rate, avatar_url, physio_experience_years";
+  "id, full_name, physio_region, physio_districts, physio_status, clinic_name, physio_rate, avatar_url, physio_experience_years, phone_verified_at";
 
 export default function PhysioPage() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
@@ -232,13 +234,14 @@ export default function PhysioPage() {
                   >
                     <div className="space-y-3">
                       <Link href={`/p/${p.id}?tab=physio`} className="flex items-center gap-3 group/physio">
-                        <div className="relative shrink-0">
+                        <div className="relative shrink-0 overflow-visible">
                           <div
                             className="w-14 h-14 rounded-full bg-slate-800 bg-cover bg-center border-2 border-slate-700 flex items-center justify-center overflow-hidden"
                             style={p.avatar_url ? { backgroundImage: `url(${p.avatar_url})` } : undefined}
                           >
                             {!p.avatar_url && <UserIcon className="w-6 h-6 text-zinc-500" />}
                           </div>
+                          <PhoneVerifiedAvatarBadge verifiedAt={p.phone_verified_at} />
                           <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 scale-90 origin-bottom">
                             <PhysioStatusBadge tag={p.physio_status} />
                           </div>
