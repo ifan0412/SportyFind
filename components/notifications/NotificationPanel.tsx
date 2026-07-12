@@ -30,6 +30,7 @@ export function NotificationPanel({
       ) : (
         notifications.map((notif) => {
           const copy = getNotificationDisplayMessage(notif);
+          const message = copy.message?.trim() || "您有一則新通知";
 
           return (
             <div
@@ -71,7 +72,7 @@ export function NotificationPanel({
                     {copy.highlight ? (
                       <span className="text-white">{copy.highlight}</span>
                     ) : null}
-                    {copy.message}
+                    {message}
                   </p>
                   <span className="text-[10px] text-zinc-500">
                     {new Date(notif.created_at).toLocaleString("zh-HK", {

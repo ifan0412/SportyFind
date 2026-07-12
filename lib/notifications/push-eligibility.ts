@@ -19,6 +19,7 @@ export const PUSH_ELIGIBLE_NOTIFICATION_TYPES = [
   "event_registration",
   "event_waitlist_signup",
   "event_waitlist_promoted",
+  "event_waitlist_promoted_host",
   "event_kicked",
   "event_leave",
   "event_cancelled",

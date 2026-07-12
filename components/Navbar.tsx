@@ -25,6 +25,7 @@ import { ProfileNavMenu } from "@/components/NavbarProfileMenu";
 import { NotificationPanel } from "@/components/notifications/NotificationPanel";
 import { MobileSettingsSheet } from "@/components/mobile/MobileSettingsSheet";
 import { getNotificationHref } from "@/components/notifications/notification-routing";
+import { mapNotificationRow } from "@/lib/notifications/normalize";
 import type { Notification } from "@/components/notifications/notification-types";
 
 interface NotificationBellProps {
@@ -212,7 +213,13 @@ export function Navbar() {
           .order("created_at", { ascending: false })
       );
 
-      if (data) setNotifications(data as unknown as Notification[]);
+      if (data) {
+        setNotifications(
+          (data as unknown[])
+            .map((row) => mapNotificationRow(row))
+            .filter((row): row is Notification => row !== null)
+        );
+      }
     },
     [supabase]
   );
@@ -248,22 +255,30 @@ export function Navbar() {
         { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${uid}` },
         async (payload) => {
           try {
+            const row = payload.new as Record<string, unknown>;
             const { data: newNotif } = await supabase
               .from("notifications")
               .select(
                 `id, type, is_read, created_at, push_eligible, friendship_id, team_id, event_id, sender:sender_id (id, full_name, avatar_url)`
               )
-              .eq("id", payload.new.id)
+              .eq("id", row.id)
               .single();
 
-            if (newNotif) {
+            const mapped = mapNotificationRow(newNotif ?? row);
+            if (mapped) {
               setNotifications((prev) => {
-                if (prev.some((n) => n.id === newNotif.id)) return prev;
-                return [newNotif as unknown as Notification, ...prev];
+                if (prev.some((n) => n.id === mapped.id)) return prev;
+                return [mapped, ...prev];
               });
             }
           } catch {
-            // ignore transient fetch errors
+            const mapped = mapNotificationRow(payload.new);
+            if (mapped) {
+              setNotifications((prev) => {
+                if (prev.some((n) => n.id === mapped.id)) return prev;
+                return [mapped, ...prev];
+              });
+            }
           }
         }
       )

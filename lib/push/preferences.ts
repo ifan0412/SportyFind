@@ -41,6 +41,7 @@ const TYPE_TO_CATEGORY: Record<string, PushCategory> = {
   event_registration: "events",
   event_waitlist_signup: "events",
   event_waitlist_promoted: "events",
+  event_waitlist_promoted_host: "events",
   event_kicked: "events",
   event_leave: "events",
   event_cancelled: "events",

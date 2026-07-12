@@ -1,16 +1,51 @@
 import type { Notification } from "@/components/notifications/notification-types";
-
-type NotifLike = Pick<Notification, "type" | "sender">;
+import { getPushNotificationCopy } from "@/lib/push/notification-copy";
+import {
+  inferNotificationType,
+  normalizeNotificationLike,
+  normalizeNotificationType,
+  type NotificationLike,
+} from "@/lib/notifications/normalize";
 
 export interface NotificationDisplayMessage {
   highlight: string | null;
   message: string;
 }
 
-export function getNotificationDisplayMessage(notif: NotifLike): NotificationDisplayMessage {
-  const name = notif.sender?.full_name?.trim() || "某人";
+function displayFromPushCopy(notif: NotificationLike): NotificationDisplayMessage {
+  const push = getPushNotificationCopy({
+    ...notif,
+    type: (normalizeNotificationType(notif.type) ||
+      inferNotificationType(notif) ||
+      "unknown") as Notification["type"],
+  });
 
-  switch (notif.type) {
+  const body = push.body?.trim();
+  if (!body) {
+    return { highlight: null, message: "您有一則新通知" };
+  }
+
+  const name = notif.sender?.full_name?.trim();
+  if (name && body.startsWith(name)) {
+    return {
+      highlight: name,
+      message: body.slice(name.length),
+    };
+  }
+
+  if (body.startsWith("系統通知")) {
+    return { highlight: "系統通知", message: body.slice("系統通知".length) };
+  }
+
+  return { highlight: null, message: body };
+}
+
+export function getNotificationDisplayMessage(notif: NotificationLike): NotificationDisplayMessage {
+  const normalized = normalizeNotificationLike(notif);
+  const name = normalized.sender?.full_name?.trim() || "某人";
+  const type = normalizeNotificationType(normalized.type) || inferNotificationType(normalized);
+
+  switch (type) {
     case "friend_request":
       return { highlight: name, message: " 想與你成為好友" };
     case "friend_accepted":
@@ -29,6 +64,8 @@ export function getNotificationDisplayMessage(notif: NotifLike): NotificationDis
       return { highlight: name, message: " 加入了您主辦活動的候補名單" };
     case "event_waitlist_promoted":
       return { highlight: "系統通知", message: "：您已從候補名單升級，成功加入活動 🎉" };
+    case "event_waitlist_promoted_host":
+      return { highlight: name, message: " 從候補名單加入您的活動 🎉" };
     case "event_leave":
       return { highlight: name, message: " 退出了您主辦的活動" };
     case "event_kicked":
@@ -66,8 +103,10 @@ export function getNotificationDisplayMessage(notif: NotifLike): NotificationDis
     case "admin_event_removed":
       return { highlight: "系統通知", message: "：您主辦的活動已被網站管理員移除" };
     case "direct_message":
+    case "message":
+    case "new_message":
       return { highlight: name, message: " 傳送了一則訊息 💬" };
     default:
-      return { highlight: null, message: "您有一則新通知" };
+      return displayFromPushCopy(normalized);
   }
 }

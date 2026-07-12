@@ -28,6 +28,8 @@ export function getPushNotificationCopy(notif: NotifLike): { title: string; body
       return { title: "候補名單更新", body: `${name} 加入了您主辦活動的候補名單` };
     case "event_waitlist_promoted":
       return { title: "候補升級", body: "您已從候補名單升級，成功加入活動" };
+    case "event_waitlist_promoted_host":
+      return { title: "候補升級", body: `${name} 從候補名單加入您的活動` };
     case "event_leave":
       return { title: "活動參與者退出", body: `${name} 退出了您主辦的活動` };
     case "event_kicked":
