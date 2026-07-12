@@ -49,7 +49,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="zh-TW" suppressHydrationWarning className={`${geistSans.variable} ${geistMono.variable}`}>
+    <html lang="zh-TW" suppressHydrationWarning className={`dark ${geistSans.variable} ${geistMono.variable}`}>
       <body className="bg-slate-950 text-slate-100 min-h-screen font-sans flex flex-col antialiased">
         <SupabaseProvider>
           
