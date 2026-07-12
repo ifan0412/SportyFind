@@ -18,6 +18,7 @@ export const PUSH_ELIGIBLE_NOTIFICATION_TYPES = [
   "team_member_left",
   "event_registration",
   "event_waitlist_signup",
+  "event_waitlist_joined",
   "event_waitlist_promoted",
   "event_waitlist_promoted_host",
   "event_kicked",

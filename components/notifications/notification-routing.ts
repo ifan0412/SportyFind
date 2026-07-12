@@ -29,6 +29,7 @@ export function getNotificationHref(notif: Notification): string {
   if (
     (notif.type === "event_registration" ||
       notif.type === "event_waitlist_signup" ||
+      notif.type === "event_waitlist_joined" ||
       notif.type === "event_waitlist_promoted" ||
       notif.type === "event_waitlist_promoted_host" ||
       notif.type === "event_kicked" ||

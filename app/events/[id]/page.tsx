@@ -31,7 +31,7 @@ import {
   maxCompanionCountForJoin,
   normalizeRegStatus,
 } from "@/lib/event-registration";
-import { callUpsertIndividualRsvp, getJoinBlockReason, notifyAfterIndividualJoin } from "@/lib/event-rsvp";
+import { callUpsertIndividualRsvp, getJoinBlockReason } from "@/lib/event-rsvp";
 import { RichTextEditor } from "@/components/admin/RichTextEditor";
 import { RichBody } from "@/components/content/RichBody";
 import {
@@ -574,8 +574,6 @@ export default function EventDetailPage() {
         return;
       }
 
-      const joinedStatus = String(result.status || "").toLowerCase();
-      await notifyAfterIndividualJoin(supabase, eventId, joinedStatus, { isOrganizer });
       toast.success(result.message || "🎉 報名送出成功！");
 
       setJoinAlias("");
@@ -753,16 +751,10 @@ export default function EventDetailPage() {
         await supabase.rpc("notify_event_kick", { p_event_id: eventId, p_user_id: targetUserId });
       }
 
-      if (newStatus === approveStatus && targetUserId) {
+      // Waitlist promotion alerts are sent by trg_promote_waitlist_on_registration_change.
+      if (newStatus === approveStatus && targetUserId && !isWaitlistRegStatus(previousStatus)) {
         try {
-          if (isWaitlistRegStatus(previousStatus)) {
-            await supabase.rpc("notify_event_waitlist_promoted", {
-              p_event_id: eventId,
-              p_user_id: targetUserId,
-            });
-          } else {
-            await supabase.rpc("notify_event_accepted", { p_event_id: eventId, p_user_id: targetUserId });
-          }
+          await supabase.rpc("notify_event_accepted", { p_event_id: eventId, p_user_id: targetUserId });
         } catch (e) {}
       }
 

@@ -235,25 +235,3 @@ export async function callUpsertIndividualRsvp(
     status: fallback.status,
   };
 }
-
-export async function notifyAfterIndividualJoin(
-  supabase: SupabaseClient,
-  eventId: string,
-  joinedStatus: string,
-  opts: { isOrganizer: boolean }
-): Promise<void> {
-  if (opts.isOrganizer) return;
-
-  const status = joinedStatus.toLowerCase();
-  try {
-    if (status === "waitlist" || status === "waiting" || status === "queued") {
-      await supabase.rpc("notify_event_waitlist_signup", { p_event_id: eventId });
-      return;
-    }
-    if (status === "pending" || status === "going") {
-      await supabase.rpc("notify_event_registration", { p_event_id: eventId });
-    }
-  } catch {
-    // Non-blocking
-  }
-}
