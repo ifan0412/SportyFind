@@ -1,5 +1,6 @@
 // 1. 所有的 import 集中在最上方
 import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Navbar } from "@/components/Navbar"; 
 import { Footer } from "@/components/Footer";
@@ -14,14 +15,22 @@ import { PushNotificationProvider } from "@/components/push/PushNotificationProv
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
-// 3. 視角設定 (合併了 PWA 主題深色背灰 #020617 與防止 iOS 表單輸入時自動縮放畫面)
-export const viewport: Viewport = {
-  themeColor: "#020617",
-  width: "device-width",
-  initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
-};
+// 3. 視角設定 — mobile initialScale 0.8 is set in generateViewport from User-Agent (no client flash).
+const MOBILE_UA_RE =
+  /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i;
+
+export async function generateViewport(): Promise<Viewport> {
+  const ua = (await headers()).get("user-agent") ?? "";
+  const isMobile = MOBILE_UA_RE.test(ua);
+
+  return {
+    themeColor: "#020617",
+    width: "device-width",
+    initialScale: isMobile ? 0.8 : 1,
+    maximumScale: 1,
+    userScalable: false,
+  };
+}
 
 // 4. Metadata 設定 (整合 SportyFind 品牌與完整 PWA 支援參數)
 export const metadata: Metadata = {
@@ -35,37 +44,9 @@ export const metadata: Metadata = {
   },
 };
 
-// Mobile ~80% default scale: inline script in <head> (md breakpoint and below).
-const MOBILE_VIEWPORT_SCALE_SCRIPT = `(function () {
-  var MOBILE_SCALE = 0.8;
-  var MQ = "(max-width: 767px)";
-  function applyViewportScale() {
-    var meta = document.querySelector('meta[name="viewport"]');
-    if (!meta) {
-      requestAnimationFrame(applyViewportScale);
-      return;
-    }
-    var mobile = window.matchMedia(MQ).matches;
-    var base =
-      "width=device-width, maximum-scale=1, user-scalable=no, viewport-fit=cover";
-    meta.setAttribute(
-      "content",
-      mobile
-        ? base + ", initial-scale=" + MOBILE_SCALE
-        : base + ", initial-scale=1"
-    );
-  }
-  applyViewportScale();
-  window.addEventListener("resize", applyViewportScale);
-  window.addEventListener("orientationchange", applyViewportScale);
-})();`;
-
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="zh-TW" suppressHydrationWarning className={`${geistSans.variable} ${geistMono.variable}`}>
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: MOBILE_VIEWPORT_SCALE_SCRIPT }} />
-      </head>
       <body className="bg-slate-950 text-slate-100 min-h-screen font-sans flex flex-col antialiased">
         <SupabaseProvider>
           
