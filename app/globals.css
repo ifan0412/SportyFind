@@ -370,6 +370,25 @@ select,
   }
 }
 
+@keyframes sportyfind-loading-bar {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(320%);
+  }
+}
+
+@keyframes sportyfind-logo-bounce {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-3px) scale(1.04);
+  }
+}
+
 /* Compact emoji picker for chat (floating + inbox) */
 .chat-emoji-picker.EmojiPickerReact {
   --epr-horizontal-padding: 8px;

@@ -1,8 +1,11 @@
+"use client"
+
 import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
 import { Slot } from "radix-ui"
 
 import { cn } from "@/lib/utils"
+import { useOptionalMobileLoading } from "@/components/mobile/MobileLoadingProvider"
 
 const buttonVariants = cva(
   // Base: focus ring updated to blue slate, error states adjusted
@@ -84,18 +87,29 @@ function Button({
   variant = "default",
   size = "default",
   asChild = false,
+  loading = false,
   ...props
 }: React.ComponentProps<"button"> &
   VariantProps<typeof buttonVariants> & {
     asChild?: boolean
+    loading?: boolean
   }) {
   const Comp = asChild ? Slot.Root : "button"
+  const mobileLoading = useOptionalMobileLoading()
+
+  React.useEffect(() => {
+    if (!mobileLoading || !loading) return
+    mobileLoading.startAction()
+    return () => mobileLoading.stopAction()
+  }, [loading, mobileLoading])
 
   return (
     <Comp
       data-slot="button"
       data-variant={variant}
       data-size={size}
+      data-loading={loading ? "true" : undefined}
+      aria-busy={loading || undefined}
       className={cn(buttonVariants({ variant, size, className }))}
       {...props}
     />

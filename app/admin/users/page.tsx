@@ -5,6 +5,7 @@ import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { AdminShell } from "@/components/admin/AdminShell";
 import { appConfirm, appPrompt } from "@/lib/app-dialog";
+import { profileDisplayName } from "@/lib/profile-display-name";
 import { Loader2, Search, User, Ban, UserCheck, Trash2, Phone } from "lucide-react";
 import { toast } from "sonner";
 
@@ -108,11 +109,7 @@ export default function AdminUsersPage() {
     );
   }, [users, search, filter]);
 
-  const displayName = (u: AdminUser) =>
-    u.full_name?.trim() ||
-    `${u.first_name || ""} ${u.last_name || ""}`.trim() ||
-    u.handle ||
-    "未命名用戶";
+  const displayName = (u: AdminUser) => profileDisplayName(u);
 
   const handleSuspend = async (u: AdminUser) => {
     const reason = await appPrompt({

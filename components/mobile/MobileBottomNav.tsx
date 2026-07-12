@@ -11,6 +11,10 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { safeSupabaseQuery } from "@/lib/supabase/safe-query";
 import { loadConversationSummaries, totalUnreadCount } from "@/lib/chat-summaries";
 import { MobileNavDrawer } from "@/components/mobile/MobileNavDrawer";
+import {
+  LOGIN_MOBILE_NAV_ACTIVE_CLASS,
+  LOGIN_MOBILE_NAV_IDLE_CLASS,
+} from "@/lib/login-button-styles";
 
 const HIDDEN_PREFIXES = ["/auth", "/gate"];
 
@@ -22,6 +26,7 @@ function NavButton({
   children,
   badge,
   ariaLabel,
+  accent = "default",
 }: {
   href?: string;
   label: string;
@@ -30,10 +35,17 @@ function NavButton({
   children: React.ReactNode;
   badge?: number;
   ariaLabel?: string;
+  accent?: "default" | "login";
 }) {
   const className = cn(
-    "relative flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-bold transition-colors",
-    active ? "text-blue-400" : "text-slate-400"
+    "relative flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-xs font-bold transition-colors",
+    accent === "login"
+      ? active
+        ? LOGIN_MOBILE_NAV_ACTIVE_CLASS
+        : LOGIN_MOBILE_NAV_IDLE_CLASS
+      : active
+        ? "text-blue-400"
+        : "text-slate-400"
   );
 
   const content = (
@@ -131,7 +143,7 @@ export function MobileBottomNav() {
     <>
       <nav
         aria-label="主要導覽"
-        className="fixed bottom-0 inset-x-0 z-[100] md:hidden border-t border-slate-800 bg-slate-950/95 backdrop-blur-md pb-[env(safe-area-inset-bottom)]"
+        className="fixed bottom-0 left-0 right-0 z-[100] md:hidden border-t border-slate-800 bg-slate-950/95 backdrop-blur-md pb-[env(safe-area-inset-bottom)] [transform:translateZ(0)]"
       >
         <div className="flex items-stretch h-16 px-1">
           <NavButton href="/" label="首頁" active={isHome}>
@@ -183,7 +195,7 @@ export function MobileBottomNav() {
                   <Menu className="w-5 h-5" />
                 )}
               </NavButton>
-              <NavButton href="/auth" label="登入" active={isAuth}>
+              <NavButton href="/auth" label="登入" active={isAuth} accent="login">
                 <LogIn className="w-5 h-5" />
               </NavButton>
             </>

@@ -54,6 +54,7 @@ import { profilePublicUrl } from "@/lib/profile-links";
 import { toast } from "sonner";
 import { appConfirm } from "@/lib/app-dialog";
 import { FormSelect } from "@/components/ui/form-select";
+import { composeProfileFullName } from "@/lib/profile-display-name";
 
 interface Profile {
   id: string;
@@ -587,7 +588,7 @@ function ProfilePageContent() {
       pendingAvatarFile.current = null;
       if (blobUrlRef.current) { URL.revokeObjectURL(blobUrlRef.current); blobUrlRef.current = null; }
     }
-    const fullName = `${editForm.first_name} ${editForm.last_name}`.trim();
+    const fullName = composeProfileFullName(editForm.first_name, editForm.last_name);
     const physioRateVal = Number(editForm.physio_rate) || 0;
     const hkCountry = isHongKongCountry(editForm.country);
     const profileDistricts = hkCountry ? (Array.isArray(editForm.districts) ? editForm.districts : []) : [];
@@ -661,6 +662,14 @@ function ProfilePageContent() {
       physio_threads_url: editForm.physio_threads_url || null,
     });
     if (!error) {
+      await supabase.auth.updateUser({
+        data: {
+          first_name: editForm.first_name?.trim() || null,
+          last_name: editForm.last_name?.trim() || null,
+          full_name: fullName || null,
+        },
+      });
+
       setProfile(prev => ({ ...prev!, ...editForm, avatar_url: finalAvatarUrl, full_name: fullName, location: `${editForm.region}, ${editForm.country}` }));
       await loadProfileData(user.id);
       toast.success("儲存成功！您的個人資料已更新。");

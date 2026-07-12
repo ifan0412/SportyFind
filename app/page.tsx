@@ -75,7 +75,7 @@ export default function HomePage() {
   ];
 
   return (
-    <div className="min-h-[calc(100vh-3.5rem)] bg-slate-950 flex flex-col items-center justify-center p-4 font-sans text-center relative overflow-hidden">
+    <div className="min-h-0 md:min-h-[calc(100vh-3.5rem)] bg-slate-950 flex flex-col items-center justify-start md:justify-center p-4 font-sans text-center relative overflow-hidden">
       
       <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[650px] h-[650px] bg-blue-600/10 blur-[130px] rounded-full pointer-events-none" />
       

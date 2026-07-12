@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { navLinks } from "@/lib/nav-links";
 import { isSiteAdmin } from "@/lib/admin";
 import { ProfileNavMenu, type ProfileNavData } from "@/components/NavbarProfileMenu";
+import { LOGIN_DRAWER_LINK_CLASS } from "@/lib/login-button-styles";
 
 interface MobileNavDrawerProps {
   open: boolean;
@@ -121,7 +122,7 @@ export function MobileNavDrawer({
               <li>
                 <Link
                   href="/auth"
-                  className="flex items-center gap-3 rounded-md px-3 py-3 text-sm font-bold bg-red-600/15 text-red-400 hover:bg-red-600/25 transition-colors"
+                  className={LOGIN_DRAWER_LINK_CLASS}
                   onClick={onClose}
                 >
                   <LogIn className="size-4" /> 登入 / 註冊

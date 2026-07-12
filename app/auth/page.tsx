@@ -13,6 +13,7 @@ import { getPasswordValidationError } from "@/lib/password";
 import { CoachRoleLabel, PhysioRoleLabel } from "@/components/profile/RoleBadges";
 import { type ProfileGender, PROFILE_GENDER_OPTIONS } from "@/lib/gender";
 import { FormSelect } from "@/components/ui/form-select";
+import { useMobileLoading } from "@/components/mobile/MobileLoadingProvider";
 
 export default function AuthPage() {
   const [email, setEmail] = useState("");
@@ -36,6 +37,12 @@ export default function AuthPage() {
   const supabase = createSupabaseBrowserClient();
   const router = useRouter();
   const pageRef = useRef<HTMLDivElement>(null);
+  const mobileLoading = useMobileLoading();
+
+  useEffect(() => {
+    if (isLoading) mobileLoading.startAction();
+    else mobileLoading.stopAction();
+  }, [isLoading, mobileLoading]);
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 767px)");
@@ -167,6 +174,7 @@ export default function AuthPage() {
       });
 
       if (error) {
+        if (!window.navigator.onLine) mobileLoading.failWithNetworkError();
         toast.error(error.message);
       } else {
         toast.success("帳戶已建立！請查收電郵並點擊驗證連結後再登入。");
@@ -179,6 +187,7 @@ export default function AuthPage() {
         password,
       });
       if (error) {
+        if (!window.navigator.onLine) mobileLoading.failWithNetworkError();
         toast.error(error.message);
       } else if (signInData.user) {
         if (!signInData.user.email_confirmed_at && !signInData.user.confirmed_at) {
@@ -220,6 +229,7 @@ export default function AuthPage() {
     });
 
     if (error) {
+      if (!window.navigator.onLine) mobileLoading.failWithNetworkError();
       toast.error(error.message);
       setIsLoading(false);
     }
@@ -234,6 +244,7 @@ export default function AuthPage() {
     const { error } = await supabase.auth.resend({ type: "signup", email });
     setIsLoading(false);
     if (error) {
+      if (!window.navigator.onLine) mobileLoading.failWithNetworkError();
       toast.error(error.message);
     } else {
       toast.success("驗證電郵已重新發送。");

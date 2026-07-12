@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { sendEmail } from "@/lib/send-email";
 import { SITE } from "@/lib/site";
+import { composeProfileFullName } from "@/lib/profile-display-name";
 
 const MIN_MESSAGE = 10;
 const MAX_MESSAGE = 5000;
@@ -46,12 +47,14 @@ export async function POST(request: Request) {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("full_name")
+    .select("full_name, first_name, last_name, handle")
     .eq("id", user.id)
     .maybeSingle();
 
   const senderName =
+    composeProfileFullName(profile?.first_name, profile?.last_name) ||
     profile?.full_name?.trim() ||
+    profile?.handle?.trim() ||
     user.user_metadata?.full_name?.trim() ||
     user.email?.split("@")[0] ||
     "會員";

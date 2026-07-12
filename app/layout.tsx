@@ -8,6 +8,7 @@ import "./globals.css";
 import Providers from "./providers";
 import { GlobalChat } from "@/components/GlobalChat";
 import { MobileBottomNav } from "@/components/mobile/MobileBottomNav";
+import { MobileLoadingProvider } from "@/components/mobile/MobileLoadingProvider";
 import { PushNotificationProvider } from "@/components/push/PushNotificationProvider";
 import { mobileViewport } from "@/lib/viewport";
 
@@ -15,7 +16,7 @@ import { mobileViewport } from "@/lib/viewport";
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
-// 3. 視角設定 — default mobile scale 1; homepage overrides to 0.8 in app/page.tsx.
+// 3. Viewport — full mobile scale site-wide; homepage blocks scale via CSS only.
 export async function generateViewport(): Promise<Viewport> {
   return mobileViewport(1);
 }
@@ -40,20 +41,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="zh-TW" suppressHydrationWarning className={`dark ${geistSans.variable} ${geistMono.variable}`}>
       <body className="bg-slate-950 text-slate-100 min-h-screen font-sans flex flex-col antialiased">
         <SupabaseProvider>
-          
-          {/* 💡 這裡才是重點！呼叫我們做好的強大 Navbar 元件 */}
-          <Navbar />
-          
-          <main className="flex-1 bg-slate-950 py-2 pb-20 md:py-6 md:pb-6">
-            <Providers>{children}</Providers>
-          </main>
+          <MobileLoadingProvider>
+            <Navbar />
 
-          <Footer />
+            <main className="flex-1 bg-slate-950 py-2 pb-20 md:py-6 md:pb-6">
+              <Providers>{children}</Providers>
+            </main>
 
-          <MobileBottomNav />
-          <PushNotificationProvider />
-          <GlobalChat />
-          
+            <Footer />
+
+            <MobileBottomNav />
+            <PushNotificationProvider />
+            <GlobalChat />
+          </MobileLoadingProvider>
         </SupabaseProvider>
       </body>
     </html>

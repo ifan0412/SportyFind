@@ -26,6 +26,7 @@ import { NotificationPanel } from "@/components/notifications/NotificationPanel"
 import { MobileSettingsSheet } from "@/components/mobile/MobileSettingsSheet";
 import { getNotificationHref } from "@/components/notifications/notification-routing";
 import { mapNotificationRow } from "@/lib/notifications/normalize";
+import { LOGIN_DESKTOP_BUTTON_CLASS } from "@/lib/login-button-styles";
 import type { Notification } from "@/components/notifications/notification-types";
 
 interface NotificationBellProps {
@@ -592,10 +593,7 @@ export function Navbar() {
               </li>
             ) : isClient ? (
               <li>
-                <Link
-                  href="/auth"
-                  className="flex items-center justify-center gap-2 rounded-xl px-5 py-1 text-sm font-black bg-red-600 hover:bg-red-500 text-white transition-all shadow-lg active:scale-95"
-                >
+                <Link href="/auth" className={LOGIN_DESKTOP_BUTTON_CLASS}>
                   登入 / 註冊
                 </Link>
               </li>
