@@ -441,7 +441,7 @@ insert into public.content_posts (
 <h3>4. Doubles positioning & communication</h3>
 <p>Move forward together, back together. One player doesn''t rush the net alone. Call <em>mine</em>, <em>yours</em>, and <em>bounce</em> on close balls. Middle is often the safer target than sharp angles when learning.</p>
 
-<img src="https://images.unsplash.com/photo-1554068865-24cecd4e34b8?auto=format&amp;fit=crop&amp;w=1200&amp;q=80" alt="Pickleball players at the net" />
+<img src="https://images.unsplash.com/photo-1761644658016-324918bc373c?auto=format&amp;fit=crop&amp;w=1200&amp;q=80" alt="Pickleball players at the net" />
 
 <h2>What to avoid</h2>
 <ul>
@@ -464,7 +464,7 @@ insert into public.content_posts (
 <h2>When to get professional help</h2>
 <p>Elbow or shoulder soreness from over-hitting can improve with a coach''s grip and swing path check. A <strong>physio</strong> helps if knee or achilles pain flares from constant short steps.</p>
 <p><strong>Bottom line:</strong> get to the kitchen as a pair, dink with patience, attack only high balls. Pickleball is a placement game dressed up as a power sport.</p>$body$,
-  'https://images.unsplash.com/photo-1554068865-24cecd4e34b8?auto=format&fit=crop&w=1600&q=80',
+  'https://images.unsplash.com/photo-1761644658016-324918bc373c?auto=format&fit=crop&w=1600&q=80',
   array['players', 'coaches', 'general'],
   array['pickleball'],
   'published',
