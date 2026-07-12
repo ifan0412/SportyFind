@@ -23,6 +23,7 @@ import {
   getCurrentPushSubscription,
   resubscribePushNotifications,
   sendTestPush,
+  showLocalTestNotification,
   unsubscribeFromPush,
 } from "@/lib/push/client";
 import {
@@ -43,17 +44,41 @@ export function NotificationManagementTab() {
   const [prefs, setPrefs] = useState<PushPreferences>(DEFAULT_PUSH_PREFERENCES);
   const [subscribed, setSubscribed] = useState(false);
   const [serverSubscriptionCount, setServerSubscriptionCount] = useState(0);
+  const [serverStatus, setServerStatus] = useState<{
+    vapidPrivateConfigured: boolean;
+    serviceRoleConfigured: boolean;
+    migrationRequired: boolean;
+  } | null>(null);
   const [testMessage, setTestMessage] = useState<string | null>(null);
   const permission = useMemo(() => getNotificationPermission(), [subscribed, loading]);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/push/preferences");
-      if (res.ok) {
-        const data = (await res.json()) as { preferences?: unknown; subscriptionCount?: number };
+      const [prefsRes, statusRes] = await Promise.all([
+        fetch("/api/push/preferences"),
+        fetch("/api/push/status"),
+      ]);
+      if (prefsRes.ok) {
+        const data = (await prefsRes.json()) as { preferences?: unknown; subscriptionCount?: number };
         setPrefs(mergePushPreferences(data.preferences));
         setServerSubscriptionCount(data.subscriptionCount ?? 0);
+      }
+      if (statusRes.ok) {
+        const status = (await statusRes.json()) as {
+          vapidPrivateConfigured?: boolean;
+          serviceRoleConfigured?: boolean;
+          migrationRequired?: boolean;
+          subscriptionCount?: number;
+        };
+        setServerStatus({
+          vapidPrivateConfigured: Boolean(status.vapidPrivateConfigured),
+          serviceRoleConfigured: Boolean(status.serviceRoleConfigured),
+          migrationRequired: Boolean(status.migrationRequired),
+        });
+        if (typeof status.subscriptionCount === "number") {
+          setServerSubscriptionCount(status.subscriptionCount);
+        }
       }
       const sub = await getCurrentPushSubscription();
       setSubscribed(Boolean(sub));
@@ -123,11 +148,22 @@ export function NotificationManagementTab() {
     setBusy(true);
     setTestMessage(null);
     try {
+      const local = await showLocalTestNotification();
       const result = await sendTestPush();
       if (result.ok) {
-        setTestMessage(`測試通知已發送（${result.sent ?? 1} 個裝置）`);
+        setTestMessage(
+          local.ok
+            ? `本機與伺服器測試皆成功（${result.sent ?? 1} 個裝置）`
+            : `伺服器推送已發送；本機：${local.error ?? "略過"}`
+        );
+      } else if (local.ok) {
+        setTestMessage(
+          `本機通知正常，但伺服器推送失敗：${result.error ?? "未知錯誤"}`
+        );
       } else {
-        setTestMessage(result.error ?? "發送失敗");
+        setTestMessage(
+          `本機：${local.error ?? "失敗"}；伺服器：${result.error ?? "失敗"}`
+        );
       }
     } finally {
       setBusy(false);
@@ -176,6 +212,30 @@ export function NotificationManagementTab() {
           管理推送通知權限與通知類別偏好。
         </p>
       </div>
+
+      {serverStatus?.migrationRequired && (
+        <div className="rounded-2xl border border-red-500/30 bg-red-500/5 p-4">
+          <p className="text-xs text-red-300 leading-relaxed">
+            資料庫缺少 push_subscriptions 資料表。請在 Supabase 執行 migration 056。
+          </p>
+        </div>
+      )}
+
+      {serverStatus && !serverStatus.migrationRequired && !serverStatus.vapidPrivateConfigured && (
+        <div className="rounded-2xl border border-red-500/30 bg-red-500/5 p-4">
+          <p className="text-xs text-red-300 leading-relaxed">
+            Vercel 未設定 VAPID_PRIVATE_KEY（私鑰）。請與 NEXT_PUBLIC_VAPID_PUBLIC_KEY 配對後重新部署。
+          </p>
+        </div>
+      )}
+
+      {serverStatus && !serverStatus.serviceRoleConfigured && (
+        <div className="rounded-2xl border border-red-500/30 bg-red-500/5 p-4">
+          <p className="text-xs text-red-300 leading-relaxed">
+            Vercel 未設定 SUPABASE_SERVICE_ROLE_KEY，伺服器無法發送推送。
+          </p>
+        </div>
+      )}
 
       {iosInstallNeeded && (
         <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4 space-y-2">
@@ -249,7 +309,7 @@ export function NotificationManagementTab() {
               <button
                 type="button"
                 onClick={handleTest}
-                disabled={busy || !serverSynced}
+                disabled={busy || permission !== "granted"}
                 className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-zinc-200 text-xs font-black transition disabled:opacity-50"
               >
                 發送測試通知

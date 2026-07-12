@@ -27,6 +27,16 @@ export function getVapidPublicKey(): string | null {
   return process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? null;
 }
 
+export function isVapidPrivateKeyConfigured(): boolean {
+  return Boolean(process.env.VAPID_PRIVATE_KEY);
+}
+
+export function isPushServerConfigured(): boolean {
+  return isVapidPrivateKeyConfigured() && hasServiceRoleClient() && Boolean(getVapidPublicKey());
+}
+
+export type PushSendResult = { sent: number; failed: number; lastError?: string };
+
 interface PushSubscriptionRow {
   id: string;
   endpoint: string;
@@ -37,9 +47,17 @@ interface PushSubscriptionRow {
 export async function sendPushToUser(
   userId: string,
   payload: { title: string; body: string; url: string; tag: string }
-): Promise<{ sent: number; failed: number }> {
+): Promise<PushSendResult> {
   if (!ensureVapidConfigured() || !hasServiceRoleClient()) {
-    return { sent: 0, failed: 0 };
+    return {
+      sent: 0,
+      failed: 0,
+      lastError: !isVapidPrivateKeyConfigured()
+        ? "VAPID_PRIVATE_KEY 未設定"
+        : !hasServiceRoleClient()
+          ? "SUPABASE_SERVICE_ROLE_KEY 未設定"
+          : "推送伺服器未設定",
+    };
   }
 
   const supabase = createServiceRoleClient();
@@ -48,10 +66,14 @@ export async function sendPushToUser(
     .select("id, endpoint, p256dh, auth")
     .eq("user_id", userId);
 
-  if (error || !rows?.length) return { sent: 0, failed: 0 };
+  if (error) {
+    return { sent: 0, failed: 0, lastError: `讀取訂閱失敗：${error.message}` };
+  }
+  if (!rows?.length) return { sent: 0, failed: 0, lastError: "找不到推送訂閱紀錄" };
 
   let sent = 0;
   let failed = 0;
+  let lastError: string | undefined;
   const body = JSON.stringify(payload);
 
   for (const row of rows as PushSubscriptionRow[]) {
@@ -66,15 +88,24 @@ export async function sendPushToUser(
       sent += 1;
     } catch (err: unknown) {
       failed += 1;
-      const status = (err as { statusCode?: number })?.statusCode;
+      const pushErr = err as { statusCode?: number; body?: string; message?: string };
+      lastError = [
+        pushErr.message,
+        pushErr.statusCode ? `HTTP ${pushErr.statusCode}` : "",
+        pushErr.body ? String(pushErr.body).slice(0, 200) : "",
+      ]
+        .filter(Boolean)
+        .join(" — ");
+      const status = pushErr.statusCode;
       if (status === 404 || status === 410) {
         await supabase.from("push_subscriptions").delete().eq("id", row.id);
+        lastError = `${lastError}（已清除失效訂閱，請重新訂閱）`;
       }
       console.error("Push send failed:", err);
     }
   }
 
-  return { sent, failed };
+  return { sent, failed, lastError };
 }
 
 export async function dispatchPushForNotificationRecord(record: {

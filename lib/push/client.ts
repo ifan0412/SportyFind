@@ -188,12 +188,36 @@ export async function sendTestPush(): Promise<{
     };
     return {
       ok: res.ok,
-      error: data.error,
+      error: data.error ?? (res.ok ? undefined : `HTTP ${res.status}`),
       sent: data.sent,
       failed: data.failed,
     };
   } catch {
-    return { ok: false, error: "network" };
+    return { ok: false, error: "網路錯誤，請稍後再試" };
+  }
+}
+
+export async function showLocalTestNotification(): Promise<{ ok: boolean; error?: string }> {
+  try {
+    if (!("Notification" in window) || Notification.permission !== "granted") {
+      return { ok: false, error: "尚未允許通知權限" };
+    }
+    const registration = await registerServiceWorker();
+    if (!registration) {
+      return { ok: false, error: "Service Worker 未就緒" };
+    }
+    await registration.showNotification("SportyFind 本機測試", {
+      body: "若看到此通知，代表此裝置通知權限正常。",
+      icon: "/icon-192.png",
+      badge: "/icon-192.png",
+      tag: "push-local-test",
+    });
+    return { ok: true };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "本機通知顯示失敗",
+    };
   }
 }
 
