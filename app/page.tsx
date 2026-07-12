@@ -1,4 +1,5 @@
 import React from "react";
+import type { Viewport } from "next";
 import Link from "next/link";
 import {
   Users,
@@ -10,6 +11,11 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { CATEGORY_COLORS, type SiteCategory } from "@/lib/category-colors";
+import { mobileViewport } from "@/lib/viewport";
+
+export async function generateViewport(): Promise<Viewport> {
+  return mobileViewport(0.8);
+}
 
 type HomeBlock = {
   category: SiteCategory;

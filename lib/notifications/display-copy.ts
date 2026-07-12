@@ -63,7 +63,7 @@ export function getNotificationDisplayMessage(notif: NotificationLike): Notifica
     case "event_waitlist_signup":
       return { highlight: name, message: " 加入了您主辦活動的候補名單" };
     case "event_waitlist_promoted":
-      return { highlight: "系統通知", message: "：您已從候補名單升級，成功加入活動 🎉" };
+      return { highlight: name, message: " 的主辦活動：您已從候補名單成功加入 🎉" };
     case "event_waitlist_promoted_host":
       return { highlight: name, message: " 從候補名單加入您的活動 🎉" };
     case "event_leave":

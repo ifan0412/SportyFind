@@ -1,6 +1,5 @@
 // 1. 所有的 import 集中在最上方
 import type { Metadata, Viewport } from "next";
-import { headers } from "next/headers";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Navbar } from "@/components/Navbar"; 
 import { Footer } from "@/components/Footer";
@@ -10,26 +9,15 @@ import Providers from "./providers";
 import { GlobalChat } from "@/components/GlobalChat";
 import { MobileBottomNav } from "@/components/mobile/MobileBottomNav";
 import { PushNotificationProvider } from "@/components/push/PushNotificationProvider";
+import { mobileViewport } from "@/lib/viewport";
 
 // 2. 字體設定
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
-// 3. 視角設定 — mobile initialScale 0.8 is set in generateViewport from User-Agent (no client flash).
-const MOBILE_UA_RE =
-  /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i;
-
+// 3. 視角設定 — default mobile scale 1; homepage overrides to 0.8 in app/page.tsx.
 export async function generateViewport(): Promise<Viewport> {
-  const ua = (await headers()).get("user-agent") ?? "";
-  const isMobile = MOBILE_UA_RE.test(ua);
-
-  return {
-    themeColor: "#020617",
-    width: "device-width",
-    initialScale: isMobile ? 0.8 : 1,
-    maximumScale: 1,
-    userScalable: false,
-  };
+  return mobileViewport(1);
 }
 
 // 4. Metadata 設定 (整合 SportyFind 品牌與完整 PWA 支援參數)
