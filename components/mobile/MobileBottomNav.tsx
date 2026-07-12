@@ -38,7 +38,7 @@ function NavButton({
   accent?: "default" | "login";
 }) {
   const className = cn(
-    "relative flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-xs font-bold transition-colors",
+    "relative flex min-w-0 flex-1 flex-col items-center justify-center gap-0 py-0.5 text-[10px] leading-none font-bold transition-colors",
     accent === "login"
       ? active
         ? LOGIN_MOBILE_NAV_ACTIVE_CLASS
@@ -50,7 +50,7 @@ function NavButton({
 
   const content = (
     <>
-      <span className="relative flex items-center justify-center w-8 h-8">
+      <span className="relative flex h-7 w-7 shrink-0 items-center justify-center">
         {children}
         {badge != null && badge > 0 && (
           <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-3.5 bg-red-500 text-white text-[8px] font-black rounded-full flex items-center justify-center px-0.5">
@@ -58,7 +58,7 @@ function NavButton({
           </span>
         )}
       </span>
-      <span>{label}</span>
+      <span className="mt-0.5 max-w-[4.75rem] truncate px-0.5 text-center">{label}</span>
     </>
   );
 
@@ -145,15 +145,15 @@ export function MobileBottomNav() {
         aria-label="主要導覽"
         className="fixed bottom-0 left-0 right-0 z-[100] md:hidden border-t border-slate-800 bg-slate-950/95 backdrop-blur-md pb-[env(safe-area-inset-bottom)] [transform:translateZ(0)]"
       >
-        <div className="flex items-stretch h-16 px-1">
+        <div className="flex h-14 items-center px-0.5">
           <NavButton href="/" label="首頁" active={isHome}>
-            <Home className="w-5 h-5" />
+            <Home className="h-[18px] w-[18px]" />
           </NavButton>
 
           {isAuthenticated ? (
             <>
-              <NavButton href="/events/my" label="我的賽事/活動" active={isEvents}>
-                <Calendar className="w-5 h-5" />
+              <NavButton href="/events/my" label="我的賽事" active={isEvents}>
+                <Calendar className="h-[18px] w-[18px]" />
               </NavButton>
               <NavButton
                 label={menuOpen ? "關閉" : "選單"}
@@ -162,24 +162,24 @@ export function MobileBottomNav() {
                 ariaLabel={menuOpen ? "關閉選單" : "開啟選單"}
               >
                 {menuOpen ? (
-                  <span className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-800 border border-slate-600 text-white shadow-md">
-                    <X className="w-4 h-4" strokeWidth={2.5} />
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-600 bg-slate-800 text-white shadow-md">
+                    <X className="h-3.5 w-3.5" strokeWidth={2.5} />
                   </span>
                 ) : (
-                  <Menu className="w-5 h-5" />
+                  <Menu className="h-[18px] w-[18px]" />
                 )}
               </NavButton>
               <NavButton href="/inbox" label="訊息" active={isInbox} badge={dmUnread}>
-                <MessageSquare className="w-5 h-5" />
+                <MessageSquare className="h-[18px] w-[18px]" />
               </NavButton>
               <NavButton href="/profile" label="我的" active={isProfile}>
-                <User className="w-5 h-5" />
+                <User className="h-[18px] w-[18px]" />
               </NavButton>
             </>
           ) : (
             <>
               <NavButton href="/events" label="賽事/活動" active={isEvents}>
-                <Calendar className="w-5 h-5" />
+                <Calendar className="h-[18px] w-[18px]" />
               </NavButton>
               <NavButton
                 label={menuOpen ? "關閉" : "選單"}
@@ -188,15 +188,15 @@ export function MobileBottomNav() {
                 ariaLabel={menuOpen ? "關閉選單" : "開啟選單"}
               >
                 {menuOpen ? (
-                  <span className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-800 border border-slate-600 text-white shadow-md">
-                    <X className="w-4 h-4" strokeWidth={2.5} />
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-600 bg-slate-800 text-white shadow-md">
+                    <X className="h-3.5 w-3.5" strokeWidth={2.5} />
                   </span>
                 ) : (
-                  <Menu className="w-5 h-5" />
+                  <Menu className="h-[18px] w-[18px]" />
                 )}
               </NavButton>
               <NavButton href="/auth" label="登入" active={isAuth} accent="login">
-                <LogIn className="w-5 h-5" />
+                <LogIn className="h-[18px] w-[18px]" />
               </NavButton>
             </>
           )}

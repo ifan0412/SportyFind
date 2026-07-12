@@ -44,7 +44,7 @@ export function MobileNavDrawer({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-x-0 top-14 bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] z-[90] md:hidden">
+    <div className="fixed inset-x-0 top-14 bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] z-[90] md:hidden">
       <button
         type="button"
         aria-label="關閉選單"

@@ -84,7 +84,7 @@ export function ShareToFriendsModal({ open, onClose, payload }: ShareToFriendsMo
   };
 
   return (
-    <div className="fixed inset-x-0 top-0 bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] sm:inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div className="fixed inset-x-0 top-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] sm:inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-4">
       <button
         type="button"
         aria-label="關閉"

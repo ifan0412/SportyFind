@@ -239,7 +239,7 @@ function InboxPageContent() {
   };
 
   return (
-    <div className="bg-slate-950 h-[calc(100dvh-3.5rem-4rem-env(safe-area-inset-bottom))] md:h-[calc(100dvh-3.5rem)] overflow-hidden">
+    <div className="bg-slate-950 h-[calc(100dvh-3.5rem-3.5rem-env(safe-area-inset-bottom))] md:h-[calc(100dvh-3.5rem)] overflow-hidden">
       <div className="md:hidden flex items-center justify-between px-4 h-12 border-b border-slate-800 bg-slate-950">
         <h1 className="text-sm font-black text-white">訊息收件匣</h1>
         <button

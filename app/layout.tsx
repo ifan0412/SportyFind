@@ -23,7 +23,7 @@ export async function generateViewport(): Promise<Viewport> {
 
 // 4. Metadata 設定 (整合 SportyFind 品牌與完整 PWA 支援參數)
 export const metadata: Metadata = {
-  title: "SportyFind | 一站式全能運動約戰與社群網絡",
+  title: "SportyFind | 一站式運動約戰與社群網絡",
   description: "一站式運動社群約戰、配對與專業服務平台。",
   manifest: "/manifest.webmanifest",
   icons: {
@@ -44,7 +44,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <MobileLoadingProvider>
             <Navbar />
 
-            <main className="flex-1 bg-slate-950 py-2 pb-20 md:py-6 md:pb-6">
+            <main className="flex-1 bg-slate-950 py-2 pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))] md:py-6 md:pb-6">
               <Providers>{children}</Providers>
             </main>
 
