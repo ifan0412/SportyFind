@@ -48,6 +48,7 @@ export function NotificationManagementTab() {
     vapidPrivateConfigured: boolean;
     serviceRoleConfigured: boolean;
     migrationRequired: boolean;
+    vapidConfigurationError?: string | null;
   } | null>(null);
   const [testMessage, setTestMessage] = useState<string | null>(null);
   const permission = useMemo(() => getNotificationPermission(), [subscribed, loading]);
@@ -69,12 +70,14 @@ export function NotificationManagementTab() {
           vapidPrivateConfigured?: boolean;
           serviceRoleConfigured?: boolean;
           migrationRequired?: boolean;
+          vapidConfigurationError?: string | null;
           subscriptionCount?: number;
         };
         setServerStatus({
           vapidPrivateConfigured: Boolean(status.vapidPrivateConfigured),
           serviceRoleConfigured: Boolean(status.serviceRoleConfigured),
           migrationRequired: Boolean(status.migrationRequired),
+          vapidConfigurationError: status.vapidConfigurationError ?? null,
         });
         if (typeof status.subscriptionCount === "number") {
           setServerSubscriptionCount(status.subscriptionCount);
@@ -218,6 +221,12 @@ export function NotificationManagementTab() {
           <p className="text-xs text-red-300 leading-relaxed">
             資料庫缺少 push_subscriptions 資料表。請在 Supabase 執行 migration 056。
           </p>
+        </div>
+      )}
+
+      {serverStatus?.vapidConfigurationError && (
+        <div className="rounded-2xl border border-red-500/30 bg-red-500/5 p-4">
+          <p className="text-xs text-red-300 leading-relaxed">{serverStatus.vapidConfigurationError}</p>
         </div>
       )}
 

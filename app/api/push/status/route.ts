@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import {
+  getVapidConfigurationError,
   getVapidPublicKey,
   isPushServerConfigured,
   isVapidPrivateKeyConfigured,
@@ -36,6 +37,7 @@ export async function GET() {
   return NextResponse.json({
     vapidPublicConfigured: Boolean(getVapidPublicKey()),
     vapidPrivateConfigured: isVapidPrivateKeyConfigured(),
+    vapidConfigurationError: getVapidConfigurationError(),
     serviceRoleConfigured: hasServiceRoleClient(),
     serverReady: isPushServerConfigured(),
     subscriptionCount: count ?? 0,

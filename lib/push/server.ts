@@ -1,7 +1,6 @@
 import "server-only";
 
 import webpush from "web-push";
-import { SITE } from "@/lib/site";
 import { getPushPayloadForNotification } from "@/lib/push/notification-copy";
 import {
   mergePushPreferences,
@@ -9,30 +8,63 @@ import {
 } from "@/lib/push/preferences";
 import { createServiceRoleClient, hasServiceRoleClient } from "@/lib/supabase/service";
 import type { Notification } from "@/components/notifications/notification-types";
+import {
+  formatPushDeliveryError,
+  getVapidPrivateKeyFromEnv,
+  getVapidPublicKeyFromEnv,
+  getVapidSubjectFromEnv,
+  shouldInvalidateSubscription,
+} from "@/lib/push/vapid-config";
 
 let vapidConfigured = false;
+let vapidConfigError: string | null = null;
 
-function ensureVapidConfigured() {
-  if (vapidConfigured) return true;
-  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-  const privateKey = process.env.VAPID_PRIVATE_KEY;
-  const subject = process.env.VAPID_SUBJECT ?? `mailto:${SITE.supportEmail}`;
-  if (!publicKey || !privateKey) return false;
-  webpush.setVapidDetails(subject, publicKey, privateKey);
-  vapidConfigured = true;
-  return true;
+function ensureVapidConfigured(): { ok: true } | { ok: false; error: string } {
+  if (vapidConfigured) return { ok: true };
+  if (vapidConfigError) return { ok: false, error: vapidConfigError };
+
+  const publicKey = getVapidPublicKeyFromEnv();
+  const privateKey = getVapidPrivateKeyFromEnv();
+  const subject = getVapidSubjectFromEnv();
+
+  if (!publicKey || !privateKey) {
+    vapidConfigError = !privateKey ? "VAPID_PRIVATE_KEY 未設定" : "NEXT_PUBLIC_VAPID_PUBLIC_KEY 未設定";
+    return { ok: false, error: vapidConfigError };
+  }
+
+  try {
+    webpush.setVapidDetails(subject, publicKey, privateKey);
+    vapidConfigured = true;
+    return { ok: true };
+  } catch (err) {
+    vapidConfigError =
+      err instanceof Error
+        ? `VAPID 金鑰格式錯誤：${err.message}`
+        : "VAPID 金鑰格式錯誤";
+    return { ok: false, error: vapidConfigError };
+  }
 }
 
 export function getVapidPublicKey(): string | null {
-  return process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? null;
+  const key = getVapidPublicKeyFromEnv();
+  return key || null;
 }
 
 export function isVapidPrivateKeyConfigured(): boolean {
-  return Boolean(process.env.VAPID_PRIVATE_KEY);
+  return Boolean(getVapidPrivateKeyFromEnv());
+}
+
+export function getVapidConfigurationError(): string | null {
+  const result = ensureVapidConfigured();
+  return result.ok ? null : result.error;
 }
 
 export function isPushServerConfigured(): boolean {
-  return isVapidPrivateKeyConfigured() && hasServiceRoleClient() && Boolean(getVapidPublicKey());
+  return (
+    ensureVapidConfigured().ok &&
+    hasServiceRoleClient() &&
+    Boolean(getVapidPublicKey())
+  );
 }
 
 export type PushSendResult = { sent: number; failed: number; lastError?: string };
@@ -48,16 +80,12 @@ export async function sendPushToUser(
   userId: string,
   payload: { title: string; body: string; url: string; tag: string }
 ): Promise<PushSendResult> {
-  if (!ensureVapidConfigured() || !hasServiceRoleClient()) {
-    return {
-      sent: 0,
-      failed: 0,
-      lastError: !isVapidPrivateKeyConfigured()
-        ? "VAPID_PRIVATE_KEY 未設定"
-        : !hasServiceRoleClient()
-          ? "SUPABASE_SERVICE_ROLE_KEY 未設定"
-          : "推送伺服器未設定",
-    };
+  const vapid = ensureVapidConfigured();
+  if (!vapid.ok) {
+    return { sent: 0, failed: 0, lastError: vapid.error };
+  }
+  if (!hasServiceRoleClient()) {
+    return { sent: 0, failed: 0, lastError: "SUPABASE_SERVICE_ROLE_KEY 未設定" };
   }
 
   const supabase = createServiceRoleClient();
@@ -83,25 +111,19 @@ export async function sendPushToUser(
           endpoint: row.endpoint,
           keys: { p256dh: row.p256dh, auth: row.auth },
         },
-        body
+        body,
+        { TTL: 86400, urgency: "high" }
       );
       sent += 1;
     } catch (err: unknown) {
       failed += 1;
       const pushErr = err as { statusCode?: number; body?: string; message?: string };
-      lastError = [
-        pushErr.message,
-        pushErr.statusCode ? `HTTP ${pushErr.statusCode}` : "",
-        pushErr.body ? String(pushErr.body).slice(0, 200) : "",
-      ]
-        .filter(Boolean)
-        .join(" — ");
-      const status = pushErr.statusCode;
-      if (status === 404 || status === 410) {
+      lastError = formatPushDeliveryError(pushErr);
+      if (shouldInvalidateSubscription(pushErr.statusCode, pushErr.body)) {
         await supabase.from("push_subscriptions").delete().eq("id", row.id);
         lastError = `${lastError}（已清除失效訂閱，請重新訂閱）`;
       }
-      console.error("Push send failed:", err);
+      console.error("Push send failed:", pushErr.statusCode, pushErr.body ?? pushErr.message);
     }
   }
 
@@ -118,7 +140,7 @@ export async function dispatchPushForNotificationRecord(record: {
   event_id?: string | null;
   friendship_id?: string | null;
 }): Promise<{ sent: number; skipped: boolean }> {
-  if (!ensureVapidConfigured() || !hasServiceRoleClient()) {
+  if (!ensureVapidConfigured().ok || !hasServiceRoleClient()) {
     return { sent: 0, skipped: true };
   }
 
@@ -154,4 +176,10 @@ export async function sendTestPushToUser(userId: string) {
     url: "/profile/settings/notifications",
     tag: "push-test",
   });
+}
+
+export async function deleteAllPushSubscriptionsForUser(userId: string): Promise<void> {
+  if (!hasServiceRoleClient()) return;
+  const supabase = createServiceRoleClient();
+  await supabase.from("push_subscriptions").delete().eq("user_id", userId);
 }

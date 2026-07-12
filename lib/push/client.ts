@@ -226,6 +226,15 @@ export async function resubscribePushNotifications(): Promise<{
   error?: string;
 }> {
   await unsubscribeFromPush();
+  try {
+    await fetch("/api/push/unsubscribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ all: true }),
+    });
+  } catch {
+    /* continue */
+  }
   const result = await enablePushNotifications();
   if (!result.ok) {
     return {

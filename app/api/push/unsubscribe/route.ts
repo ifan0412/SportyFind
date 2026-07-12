@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { deleteAllPushSubscriptionsForUser } from "@/lib/push/server";
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -12,6 +13,13 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json().catch(() => ({}));
+
+  if (body.all === true) {
+    await supabase.from("push_subscriptions").delete().eq("user_id", user.id);
+    await deleteAllPushSubscriptionsForUser(user.id);
+    return NextResponse.json({ ok: true });
+  }
+
   const endpoint = typeof body.endpoint === "string" ? body.endpoint : "";
 
   if (!endpoint) {
