@@ -41,6 +41,10 @@ export function formatPushDeliveryError(err: {
   const body = String(err.body ?? "");
   const status = err.statusCode;
 
+  if (body.includes("VapidPkHashMismatch")) {
+    return "VAPID 公鑰與私鑰不匹配（訂閱時用的公鑰 ≠ 伺服器私鑰）。請在 Vercel 設定同一對金鑰、重新部署，再按「重新訂閱」。";
+  }
+
   if (body.includes("BadJwtToken") || status === 403) {
     return "VAPID 公鑰與私鑰不匹配。請在 Vercel 設定同一對金鑰，重新部署，再按「重新訂閱」。";
   }
@@ -63,6 +67,7 @@ export function shouldInvalidateSubscription(status?: number, body?: string): bo
   const text = String(body ?? "");
   if (status === 404 || status === 410) return true;
   if (status === 403) return true;
-  if (status === 500 && (text.includes("BadJwtToken") || text.includes("Vapid"))) return true;
+  if (text.includes("VapidPkHashMismatch") || text.includes("BadJwtToken")) return true;
+  if (status === 500 && text.includes("Vapid")) return true;
   return false;
 }
