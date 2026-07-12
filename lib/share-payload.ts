@@ -3,7 +3,8 @@ export type ShareEntityType =
   | "team"
   | "event"
   | "coach_service"
-  | "physio_service";
+  | "physio_service"
+  | "content";
 
 export interface SharePayload {
   type: ShareEntityType;
@@ -22,6 +23,7 @@ const INVITE_INTROS: Record<ShareEntityType, string> = {
   event: "我想邀請你看看以下賽事／活動的頁面",
   coach_service: "我想邀請你看看以下教練服務的頁面",
   physio_service: "我想邀請你看看以下復健服務的頁面",
+  content: "我想邀請你看看以下運動貼士文章",
 };
 
 const ENTITY_LABELS: Record<ShareEntityType, string> = {
@@ -30,6 +32,7 @@ const ENTITY_LABELS: Record<ShareEntityType, string> = {
   event: "賽事／活動",
   coach_service: "教練服務",
   physio_service: "復健服務",
+  content: "運動貼士",
 };
 
 export function shareEntityLabel(type: ShareEntityType): string {

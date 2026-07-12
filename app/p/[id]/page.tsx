@@ -673,8 +673,9 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
                             emptyText="目前尚未填寫專屬的專業教學導讀。"
                             className="text-sm leading-relaxed"
                           />
-                          {filterCoachQualificationTags(profile.coach_qualification_tags).length > 0 && (
-                            <div className="pt-2">
+                          {(filterCoachQualificationTags(profile.coach_qualification_tags).length > 0 ||
+                            (profile.coach_teaching_experience_years != null && profile.coach_teaching_experience_years > 0)) && (
+                            <div className="pt-2 flex flex-wrap items-center gap-2">
                               <QualificationBadges
                                 tags={filterCoachQualificationTags(profile.coach_qualification_tags)}
                                 accent="orange"
@@ -682,6 +683,11 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
                                 max={6}
                                 align="left"
                               />
+                              {profile.coach_teaching_experience_years != null && profile.coach_teaching_experience_years > 0 && (
+                                <span className="text-[10px] font-black px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                  {profile.coach_teaching_experience_years} 年教學經驗
+                                </span>
+                              )}
                             </div>
                           )}
                           {profile.coach_qualification_custom && (
@@ -717,12 +723,6 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
                             {(profile.coach_districts?.length || profile.city_region) && (
                               <span className="bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800 text-zinc-200 font-bold text-xs">
                                 📍 {formatDistrictList(normalizeDistrictIds(profile.coach_districts, profile.city_region), 3) || profile.city_region}
-                              </span>
-                            )}
-
-                            {profile.coach_teaching_experience_years != null && profile.coach_teaching_experience_years > 0 && (
-                              <span className="text-[10px] font-black px-2.5 py-1.5 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                                {profile.coach_teaching_experience_years} 年教學經驗
                               </span>
                             )}
                           </div>

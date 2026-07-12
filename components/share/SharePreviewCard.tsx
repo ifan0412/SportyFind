@@ -11,6 +11,7 @@ const ACCENT: Record<SharePayload["type"], string> = {
   event: "border-blue-500/30 bg-blue-950/20",
   coach_service: "border-orange-500/30 bg-orange-950/20",
   physio_service: "border-emerald-500/30 bg-emerald-950/20",
+  content: "border-violet-500/30 bg-violet-950/20",
 };
 
 const BADGE: Record<SharePayload["type"], string> = {
@@ -19,6 +20,7 @@ const BADGE: Record<SharePayload["type"], string> = {
   event: "text-blue-400",
   coach_service: "text-orange-400",
   physio_service: "text-emerald-400",
+  content: "text-violet-400",
 };
 
 export function SharePreviewCard({

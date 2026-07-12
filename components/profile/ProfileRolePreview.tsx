@@ -324,8 +324,9 @@ export function ProfileRolePreview({
                       emptyText="目前尚未填寫專屬的專業教學導讀。"
                       className="text-sm leading-relaxed"
                     />
-                    {filterCoachQualificationTags(profile.coach_qualification_tags).length > 0 && (
-                      <div className="pt-2">
+                    {(filterCoachQualificationTags(profile.coach_qualification_tags).length > 0 ||
+                      (profile.coach_teaching_experience_years != null && profile.coach_teaching_experience_years > 0)) && (
+                      <div className="pt-2 flex flex-wrap items-center gap-2">
                         <QualificationBadges
                           tags={filterCoachQualificationTags(profile.coach_qualification_tags)}
                           accent="orange"
@@ -333,6 +334,11 @@ export function ProfileRolePreview({
                           max={6}
                           align="left"
                         />
+                        {profile.coach_teaching_experience_years != null && profile.coach_teaching_experience_years > 0 && (
+                          <span className="text-[10px] font-black px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                            {profile.coach_teaching_experience_years} 年教學經驗
+                          </span>
+                        )}
                       </div>
                     )}
                     {profile.coach_qualification_custom && (
@@ -373,12 +379,6 @@ export function ProfileRolePreview({
                         {profile.is_address_public && profile.address && ` (${profile.address})`}
                       </span>
                     )}
-                    {profile.coach_teaching_experience_years != null &&
-                      profile.coach_teaching_experience_years > 0 && (
-                        <span className="text-[10px] font-black px-2.5 py-1.5 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                          {profile.coach_teaching_experience_years} 年教學經驗
-                        </span>
-                      )}
                     {profile.contact_email && (
                       <span className="bg-blue-950/40 text-blue-300 border border-blue-500/30 px-3 py-1.5 rounded-xl">
                         ✉️ {profile.contact_email}

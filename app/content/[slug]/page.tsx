@@ -10,6 +10,7 @@ import { sanitizeRichHtml } from "@/lib/content/rich-html";
 import { SITE } from "@/lib/site";
 import type { ContentLink, ContentPost } from "@/lib/types/content";
 import { ContentBadges } from "@/components/content/ContentBadges";
+import { ContentArticleShare } from "@/components/content/ContentArticleShare";
 import { ARTICLE_PAGE_MAX_WIDTH } from "@/lib/listing-sections";
 import { ArrowRight, Calendar, Clock, ExternalLink } from "lucide-react";
 
@@ -66,8 +67,6 @@ function ArticleIntroHeader({
 }) {
   return (
     <>
-      <BackButton label="返回運動貼士" href="/content" />
-
       <div className={`flex flex-wrap gap-2 mb-4 ${overlay ? "mt-4" : "mt-3"}`}>
         <span
           className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-full bg-violet-500/20 text-violet-200 border border-violet-400/30 ${
@@ -145,6 +144,16 @@ export default async function ContentDetailPage({ params }: PageProps) {
 
   return (
     <article className="bg-slate-950 min-h-screen text-zinc-200 font-sans pb-24">
+      <div className={`${ARTICLE_PAGE_MAX_WIDTH} mx-auto px-4 sm:px-6 pt-4 md:pt-6 flex items-start justify-between gap-3`}>
+        <BackButton label="返回運動貼士" href="/content" />
+        <ContentArticleShare
+          slug={article.slug}
+          title={article.title}
+          excerpt={article.excerpt}
+          coverImageUrl={article.cover_image_url}
+        />
+      </div>
+
       {article.cover_image_url ? (
         <>
           {/* Mobile: banner image + readable header below (no clipped overlay). */}
