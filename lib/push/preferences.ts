@@ -10,7 +10,8 @@ export type PushCategory =
   | "events"
   | "coach"
   | "physio"
-  | "system";
+  | "system"
+  | "messages";
 
 export interface PushPreferences {
   enabled: boolean;
@@ -26,6 +27,7 @@ export const DEFAULT_PUSH_PREFERENCES: PushPreferences = {
     coach: true,
     physio: true,
     system: true,
+    messages: true,
   },
 };
 
@@ -53,6 +55,7 @@ const TYPE_TO_CATEGORY: Record<string, PushCategory> = {
   account_reactivated: "system",
   admin_team_removed: "system",
   admin_event_removed: "system",
+  direct_message: "messages",
 };
 
 export const PUSH_CATEGORY_LABELS: Record<
@@ -65,6 +68,7 @@ export const PUSH_CATEGORY_LABELS: Record<
   coach: { label: "教練", description: "課程諮詢與評價" },
   physio: { label: "物理治療", description: "診療諮詢與評價" },
   system: { label: "系統", description: "帳戶恢復與管理員訊息" },
+  messages: { label: "私人訊息", description: "好友傳送的新訊息" },
 };
 
 export function getPushCategoryForType(type: Notification["type"]): PushCategory | null {

@@ -135,6 +135,7 @@ export async function dispatchPushForNotificationRecord(record: {
   user_id: string;
   type: Notification["type"];
   push_eligible?: boolean | null;
+  sender_id?: string | null;
   sender?: { full_name?: string | null } | null;
   team_id?: string | null;
   event_id?: string | null;
@@ -156,10 +157,22 @@ export async function dispatchPushForNotificationRecord(record: {
     return { sent: 0, skipped: true };
   }
 
+  let sender = record.sender ?? null;
+  if (!sender?.full_name && record.sender_id) {
+    const { data: senderProfile } = await supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("id", record.sender_id)
+      .maybeSingle();
+    sender = { full_name: senderProfile?.full_name ?? null };
+  }
+
   const payload = getPushPayloadForNotification({
     id: record.id,
     type: record.type,
-    sender: record.sender ? { full_name: record.sender.full_name ?? null, id: "", avatar_url: null } : null,
+    sender: sender
+      ? { full_name: sender.full_name ?? null, id: record.sender_id ?? "", avatar_url: null }
+      : null,
     team_id: record.team_id ?? null,
     event_id: record.event_id ?? null,
     friendship_id: record.friendship_id ?? null,
@@ -167,6 +180,44 @@ export async function dispatchPushForNotificationRecord(record: {
 
   const { sent } = await sendPushToUser(record.user_id, payload);
   return { sent, skipped: false };
+}
+
+export async function getPushDispatchStatus(): Promise<{
+  configured: boolean;
+  migrationRequired: boolean;
+  webhookSecretConfigured: boolean;
+}> {
+  if (!hasServiceRoleClient()) {
+    return {
+      configured: false,
+      migrationRequired: false,
+      webhookSecretConfigured: Boolean(process.env.PUSH_WEBHOOK_SECRET),
+    };
+  }
+
+  const supabase = createServiceRoleClient();
+  const { data, error } = await supabase
+    .from("push_dispatch_config")
+    .select("dispatch_url, webhook_secret")
+    .eq("id", true)
+    .maybeSingle();
+
+  if (error?.code === "42P01") {
+    return {
+      configured: false,
+      migrationRequired: true,
+      webhookSecretConfigured: Boolean(process.env.PUSH_WEBHOOK_SECRET),
+    };
+  }
+
+  const dispatchUrl = typeof data?.dispatch_url === "string" ? data.dispatch_url.trim() : "";
+  const webhookSecret = typeof data?.webhook_secret === "string" ? data.webhook_secret.trim() : "";
+
+  return {
+    configured: dispatchUrl.length > 0 && webhookSecret.length > 0,
+    migrationRequired: false,
+    webhookSecretConfigured: Boolean(process.env.PUSH_WEBHOOK_SECRET),
+  };
 }
 
 export async function sendTestPushToUser(userId: string) {

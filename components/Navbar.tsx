@@ -131,7 +131,7 @@ function MobileNotificationSheet({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[95] md:hidden flex flex-col bg-slate-950">
+    <div className="fixed inset-0 z-[110] md:hidden flex flex-col bg-slate-950 overflow-hidden">
       <div className="h-14 flex items-center justify-between px-4 border-b border-slate-800 shrink-0">
         <h1 className="text-sm font-black text-white">通知</h1>
         <button
@@ -143,18 +143,20 @@ function MobileNotificationSheet({
           <X className="size-5" />
         </button>
       </div>
-      <NotificationPanel
-        notifications={notifications}
-        onNotifClick={(notif) => {
-          onClose();
-          onNotifNavigate(notif);
-        }}
-        onAccept={onAccept}
-        onReject={onReject}
-        onDismiss={onDismiss}
-        isProcessing={isProcessing}
-        className="flex-1"
-      />
+      <div className="flex-1 min-h-0">
+        <NotificationPanel
+          notifications={notifications}
+          onNotifClick={(notif) => {
+            onClose();
+            onNotifNavigate(notif);
+          }}
+          onAccept={onAccept}
+          onReject={onReject}
+          onDismiss={onDismiss}
+          isProcessing={isProcessing}
+          className="h-full touch-pan-y"
+        />
+      </div>
     </div>
   );
 }
@@ -272,12 +274,46 @@ export function Navbar() {
           setNotifications((prev) => prev.filter((n) => n.id !== payload.old.id));
         }
       )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "notifications", filter: `user_id=eq.${uid}` },
+        (payload) => {
+          const updated = payload.new as { id: string; is_read?: boolean };
+          setNotifications((prev) =>
+            prev.map((n) =>
+              n.id === updated.id ? { ...n, is_read: updated.is_read ?? n.is_read } : n
+            )
+          );
+        }
+      )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
   }, [supabase, user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const refetch = () => {
+      void fetchNotifications(user.id);
+    };
+
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refetch();
+    };
+
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", refetch);
+    window.addEventListener("chat-message-sync", refetch);
+
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", refetch);
+      window.removeEventListener("chat-message-sync", refetch);
+    };
+  }, [user?.id, fetchNotifications]);
 
   const handleMarkAllRead = useCallback(async () => {
     if (!user?.id) return;

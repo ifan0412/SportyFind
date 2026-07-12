@@ -33,6 +33,7 @@ export const PUSH_ELIGIBLE_NOTIFICATION_TYPES = [
   "account_reactivated",
   "admin_team_removed",
   "admin_event_removed",
+  "direct_message",
 ] as const;
 
 export function isPushEligibleNotification(

@@ -12,6 +12,9 @@ export function getNotificationHref(notif: Notification): string {
   if (notif.type === "account_reactivated") return "/auth";
   if (notif.type === "admin_team_removed") return "/profile?tab=teams";
   if (notif.type === "admin_event_removed") return "/events/my";
+  if (notif.type === "direct_message" && notif.sender?.id) {
+    return `/inbox?to=${notif.sender.id}`;
+  }
   if (notif.type === "team_join_request" && notif.team_id) return `/team/${notif.team_id}/admin`;
   if (notif.type === "team_member_left" && notif.team_id) return `/team/${notif.team_id}/admin`;
   if (

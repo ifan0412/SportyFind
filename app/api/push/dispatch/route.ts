@@ -17,6 +17,7 @@ function parseWebhookBody(body: unknown): {
   team_id?: string | null;
   event_id?: string | null;
   friendship_id?: string | null;
+  sender_id?: string | null;
 } | null {
   if (!body || typeof body !== "object") return null;
   const obj = body as Record<string, unknown>;
@@ -44,6 +45,7 @@ function parseWebhookBody(body: unknown): {
     team_id: (record.team_id as string | null) ?? null,
     event_id: (record.event_id as string | null) ?? null,
     friendship_id: (record.friendship_id as string | null) ?? null,
+    sender_id: (record.sender_id as string | null) ?? null,
   };
 }
 

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import {
+  getPushDispatchStatus,
   getVapidConfigurationError,
   getVapidPublicKey,
   isPushServerConfigured,
@@ -18,6 +19,8 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const dispatchStatus = await getPushDispatchStatus();
+
   const { count, error } = await supabase
     .from("push_subscriptions")
     .select("id", { count: "exact", head: true })
@@ -31,6 +34,9 @@ export async function GET() {
       serverReady: false,
       subscriptionCount: 0,
       migrationRequired: true,
+      dispatchConfigured: false,
+      dispatchMigrationRequired: dispatchStatus.migrationRequired,
+      webhookSecretConfigured: dispatchStatus.webhookSecretConfigured,
     });
   }
 
@@ -42,5 +48,8 @@ export async function GET() {
     serverReady: isPushServerConfigured(),
     subscriptionCount: count ?? 0,
     migrationRequired: false,
+    dispatchConfigured: dispatchStatus.configured,
+    dispatchMigrationRequired: dispatchStatus.migrationRequired,
+    webhookSecretConfigured: dispatchStatus.webhookSecretConfigured,
   });
 }

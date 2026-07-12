@@ -49,6 +49,9 @@ export function NotificationManagementTab() {
     serviceRoleConfigured: boolean;
     migrationRequired: boolean;
     vapidConfigurationError?: string | null;
+    dispatchConfigured?: boolean;
+    dispatchMigrationRequired?: boolean;
+    webhookSecretConfigured?: boolean;
   } | null>(null);
   const [testMessage, setTestMessage] = useState<string | null>(null);
   const permission = useMemo(() => getNotificationPermission(), [subscribed, loading]);
@@ -72,12 +75,18 @@ export function NotificationManagementTab() {
           migrationRequired?: boolean;
           vapidConfigurationError?: string | null;
           subscriptionCount?: number;
+          dispatchConfigured?: boolean;
+          dispatchMigrationRequired?: boolean;
+          webhookSecretConfigured?: boolean;
         };
         setServerStatus({
           vapidPrivateConfigured: Boolean(status.vapidPrivateConfigured),
           serviceRoleConfigured: Boolean(status.serviceRoleConfigured),
           migrationRequired: Boolean(status.migrationRequired),
           vapidConfigurationError: status.vapidConfigurationError ?? null,
+          dispatchConfigured: Boolean(status.dispatchConfigured),
+          dispatchMigrationRequired: Boolean(status.dispatchMigrationRequired),
+          webhookSecretConfigured: Boolean(status.webhookSecretConfigured),
         });
         if (typeof status.subscriptionCount === "number") {
           setServerSubscriptionCount(status.subscriptionCount);
@@ -156,7 +165,7 @@ export function NotificationManagementTab() {
       if (result.ok) {
         setTestMessage(
           local.ok
-            ? `本機與伺服器測試皆成功（${result.sent ?? 1} 個裝置）`
+            ? `本機與伺服器測試皆成功（${result.sent ?? 1} 個裝置）。測試通知直接發送；好友請求、訊息等需 Supabase push_dispatch_config 已設定才會自動推送。`
             : `伺服器推送已發送；本機：${local.error ?? "略過"}`
         );
       } else if (local.ok) {
@@ -215,6 +224,36 @@ export function NotificationManagementTab() {
           管理推送通知權限與通知類別偏好。
         </p>
       </div>
+
+      {serverStatus?.dispatchMigrationRequired && (
+        <div className="rounded-2xl border border-red-500/30 bg-red-500/5 p-4">
+          <p className="text-xs text-red-300 leading-relaxed">
+            資料庫缺少 push_dispatch_config。請在 Supabase 執行 migration 057。
+          </p>
+        </div>
+      )}
+
+      {serverStatus &&
+        !serverStatus.dispatchMigrationRequired &&
+        !serverStatus.dispatchConfigured && (
+          <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4">
+            <p className="text-xs text-amber-200 leading-relaxed">
+              測試通知可成功，但好友請求、訊息等自動推送尚未啟用。請在 Supabase SQL Editor 設定
+              push_dispatch_config（migration 057 底部說明），並確認 Vercel 已設定
+              PUSH_WEBHOOK_SECRET 且與資料庫 webhook_secret 相同。
+            </p>
+          </div>
+        )}
+
+      {serverStatus &&
+        serverStatus.dispatchConfigured &&
+        !serverStatus.webhookSecretConfigured && (
+          <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4">
+            <p className="text-xs text-amber-200 leading-relaxed">
+              資料庫已設定推送 webhook，但 Vercel 未設定 PUSH_WEBHOOK_SECRET。
+            </p>
+          </div>
+        )}
 
       {serverStatus?.migrationRequired && (
         <div className="rounded-2xl border border-red-500/30 bg-red-500/5 p-4">

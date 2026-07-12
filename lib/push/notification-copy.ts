@@ -56,6 +56,8 @@ export function getPushNotificationCopy(notif: NotifLike): { title: string; body
       return { title: "球隊已被移除", body: "您管理的群組已被網站管理員移除" };
     case "admin_event_removed":
       return { title: "活動已被移除", body: "您主辦的活動已被網站管理員移除" };
+    case "direct_message":
+      return { title: "新訊息", body: `${name} 傳送了一則訊息` };
     default:
       return { title: "SportyFind 通知", body: "您有一則新通知" };
   }

@@ -27,7 +27,8 @@ export interface Notification {
     | "discussion_comment_like"
     | "account_reactivated"
     | "admin_team_removed"
-    | "admin_event_removed";
+    | "admin_event_removed"
+    | "direct_message";
   is_read: boolean;
   created_at: string;
   push_eligible?: boolean;
