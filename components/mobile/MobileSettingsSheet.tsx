@@ -5,8 +5,9 @@ import { ChevronLeft, X } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 import { ProfileSettingsList } from "@/components/profile/ProfileSettingsList";
 import { AccountManagementTab } from "@/components/profile/AccountManagementTab";
+import { NotificationManagementTab } from "@/components/profile/NotificationManagementTab";
 
-type SettingsView = "list" | "account";
+type SettingsView = "list" | "account" | "notifications";
 
 interface MobileSettingsSheetProps {
   open: boolean;
@@ -65,10 +66,13 @@ export function MobileSettingsSheet({ open, onClose, user }: MobileSettingsSheet
             showHeader={false}
             onItemSelect={(id) => {
               if (id === "account") setView("account");
+              if (id === "notifications") setView("notifications");
             }}
           />
-        ) : (
+        ) : view === "account" ? (
           <AccountManagementTab user={user} userEmail={user.email} identities={user.identities} />
+        ) : (
+          <NotificationManagementTab />
         )}
       </div>
     </div>

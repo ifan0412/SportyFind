@@ -1,4 +1,4 @@
-import { Settings, Shield, type LucideIcon } from "lucide-react";
+import { Bell, Settings, Shield, type LucideIcon } from "lucide-react";
 
 export interface ProfileSettingItem {
   id: string;
@@ -15,6 +15,13 @@ export const PROFILE_SETTINGS_ITEMS: ProfileSettingItem[] = [
     description: "登入電郵、密碼與帳戶安全",
     href: "/profile/settings/account",
     icon: Shield,
+  },
+  {
+    id: "notifications",
+    label: "通知管理",
+    description: "推送通知權限與類別偏好",
+    href: "/profile/settings/notifications",
+    icon: Bell,
   },
 ];
 

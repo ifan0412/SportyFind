@@ -129,8 +129,8 @@ export function ProfileRolePreview({
             onClick={() => onRoleChange("athlete")}
             className={`flex-1 flex flex-col items-center justify-center py-2 px-3 rounded-xl transition-all duration-300 min-w-[100px] cursor-pointer ${
               activeRole === "athlete"
-                ? "bg-slate-50 text-black shadow-lg scale-[1.02]"
-                : "text-zinc-500 hover:text-white hover:bg-slate-800/50"
+                ? "bg-blue-600 text-white shadow-lg scale-[1.02]"
+                : "text-zinc-500 hover:text-blue-400 hover:bg-slate-800/50"
             }`}
           >
             <Users className="w-5 h-5 mb-0.5" strokeWidth={2.5} />

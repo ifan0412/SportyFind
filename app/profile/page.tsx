@@ -27,6 +27,7 @@ import { normalizePhysioProfileTags } from "@/lib/physio-service-types";
 import { stripHtml, PROFILE_CARD_BIO_MAX } from "@/lib/content/body";
 import { enquiryServiceIdsWithUncontacted } from "@/lib/service-enquiry";
 import { SportCategoryPicker } from "@/components/sports/SportCategoryPicker";
+import { SportCategoryBadge } from "@/components/sports/SportCategoryBadge";
 import { SportPositionPicker } from "@/components/sports/SportPositionPicker";
 import { normalizeSportMetadataForSave, sportFormDataFromMetadata, sportFormHasEmptyFields } from "@/lib/sport-positions";
 import { EmailVerificationBanner } from "@/components/profile/EmailVerificationBanner";
@@ -776,6 +777,7 @@ function ProfilePageContent() {
 
   if (authLoading || isLoading) return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-zinc-500 font-mono">載入總部中...</div>;
   const avatarSrc = editForm.avatar_url || profile?.avatar_url || "";
+  const profileSports = resolveProfileDisplaySports(profile?.display_sports, userSports);
 
   return (
     <div className="bg-slate-950 min-h-screen text-zinc-200 font-sans selection:bg-blue-500/30">
@@ -815,10 +817,26 @@ function ProfilePageContent() {
                 )}
 
                 <p className="text-sm font-bold text-zinc-400 mb-4">{profile?.headline || "設定你的場上宣言"}</p>
-                <div className="flex flex-wrap justify-center gap-2 mb-4">
-                  {profile?.is_player !== false && <span className="bg-blue-500/10 text-blue-400 text-[10px] font-black px-3 py-1 rounded-full border border-blue-500/20">👤 運動員</span>}
-                  {profile?.is_coach && <span className="bg-amber-500/10 text-amber-400 text-[10px] font-black px-3 py-1 rounded-full border border-amber-500/20"><CoachRoleLabel /></span>}
-                  {profile?.is_physio && <span className="bg-emerald-500/10 text-emerald-400 text-[10px] font-black px-3 py-1 rounded-full border border-emerald-500/20"><PhysioRoleLabel /></span>}
+                <div className="flex flex-wrap justify-center items-center gap-1.5 mb-4">
+                  {profile?.is_player !== false && (
+                    <span className="bg-slate-800/80 text-zinc-300 text-[10px] font-black px-2.5 py-0.5 rounded-full border border-slate-700">
+                      👤 運動員
+                    </span>
+                  )}
+                  {profile?.is_player !== false &&
+                    profileSports.slice(0, 3).map((sport) => (
+                      <SportCategoryBadge key={sport} category={sport} variant="blue" size="xs" />
+                    ))}
+                  {profile?.is_coach && (
+                    <span className="bg-orange-500/10 text-orange-400 text-[10px] font-black px-2.5 py-0.5 rounded-full border border-orange-500/20">
+                      <CoachRoleLabel />
+                    </span>
+                  )}
+                  {profile?.is_physio && (
+                    <span className="bg-green-500/10 text-green-400 text-[10px] font-black px-2.5 py-0.5 rounded-full border border-green-500/20">
+                      <PhysioRoleLabel label="運動/物理治療" />
+                    </span>
+                  )}
                 </div>
                 {user?.id && (
                   <ProfileCardBio

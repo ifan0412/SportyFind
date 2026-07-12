@@ -8,6 +8,7 @@ import "./globals.css";
 import Providers from "./providers";
 import { GlobalChat } from "@/components/GlobalChat";
 import { MobileBottomNav } from "@/components/mobile/MobileBottomNav";
+import { PushNotificationProvider } from "@/components/push/PushNotificationProvider";
 
 // 2. 字體設定
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
@@ -34,9 +35,37 @@ export const metadata: Metadata = {
   },
 };
 
+// Mobile ~80% default scale: inline script in <head> (md breakpoint and below).
+const MOBILE_VIEWPORT_SCALE_SCRIPT = `(function () {
+  var MOBILE_SCALE = 0.8;
+  var MQ = "(max-width: 767px)";
+  function applyViewportScale() {
+    var meta = document.querySelector('meta[name="viewport"]');
+    if (!meta) {
+      requestAnimationFrame(applyViewportScale);
+      return;
+    }
+    var mobile = window.matchMedia(MQ).matches;
+    var base =
+      "width=device-width, maximum-scale=1, user-scalable=no, viewport-fit=cover";
+    meta.setAttribute(
+      "content",
+      mobile
+        ? base + ", initial-scale=" + MOBILE_SCALE
+        : base + ", initial-scale=1"
+    );
+  }
+  applyViewportScale();
+  window.addEventListener("resize", applyViewportScale);
+  window.addEventListener("orientationchange", applyViewportScale);
+})();`;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="zh-TW" suppressHydrationWarning className={`${geistSans.variable} ${geistMono.variable}`}>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: MOBILE_VIEWPORT_SCALE_SCRIPT }} />
+      </head>
       <body className="bg-slate-950 text-slate-100 min-h-screen font-sans flex flex-col antialiased">
         <SupabaseProvider>
           
@@ -50,6 +79,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <Footer />
 
           <MobileBottomNav />
+          <PushNotificationProvider />
           <GlobalChat />
           
         </SupabaseProvider>
