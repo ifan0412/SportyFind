@@ -36,7 +36,10 @@ export async function generateViewport(): Promise<Viewport> {
 export const metadata: Metadata = {
   title: "SportyFind | 一站式全能運動約戰與社群網絡",
   description: "一站式運動社群約戰、配對與專業服務平台。",
-  manifest: "/manifest.json",
+  manifest: "/manifest.webmanifest",
+  icons: {
+    apple: [{ url: "/icon-192.png", sizes: "192x192", type: "image/png" }],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",

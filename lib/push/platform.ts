@@ -35,6 +35,11 @@ export function supportsWebPush(): boolean {
   );
 }
 
+export function hasPushManager(): boolean {
+  if (!isClient()) return false;
+  return "PushManager" in window;
+}
+
 /** iOS Safari requires A2HS before web push (16.4+). */
 export function needsIosHomeScreenFirst(): boolean {
   return isIOS() && !isStandalonePwa();

@@ -17,12 +17,24 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return output;
 }
 
+function bufferSourceEqual(a: BufferSource, b: Uint8Array): boolean {
+  const viewA = a instanceof ArrayBuffer ? new Uint8Array(a) : new Uint8Array(a.buffer, a.byteOffset, a.byteLength);
+  if (viewA.length !== b.length) return false;
+  for (let i = 0; i < viewA.length; i += 1) {
+    if (viewA[i] !== b[i]) return false;
+  }
+  return true;
+}
+
 export async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
   if (!supportsWebPush()) return null;
   try {
-    const existing = await navigator.serviceWorker.getRegistration("/");
-    if (existing) return existing;
-    return await navigator.serviceWorker.register(SW_PATH, { scope: "/" });
+    let registration = await navigator.serviceWorker.getRegistration("/");
+    if (!registration) {
+      registration = await navigator.serviceWorker.register(SW_PATH, { scope: "/" });
+    }
+    await navigator.serviceWorker.ready;
+    return registration;
   } catch (err) {
     console.error("Service worker registration failed:", err);
     return null;
@@ -55,12 +67,24 @@ export async function subscribeToPush(): Promise<PushSubscription | null> {
   const publicKey = await fetchVapidPublicKey();
   if (!publicKey) return null;
 
+  const applicationServerKey = urlBase64ToUint8Array(publicKey) as BufferSource;
   const existing = await registration.pushManager.getSubscription();
-  if (existing) return existing;
+
+  if (existing) {
+    const existingKey = existing.options?.applicationServerKey;
+    if (existingKey && bufferSourceEqual(existingKey, applicationServerKey as Uint8Array)) {
+      return existing;
+    }
+    try {
+      await existing.unsubscribe();
+    } catch {
+      /* continue with fresh subscription */
+    }
+  }
 
   return registration.pushManager.subscribe({
     userVisibleOnly: true,
-    applicationServerKey: urlBase64ToUint8Array(publicKey) as BufferSource,
+    applicationServerKey,
   });
 }
 
@@ -68,6 +92,7 @@ export async function getCurrentPushSubscription(): Promise<PushSubscription | n
   if (!supportsWebPush()) return null;
   const registration = await navigator.serviceWorker.getRegistration("/");
   if (!registration) return null;
+  await navigator.serviceWorker.ready;
   return registration.pushManager.getSubscription();
 }
 
@@ -108,6 +133,10 @@ export async function persistPushSubscription(sub: PushSubscription): Promise<bo
         userAgent: navigator.userAgent,
       }),
     });
+    if (!res.ok) {
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      console.error("Persist subscription failed:", data.error ?? res.status);
+    }
     return res.ok;
   } catch (err) {
     console.error("Persist subscription failed:", err);
@@ -131,7 +160,7 @@ export async function enablePushNotifications(): Promise<{
   }
 
   const saved = await persistPushSubscription(sub);
-  return { ok: saved, permission };
+  return { ok: saved, permission, reason: saved ? undefined : "save_failed" };
 }
 
 export async function dismissPushReminder(): Promise<void> {
@@ -144,12 +173,46 @@ export async function dismissPushReminder(): Promise<void> {
   }
 }
 
-export async function sendTestPush(): Promise<{ ok: boolean; error?: string }> {
+export async function sendTestPush(): Promise<{
+  ok: boolean;
+  error?: string;
+  sent?: number;
+  failed?: number;
+}> {
   try {
     const res = await fetch("/api/push/test", { method: "POST" });
-    const data = (await res.json().catch(() => ({}))) as { error?: string };
-    return { ok: res.ok, error: data.error };
+    const data = (await res.json().catch(() => ({}))) as {
+      error?: string;
+      sent?: number;
+      failed?: number;
+    };
+    return {
+      ok: res.ok,
+      error: data.error,
+      sent: data.sent,
+      failed: data.failed,
+    };
   } catch {
     return { ok: false, error: "network" };
   }
+}
+
+export async function resubscribePushNotifications(): Promise<{
+  ok: boolean;
+  error?: string;
+}> {
+  await unsubscribeFromPush();
+  const result = await enablePushNotifications();
+  if (!result.ok) {
+    return {
+      ok: false,
+      error:
+        result.reason === "save_failed"
+          ? "無法儲存訂閱，請確認資料庫 migration 056 已執行"
+          : result.reason === "denied"
+            ? "通知權限已被封鎖"
+            : "重新訂閱失敗",
+    };
+  }
+  return { ok: true };
 }

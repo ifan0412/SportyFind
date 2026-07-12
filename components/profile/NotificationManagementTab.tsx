@@ -21,13 +21,16 @@ import {
 import {
   enablePushNotifications,
   getCurrentPushSubscription,
+  resubscribePushNotifications,
   sendTestPush,
   unsubscribeFromPush,
 } from "@/lib/push/client";
 import {
   getNotificationPermission,
+  hasPushManager,
   isIOS,
   isPushBlocked,
+  isStandalonePwa,
   needsIosHomeScreenFirst,
   openNotificationSettingsHint,
   supportsWebPush,
@@ -39,6 +42,7 @@ export function NotificationManagementTab() {
   const [busy, setBusy] = useState(false);
   const [prefs, setPrefs] = useState<PushPreferences>(DEFAULT_PUSH_PREFERENCES);
   const [subscribed, setSubscribed] = useState(false);
+  const [serverSubscriptionCount, setServerSubscriptionCount] = useState(0);
   const [testMessage, setTestMessage] = useState<string | null>(null);
   const permission = useMemo(() => getNotificationPermission(), [subscribed, loading]);
 
@@ -47,8 +51,9 @@ export function NotificationManagementTab() {
     try {
       const res = await fetch("/api/push/preferences");
       if (res.ok) {
-        const data = (await res.json()) as { preferences?: unknown };
+        const data = (await res.json()) as { preferences?: unknown; subscriptionCount?: number };
         setPrefs(mergePushPreferences(data.preferences));
+        setServerSubscriptionCount(data.subscriptionCount ?? 0);
       }
       const sub = await getCurrentPushSubscription();
       setSubscribed(Boolean(sub));
@@ -83,12 +88,15 @@ export function NotificationManagementTab() {
       const result = await enablePushNotifications();
       if (result.ok) {
         setSubscribed(true);
+        await refresh();
         setTestMessage("推送通知已開啟");
         return;
       }
       if (result.reason === "denied") {
         openNotificationSettingsHint();
         setTestMessage("請在系統設定中允許通知權限");
+      } else if (result.reason === "save_failed") {
+        setTestMessage("無法儲存訂閱，請確認 Supabase migration 056 已執行");
       } else if (needsIosHomeScreenFirst()) {
         setTestMessage("請先從主畫面快捷方式開啟 SportyFind");
       } else {
@@ -116,7 +124,27 @@ export function NotificationManagementTab() {
     setTestMessage(null);
     try {
       const result = await sendTestPush();
-      setTestMessage(result.ok ? "測試通知已發送" : result.error ?? "發送失敗");
+      if (result.ok) {
+        setTestMessage(`測試通知已發送（${result.sent ?? 1} 個裝置）`);
+      } else {
+        setTestMessage(result.error ?? "發送失敗");
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleResubscribe = async () => {
+    setBusy(true);
+    setTestMessage(null);
+    try {
+      const result = await resubscribePushNotifications();
+      if (result.ok) {
+        await refresh();
+        setTestMessage("已重新訂閱此裝置");
+      } else {
+        setTestMessage(result.error ?? "重新訂閱失敗");
+      }
     } finally {
       setBusy(false);
     }
@@ -137,6 +165,8 @@ export function NotificationManagementTab() {
   }
 
   const iosInstallNeeded = needsIosHomeScreenFirst();
+  const localSubscribed = subscribed && permission === "granted";
+  const serverSynced = serverSubscriptionCount > 0;
 
   return (
     <div className="animate-fadeIn space-y-5 max-w-2xl">
@@ -151,10 +181,26 @@ export function NotificationManagementTab() {
         <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4 space-y-2">
           <div className="flex items-center gap-2 text-amber-300">
             <Smartphone className="w-4 h-4" />
-            <p className="text-sm font-black">iOS 需先加入主畫面</p>
+            <p className="text-sm font-black">iOS 需從主畫面圖示開啟</p>
           </div>
           <p className="text-xs text-zinc-400 leading-relaxed">
-            在 Safari 中點選分享 → 加入主畫面，再從主畫面圖示開啟 SportyFind，即可開啟推送通知。
+            Safari 分頁內無法接收推送。請刪除舊快捷方式 → Safari 分享 → 加入主畫面 → 從主畫面圖示開啟 → 再開啟推送。
+          </p>
+        </div>
+      )}
+
+      {isIOS() && isStandalonePwa() && !hasPushManager() && (
+        <div className="rounded-2xl border border-red-500/30 bg-red-500/5 p-4">
+          <p className="text-xs text-red-300 leading-relaxed">
+            此主畫面快捷方式可能是在修正前建立。請刪除主畫面圖示、清除 Safari 網站資料後重新加入主畫面。
+          </p>
+        </div>
+      )}
+
+      {localSubscribed && !serverSynced && (
+        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4">
+          <p className="text-xs text-amber-200 leading-relaxed">
+            此裝置已允許通知，但伺服器未記錄訂閱。請按「重新訂閱」。
           </p>
         </div>
       )}
@@ -176,8 +222,10 @@ export function NotificationManagementTab() {
                   ? "此瀏覽器不支援推送"
                   : iosInstallNeeded
                     ? "請先加入主畫面快捷方式"
-                    : permission === "granted" && subscribed
-                      ? "已開啟"
+                    : permission === "granted" && localSubscribed
+                      ? serverSynced
+                        ? `已開啟（${serverSubscriptionCount} 個裝置）`
+                        : "本機已開啟，伺服器未同步"
                       : permission === "denied"
                         ? "已在系統設定中封鎖"
                         : "尚未開啟"}
@@ -187,7 +235,7 @@ export function NotificationManagementTab() {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          {!subscribed || permission !== "granted" ? (
+          {!localSubscribed ? (
             <button
               type="button"
               onClick={handleEnable}
@@ -201,10 +249,18 @@ export function NotificationManagementTab() {
               <button
                 type="button"
                 onClick={handleTest}
-                disabled={busy}
-                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-zinc-200 text-xs font-black transition"
+                disabled={busy || !serverSynced}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-zinc-200 text-xs font-black transition disabled:opacity-50"
               >
                 發送測試通知
+              </button>
+              <button
+                type="button"
+                onClick={handleResubscribe}
+                disabled={busy || iosInstallNeeded}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-zinc-200 text-xs font-black transition"
+              >
+                重新訂閱
               </button>
               <button
                 type="button"

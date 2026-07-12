@@ -35,7 +35,11 @@ export async function POST(request: Request) {
 
   if (error) {
     console.error("Push subscribe failed:", error);
-    return NextResponse.json({ error: "Failed to save subscription" }, { status: 500 });
+    const hint =
+      error.code === "42P01"
+        ? "push_subscriptions 資料表不存在，請執行 migration 056"
+        : "Failed to save subscription";
+    return NextResponse.json({ error: hint }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true });
