@@ -368,6 +368,11 @@ select,
   body[data-inbox-mobile="true"] footer {
     display: none;
   }
+
+  /* Scale homepage blocks only — navbar / bottom nav stay at layout viewport scale. */
+  .homepage-mobile-content {
+    zoom: 0.8;
+  }
 }
 
 @keyframes sportyfind-loading-bar {

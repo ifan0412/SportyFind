@@ -16,7 +16,7 @@ import { mobileViewport } from "@/lib/viewport";
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
-// 3. Viewport — full mobile scale site-wide; homepage blocks scale via CSS only.
+// 3. Viewport — scale 1 on mobile; homepage blocks use .homepage-mobile-content zoom in globals.css.
 export async function generateViewport(): Promise<Viewport> {
   return mobileViewport(1);
 }

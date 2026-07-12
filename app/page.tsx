@@ -1,5 +1,4 @@
 import React from "react";
-import type { Viewport } from "next";
 import Link from "next/link";
 import {
   Users,
@@ -11,11 +10,6 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { CATEGORY_COLORS, type SiteCategory } from "@/lib/category-colors";
-import { mobileViewport } from "@/lib/viewport";
-
-export async function generateViewport(): Promise<Viewport> {
-  return mobileViewport(0.8);
-}
 
 type HomeBlock = {
   category: SiteCategory;
@@ -79,7 +73,7 @@ export default function HomePage() {
       
       <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[650px] h-[650px] bg-blue-600/10 blur-[130px] rounded-full pointer-events-none" />
       
-      <div className="relative z-10 w-full max-w-5xl mx-auto flex flex-col items-center mt-6">
+      <div className="homepage-mobile-content relative z-10 w-full max-w-5xl mx-auto flex flex-col items-center mt-6">
         
         <span className="px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] bg-slate-900/80 backdrop-blur-md border border-slate-700/50 text-blue-400 rounded-full mb-6 shadow-sm">
           測試版 v1.0 · 搶先體驗
