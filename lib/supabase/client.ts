@@ -7,7 +7,7 @@ let client: SupabaseClient | null = null;
 export function createSupabaseBrowserClient() {
   if (client) return client;
 
-  const { url, anonKey } = getSupabaseEnv();
+  const { url, anonKey } = getSupabaseEnv({ runtime: "browser" });
   client = createBrowserClient(url, anonKey);
 
   return client;

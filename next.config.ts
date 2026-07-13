@@ -18,7 +18,13 @@ const contentSecurityPolicy = [
 
 const nextConfig: NextConfig = {
   async rewrites() {
-    return [{ source: "/manifest.json", destination: "/manifest.webmanifest" }];
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, "");
+    return [
+      { source: "/manifest.json", destination: "/manifest.webmanifest" },
+      ...(supabaseUrl
+        ? [{ source: "/sb/:path*", destination: `${supabaseUrl}/:path*` }]
+        : []),
+    ];
   },
   images: {
     remotePatterns: [

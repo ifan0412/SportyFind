@@ -560,7 +560,7 @@ export function Navbar() {
               );
             })}
 
-            {isClient && user ? (
+            {user ? (
               <li className="flex shrink-0 items-center gap-2 ml-2 pl-3 border-l border-slate-800 lg:gap-3 lg:ml-3 lg:pl-4">
                 <NotificationBellDesktop {...bellProps} />
                 <Link
@@ -591,13 +591,13 @@ export function Navbar() {
                   <LogOut className="w-5 h-5" />
                 </button>
               </li>
-            ) : isClient ? (
+            ) : (
               <li>
                 <Link href="/auth" className={LOGIN_DESKTOP_BUTTON_CLASS}>
                   登入 / 註冊
                 </Link>
               </li>
-            ) : null}
+            )}
           </ul>
         </nav>
       </header>

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import type { User, Session } from "@supabase/supabase-js";
 import { toast } from "sonner";
 import { suspendedAccountMessage } from "@/lib/account-suspension";
+import { isNetworkFetchError } from "@/lib/supabase/safe-query";
 
 type AuthContextType = {
   user: User | null;
@@ -61,15 +62,33 @@ export default function SupabaseProvider({ children }: { children: React.ReactNo
 
     const initializeAuth = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) {
+          const message = error.message.toLowerCase();
+          if (
+            message.includes("fetch") ||
+            message.includes("network") ||
+            message.includes("403") ||
+            message.includes("forbidden")
+          ) {
+            toast.error("無法連線至伺服器。若在公司網路，請試用手機熱點或聯絡 IT 解除封鎖。", {
+              duration: 12000,
+            });
+          }
+        }
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
           await enforceSuspension(session.user);
         }
-      } catch {
+      } catch (error) {
         setSession(null);
         setUser(null);
+        if (isNetworkFetchError(error)) {
+          toast.error("無法連線至伺服器。若在公司網路，請試用手機熱點或聯絡 IT 解除封鎖。", {
+            duration: 12000,
+          });
+        }
       } finally {
         setIsLoading(false);
       }
