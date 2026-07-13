@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { safeRedirectPath } from "@/lib/safe-redirect";
+import { getSupabaseAuthCookieOptions } from "@/lib/supabase/env";
 
 const SUPPORT_EMAIL = "sportyfind.support@gmail.com";
 
@@ -18,6 +19,7 @@ export async function GET(request: Request) {
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
+        cookieOptions: getSupabaseAuthCookieOptions(),
         cookies: {
           get(name: string) {
             return cookieStore.get(name)?.value;

@@ -111,6 +111,7 @@ export default function CoachesPage() {
           )
         `)
         .eq("is_active", true)
+        .eq("show_on_listing", true)
         .order("sort_order", { ascending: true })
         .order("created_at", { ascending: true });
 
@@ -119,7 +120,10 @@ export default function CoachesPage() {
       const { data, error } = await query;
       if (!error && data) {
         setServices(data as unknown as CoachServiceRow[]);
-      } else if (error?.message?.includes("coach_qualification_tags")) {
+      } else if (
+        error?.message?.includes("coach_qualification_tags") ||
+        error?.message?.includes("show_on_listing")
+      ) {
         let fallbackQuery = supabase
           .from("coach_services")
           .select(`

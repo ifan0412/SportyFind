@@ -26,6 +26,13 @@ import { RichBody } from "@/components/content/RichBody";
 import { BIO_CHAR_SUGGESTED_MAX, BIO_CHAR_SUGGESTED_RANGE, stripHtml } from "@/lib/content/body";
 import { ServicePublishBadge } from "@/components/services/ServicePublishBadge";
 import { ServicePhotoManager } from "@/components/services/ServicePhotoManager";
+import { ServiceListingCheckbox } from "@/components/services/ServiceListingCheckbox";
+import {
+  canEnableListingSelection,
+  countListingSelections,
+  listingSelectionLabel,
+  shouldAutoSelectListingOnPublish,
+} from "@/lib/service-listing-selection";
 import { QualificationPicker } from "@/components/qualifications/QualificationPicker";
 import { PHYSIO_QUALIFICATIONS, filterPhysioQualificationTags } from "@/lib/qualifications";
 import { profileLink } from "@/lib/profile-links";
@@ -314,6 +321,9 @@ function PhysioServicesManager({
         toast.error("發佈前請填寫項目標價，或改選「私訊詢價」");
         return;
       }
+      const showOnListing = editForm.show_on_listing
+        ? true
+        : publish && shouldAutoSelectListingOnPublish(services, editForm.id);
       const payload = {
         title: (editForm.title ?? "").trim(),
         service_types: serviceTypes,
@@ -326,6 +336,7 @@ function PhysioServicesManager({
         service_centre: (editForm.service_centre ?? "").trim() || null,
         full_address: (editForm.full_address ?? "").trim() || null,
         is_active: publish,
+        show_on_listing: showOnListing,
         location: formatDistrictList(districts, 4) || null,
       };
       const { error } = await supabase.from("physio_services").update(payload).eq("id", editForm.id);
@@ -442,12 +453,39 @@ function PhysioServicesManager({
     await fetchServices();
   };
 
+  const listingSelectedCount = countListingSelections(services);
+
+  const handleToggleListingSelection = async (serviceId: string) => {
+    const target = services.find((s) => s.id === serviceId);
+    if (!target) return;
+
+    const nextValue = !target.show_on_listing;
+    if (nextValue && !canEnableListingSelection(services, serviceId)) {
+      toast.error("名錄最多只能展示 2 項診療項目，請先取消其他項目");
+      return;
+    }
+
+    const { error } = await supabase
+      .from("physio_services")
+      .update({ show_on_listing: nextValue })
+      .eq("id", serviceId);
+    if (error) {
+      toast.error("更新名錄展示設定失敗: " + error.message);
+      return;
+    }
+
+    setServices((prev) =>
+      prev.map((s) => (s.id === serviceId ? { ...s, show_on_listing: nextValue } : s))
+    );
+  };
+
   return (
     <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
         <div>
           <h3 className="text-lg font-black text-white flex items-center gap-2"><ClipboardList className="w-5 h-5 text-green-400" /> 診療項目與服務管理</h3>
-          <p className="text-xs text-zinc-400 mt-1">建立的診療項目將展示於物理治療師名錄與個人檔案，供運動員預約諮詢。</p>
+          <p className="text-xs text-zinc-400 mt-1">勾選最多 2 項已發佈項目顯示於物理治療名錄；排序仍依 ↑↓ 調整。</p>
+          <p className="text-[10px] font-bold text-green-400/90 mt-1">{listingSelectionLabel(listingSelectedCount)}</p>
         </div>
         <button onClick={handleCreateNewService} disabled={isCreatingService} type="button" className="bg-green-700 hover:bg-green-600 disabled:opacity-60 disabled:pointer-events-none text-white text-xs font-black px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-1.5 shrink-0 cursor-pointer active:scale-95">
           <Plus className="w-4 h-4" />新增診療項目
@@ -476,6 +514,12 @@ function PhysioServicesManager({
                     <div className="flex items-center gap-2 flex-wrap">
                       <PhysioServiceTypeBadges types={normalizePhysioServiceTypes(srv.service_types, srv.service_type)} size="xs" />
                       <ServicePublishBadge isActive={!!srv.is_active} />
+                      <ServiceListingCheckbox
+                        accent="green"
+                        checked={!!srv.show_on_listing}
+                        disabled={!canEnableListingSelection(services, srv.id)}
+                        onToggle={() => void handleToggleListingSelection(srv.id)}
+                      />
                     </div>
                     {(() => {
                       const p = formatPhysioServicePrice(srv);

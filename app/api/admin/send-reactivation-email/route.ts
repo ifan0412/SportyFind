@@ -3,6 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { isSiteAdmin } from "@/lib/admin";
 import { sendAccountReactivationEmail } from "@/lib/account-reactivation-email";
+import { getSupabaseAuthCookieOptions } from "@/lib/supabase/env";
 
 export async function POST(request: Request) {
   const cookieStore = await cookies();
@@ -10,6 +11,7 @@ export async function POST(request: Request) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      cookieOptions: getSupabaseAuthCookieOptions(),
       cookies: {
         get(name: string) {
           return cookieStore.get(name)?.value;

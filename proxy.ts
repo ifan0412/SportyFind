@@ -7,6 +7,7 @@ import {
   verifyGateCookie,
 } from "@/lib/gate";
 import { isSiteAdmin } from "@/lib/admin";
+import { getSupabaseAuthCookieOptions } from "@/lib/supabase/env";
 
 function isGateExemptPath(pathname: string): boolean {
   return (
@@ -41,6 +42,7 @@ export async function proxy(req: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      cookieOptions: getSupabaseAuthCookieOptions(),
       cookies: {
         getAll() {
           return req.cookies.getAll();

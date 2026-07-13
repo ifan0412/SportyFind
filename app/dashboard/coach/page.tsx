@@ -29,6 +29,13 @@ import type { SportCategoryId } from "@/lib/sports-categories";
 import { stripHtml } from "@/lib/content/body";
 import { ServicePublishBadge } from "@/components/services/ServicePublishBadge";
 import { ServicePhotoManager } from "@/components/services/ServicePhotoManager";
+import { ServiceListingCheckbox } from "@/components/services/ServiceListingCheckbox";
+import {
+  canEnableListingSelection,
+  countListingSelections,
+  listingSelectionLabel,
+  shouldAutoSelectListingOnPublish,
+} from "@/lib/service-listing-selection";
 import { QualificationPicker } from "@/components/qualifications/QualificationPicker";
 import { COACH_QUALIFICATIONS, normalizeQualificationTags, filterCoachQualificationTags } from "@/lib/qualifications";
 import { profileLink } from "@/lib/profile-links";
@@ -372,6 +379,9 @@ function CoachServicesManager({
         toast.error("發佈前請填寫課程標價，或改選「私訊詢價」");
         return;
       }
+      const showOnListing = editForm.show_on_listing
+        ? true
+        : publish && shouldAutoSelectListingOnPublish(services, editForm.id);
       const payload = {
         title: (editForm.title ?? "").trim(),
         sport_category: editForm.sport_category,
@@ -381,6 +391,7 @@ function CoachServicesManager({
         subdistricts: normalizeSubdistrictIds(editForm.subdistricts),
         description: editForm.description || "",
         is_active: publish,
+        show_on_listing: showOnListing,
         teaching_experience_years: editForm.teaching_experience_years
           ? Number(editForm.teaching_experience_years)
           : null,
@@ -500,12 +511,39 @@ function CoachServicesManager({
     await fetchServices();
   };
 
+  const listingSelectedCount = countListingSelections(services);
+
+  const handleToggleListingSelection = async (serviceId: string) => {
+    const target = services.find((s) => s.id === serviceId);
+    if (!target) return;
+
+    const nextValue = !target.show_on_listing;
+    if (nextValue && !canEnableListingSelection(services, serviceId)) {
+      toast.error("名師榜最多只能展示 2 項課程，請先取消其他項目");
+      return;
+    }
+
+    const { error } = await supabase
+      .from("coach_services")
+      .update({ show_on_listing: nextValue })
+      .eq("id", serviceId);
+    if (error) {
+      toast.error("更新名錄展示設定失敗: " + error.message);
+      return;
+    }
+
+    setServices((prev) =>
+      prev.map((s) => (s.id === serviceId ? { ...s, show_on_listing: nextValue } : s))
+    );
+  };
+
   return (
     <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
         <div>
           <h3 className="text-lg font-black text-white flex items-center gap-2"><BookOpen className="w-5 h-5 text-orange-400" /> 獨立課程與教學專案管理</h3>
-          <p className="text-xs text-zinc-400 mt-1">建立的課程將展示於教練名師榜大廳與個人檔案，供學員預約洽詢。</p>
+          <p className="text-xs text-zinc-400 mt-1">勾選最多 2 項已發佈課程顯示於教練名師榜；排序仍依 ↑↓ 調整。</p>
+          <p className="text-[10px] font-bold text-orange-400/90 mt-1">{listingSelectionLabel(listingSelectedCount)}</p>
         </div>
         <button onClick={handleCreateNewService} disabled={isCreatingService} type="button" className="bg-blue-600 hover:bg-blue-500 disabled:opacity-60 disabled:pointer-events-none text-white text-xs font-black px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-1.5 shrink-0 cursor-pointer active:scale-95">
           <Plus className="w-4 h-4" /> 新增獨立課程
@@ -534,6 +572,12 @@ function CoachServicesManager({
                     <div className="flex items-center gap-2 flex-wrap">
                       <SportCategoryBadge category={srv.sport_category} variant="orange" size="xs" />
                       <ServicePublishBadge isActive={!!srv.is_active} />
+                      <ServiceListingCheckbox
+                        accent="orange"
+                        checked={!!srv.show_on_listing}
+                        disabled={!canEnableListingSelection(services, srv.id)}
+                        onToggle={() => void handleToggleListingSelection(srv.id)}
+                      />
                     </div>
                     {(() => {
                       const p = formatCoachServicePrice(srv);

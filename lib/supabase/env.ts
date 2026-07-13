@@ -5,6 +5,23 @@ const BUILD_PLACEHOLDER_ANON_KEY =
 
 type SupabaseEnvRuntime = "server" | "browser";
 
+/** Auth cookie key from the real Supabase project ref — must match on browser + server. */
+export function getSupabaseAuthStorageKey(): string {
+  const directUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!directUrl) return "supabase.auth.token";
+
+  try {
+    const projectRef = new URL(directUrl).hostname.split(".")[0];
+    return `sb-${projectRef}-auth-token`;
+  } catch {
+    return "supabase.auth.token";
+  }
+}
+
+export function getSupabaseAuthCookieOptions() {
+  return { name: getSupabaseAuthStorageKey() };
+}
+
 function resolveSupabaseUrl(runtime: SupabaseEnvRuntime): string | undefined {
   const directUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   if (!directUrl) return undefined;
