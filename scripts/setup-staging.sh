@@ -35,5 +35,7 @@ echo "  • Edit .env.staging.local with staging URL + anon key (+ service role 
 echo "  • Local: npm run dev:staging"
 echo "  • Vercel: Project → Settings → Environment Variables → add vars for Preview only"
 echo "  • Supabase Auth → URL config: add https://*.vercel.app/auth/callback"
-echo "  • Google OAuth: add staging redirect URIs if you use Google login on preview"
+echo "  • Google OAuth: add STAGING Supabase callback in Google Cloud Console:"
+echo "      https://<staging-project-ref>.supabase.co/auth/v1/callback"
+echo "    Enable Google provider on STAGING Supabase (Authentication → Providers)"
 echo ""

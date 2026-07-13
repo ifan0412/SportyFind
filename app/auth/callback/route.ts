@@ -2,12 +2,14 @@ import { NextResponse } from "next/server";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { safeRedirectPath } from "@/lib/safe-redirect";
+import { getRequestOrigin } from "@/lib/app-origin";
 import { getSupabaseAuthCookieOptions } from "@/lib/supabase/env";
 
 const SUPPORT_EMAIL = "sportyfind.support@gmail.com";
 
 export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url);
+  const { searchParams } = new URL(request.url);
+  const origin = getRequestOrigin(request);
   const code = searchParams.get("code");
 
   const next = safeRedirectPath(searchParams.get("next"));

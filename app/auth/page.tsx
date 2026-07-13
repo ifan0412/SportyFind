@@ -14,6 +14,7 @@ import { CoachRoleLabel, PhysioRoleLabel } from "@/components/profile/RoleBadges
 import { type ProfileGender, PROFILE_GENDER_OPTIONS } from "@/lib/gender";
 import { FormSelect } from "@/components/ui/form-select";
 import { formatAuthError } from "@/lib/auth-errors";
+import { getAuthCallbackUrl } from "@/lib/app-origin";
 import { useMobileLoading } from "@/components/mobile/MobileLoadingProvider";
 
 export default function AuthPage() {
@@ -235,7 +236,7 @@ export default function AuthPage() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: getAuthCallbackUrl(),
       },
     });
 
