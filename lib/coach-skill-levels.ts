@@ -1,9 +1,9 @@
 /** Coach service target learner levels */
 
 export const COACH_SKILL_LEVELS = [
-  { id: "beginner", labelZh: "初學者" },
-  { id: "intermediate", labelZh: "中級程度" },
-  { id: "advanced", labelZh: "高階程度" },
+  { id: "beginner", labelZh: "初學" },
+  { id: "intermediate", labelZh: "中級" },
+  { id: "advanced", labelZh: "高階" },
 ] as const;
 
 export type CoachSkillLevelId = (typeof COACH_SKILL_LEVELS)[number]["id"];
@@ -19,8 +19,13 @@ export function coachSkillLevelLabelZh(id: string | null | undefined): string | 
   return getCoachSkillLevel(id)?.labelZh ?? null;
 }
 
+const COACH_SKILL_LEVEL_ORDER: CoachSkillLevelId[] = ["beginner", "intermediate", "advanced"];
+
 export function filterCoachSkillLevelTags(levels: string[]): CoachSkillLevelId[] {
-  return [...new Set(levels.filter((l) => COACH_SKILL_LEVEL_SET.has(l)))] as CoachSkillLevelId[];
+  const unique = [...new Set(levels.filter((l) => COACH_SKILL_LEVEL_SET.has(l)))] as CoachSkillLevelId[];
+  return unique.sort(
+    (a, b) => COACH_SKILL_LEVEL_ORDER.indexOf(a) - COACH_SKILL_LEVEL_ORDER.indexOf(b)
+  );
 }
 
 export function normalizeCoachSkillLevels(levels: unknown): CoachSkillLevelId[] {

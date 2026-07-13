@@ -54,10 +54,10 @@ export function CoachSkillLevelPicker({
 }
 
 const badgeSizes = {
-  xs: "text-[10px] px-2 py-0.5",
-  sm: "text-xs px-3 py-1",
-  md: "text-sm px-3.5 py-1.5",
-  lg: "text-base px-4 py-2",
+  xs: "text-[10px] px-1.5 py-0.5 tracking-normal",
+  sm: "text-xs px-2 py-0.5 tracking-normal",
+  md: "text-xs px-2 py-1 tracking-normal",
+  lg: "text-sm px-3 py-1.5 tracking-wide",
 };
 
 export function CoachSkillLevelBadge({
@@ -71,7 +71,7 @@ export function CoachSkillLevelBadge({
   if (!meta) return null;
   return (
     <span
-      className={`inline-flex items-center rounded-full font-black border tracking-wider bg-violet-500/15 text-violet-400 border-violet-500/30 whitespace-nowrap ${badgeSizes[size]}`}
+      className={`inline-flex items-center rounded-full font-black border bg-violet-500/15 text-violet-400 border-violet-500/30 whitespace-nowrap shrink-0 ${badgeSizes[size]}`}
     >
       {meta.labelZh}
     </span>
@@ -82,10 +82,12 @@ export function CoachSkillLevelBadges({
   levels,
   size = "sm",
   max = 3,
+  nowrap = false,
 }: {
   levels: string[];
   size?: "xs" | "sm" | "md" | "lg";
   max?: number;
+  nowrap?: boolean;
 }) {
   const unique = filterCoachSkillLevelTags([...new Set(levels.filter(Boolean))]);
   if (!unique.length) return null;
@@ -93,7 +95,9 @@ export function CoachSkillLevelBadges({
   const extra = unique.length - shown.length;
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
+    <div
+      className={`inline-flex items-center gap-1 ${nowrap ? "flex-nowrap shrink-0" : "flex-wrap gap-1.5"}`}
+    >
       {shown.map((level) => (
         <CoachSkillLevelBadge key={level} level={level} size={size} />
       ))}

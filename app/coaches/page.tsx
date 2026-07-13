@@ -271,11 +271,12 @@ export default function CoachesPage() {
                   >
                     <div className="space-y-4">
                       <div className="flex items-center justify-between gap-2">
-                        <div className="flex flex-wrap items-center gap-1.5 min-w-0">
-                          <SportCategoryBadge category={srv.sport_category} variant="orange" size="md" />
+                        <div className="flex flex-nowrap items-center gap-1 min-w-0">
+                          <SportCategoryBadge category={srv.sport_category} variant="orange" size="sm" />
                           <CoachSkillLevelBadges
                             levels={normalizeCoachSkillLevels(srv.skill_levels)}
-                            size="md"
+                            size="xs"
+                            nowrap
                           />
                         </div>
                         {(() => {
