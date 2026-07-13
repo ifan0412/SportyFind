@@ -13,6 +13,7 @@ import { getPasswordValidationError } from "@/lib/password";
 import { CoachRoleLabel, PhysioRoleLabel } from "@/components/profile/RoleBadges";
 import { type ProfileGender, PROFILE_GENDER_OPTIONS } from "@/lib/gender";
 import { FormSelect } from "@/components/ui/form-select";
+import { formatAuthError } from "@/lib/auth-errors";
 import { useMobileLoading } from "@/components/mobile/MobileLoadingProvider";
 
 export default function AuthPage() {
@@ -99,11 +100,16 @@ export default function AuthPage() {
 
     const timer = setTimeout(async () => {
       setHandleStatus("checking");
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("profiles")
         .select("id")
         .eq("handle", handle)
         .maybeSingle();
+
+      if (error) {
+        setHandleStatus("idle");
+        return;
+      }
 
       setHandleStatus(data ? "taken" : "available");
     }, 500);
@@ -175,7 +181,12 @@ export default function AuthPage() {
 
       if (error) {
         if (!window.navigator.onLine) mobileLoading.failWithNetworkError();
-        toast.error(error.message);
+        toast.error(
+          formatAuthError(
+            error,
+            "註冊失敗。若為 staging，請確認 Vercel Preview 已設定正確 Supabase 金鑰並重新部署。"
+          )
+        );
       } else {
         toast.success("帳戶已建立！請查收電郵並點擊驗證連結後再登入。");
         setIsSignUp(false);
@@ -188,7 +199,7 @@ export default function AuthPage() {
       });
       if (error) {
         if (!window.navigator.onLine) mobileLoading.failWithNetworkError();
-        toast.error(error.message);
+        toast.error(formatAuthError(error, "登入失敗，請稍後再試。"));
       } else if (signInData.user) {
         if (!signInData.user.email_confirmed_at && !signInData.user.confirmed_at) {
           await supabase.auth.signOut();
@@ -230,7 +241,7 @@ export default function AuthPage() {
 
     if (error) {
       if (!window.navigator.onLine) mobileLoading.failWithNetworkError();
-      toast.error(error.message);
+      toast.error(formatAuthError(error, "Google 登入失敗，請稍後再試。"));
       setIsLoading(false);
     }
   };
@@ -245,7 +256,7 @@ export default function AuthPage() {
     setIsLoading(false);
     if (error) {
       if (!window.navigator.onLine) mobileLoading.failWithNetworkError();
-      toast.error(error.message);
+      toast.error(formatAuthError(error, "發送驗證電郵失敗。"));
     } else {
       toast.success("驗證電郵已重新發送。");
     }
