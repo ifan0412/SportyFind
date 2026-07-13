@@ -16,8 +16,8 @@ export const PROFILE_HUB_TABS: {
   { id: "home", icon: Home, label: "主頁", shortLabel: "主頁" },
   { id: "edit", icon: Pencil, label: "編輯個人檔案", shortLabel: "個人檔案" },
   { id: "friends", icon: Users, label: "好友管理", shortLabel: "好友" },
-  { id: "teams", icon: Shield, label: "我的團隊", shortLabel: "隊伍" },
-  { id: "events", icon: CalendarDays, label: "我的賽事/活動", shortLabel: "賽事/活動" },
+  { id: "teams", icon: Shield, label: "我的團體", shortLabel: "我的團體" },
+  { id: "events", icon: CalendarDays, label: "我的活動", shortLabel: "我的活動" },
 ];
 
 interface ProfileHubTabNavProps {

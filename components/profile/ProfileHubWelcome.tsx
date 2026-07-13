@@ -36,14 +36,14 @@ const HUB_ITEMS: {
   {
     id: "teams",
     icon: Shield,
-    label: "我的團隊",
-    desc: "建立或管理你加入的隊伍",
+    label: "我的團體",
+    desc: "建立或管理你加入的團體",
     accent: "hover:border-amber-500/40 hover:bg-amber-500/5 group-hover:text-amber-400",
   },
   {
     id: "events",
     icon: CalendarDays,
-    label: "我的賽事/活動",
+    label: "我的活動",
     desc: "參加與主辦的活動行程",
     accent: "hover:border-red-500/40 hover:bg-red-500/5 group-hover:text-red-400",
   },

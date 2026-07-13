@@ -16,17 +16,6 @@ interface ProfileHubBarProps {
   onShare: () => void;
 }
 
-function hubIconBtn(active: boolean, flat = false) {
-  const base = flat ? "rounded-lg" : "rounded-xl";
-  return cn(
-    "flex flex-col items-center justify-center min-w-0 transition border",
-    base,
-    active
-      ? "bg-blue-600 border-blue-500 text-white shadow-[0_0_12px_rgba(37,99,235,0.35)]"
-      : "bg-slate-950/70 border-slate-800 text-zinc-400 hover:text-white hover:border-slate-600"
-  );
-}
-
 function topIconBtn() {
   return "w-9 h-9 rounded-xl flex items-center justify-center bg-slate-950/80 border border-slate-700/80 text-zinc-400 hover:text-white hover:border-slate-500 transition shrink-0";
 }
@@ -54,25 +43,30 @@ export function ProfileHubTopActions({
   );
 }
 
-/** Flat sticky row — mobile / tablet only (render inside ProfileHubMobileBar) */
-export function ProfileHubIconRow({ activeTab, onTab }: Pick<ProfileHubBarProps, "activeTab" | "onTab">) {
+/** Text-only underline tabs — mobile / tablet */
+export function ProfileHubTextTabRow({ activeTab, onTab }: Pick<ProfileHubBarProps, "activeTab" | "onTab">) {
   return (
-    <div className="grid grid-cols-5 gap-0.5 sm:gap-1 w-full min-w-0">
-      {PROFILE_HUB_TABS.map(({ id, icon: Icon, label, shortLabel }) => (
-        <button
-          key={id}
-          type="button"
-          onClick={() => onTab(id)}
-          className={cn(hubIconBtn(activeTab === id, true), "h-11 sm:h-12 w-full py-1 gap-0.5")}
-          title={label}
-          aria-label={label}
-        >
-          <Icon className="w-3.5 h-3.5 shrink-0" strokeWidth={2.5} />
-          <span className="text-[8px] sm:text-[9px] font-bold leading-none truncate max-w-full px-0.5">
+    <div className="flex w-full min-w-0 border-b border-slate-800">
+      {PROFILE_HUB_TABS.map(({ id, label, shortLabel }) => {
+        const active = activeTab === id;
+        return (
+          <button
+            key={id}
+            type="button"
+            onClick={() => onTab(id)}
+            title={label}
+            aria-label={label}
+            className={cn(
+              "flex-1 min-w-0 px-0.5 py-2.5 text-center font-bold leading-tight transition-colors border-b-2 -mb-px whitespace-nowrap text-[11px] sm:text-xs",
+              active
+                ? "text-white border-blue-500"
+                : "text-zinc-500 border-transparent hover:text-zinc-300"
+            )}
+          >
             {shortLabel}
-          </span>
-        </button>
-      ))}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -85,9 +79,9 @@ export function ProfileHubMobileBar({ activeTab, onTab }: Pick<ProfileHubBarProp
   return (
     <div
       ref={ref}
-      className="lg:hidden sticky z-40 -mx-4 sm:-mx-6 px-4 sm:px-6 py-1.5 bg-slate-950/95 backdrop-blur-md shadow-sm"
+      className="lg:hidden sticky z-40 -mx-4 sm:-mx-6 px-4 sm:px-6 pt-1 bg-slate-950/95 backdrop-blur-md shadow-sm"
     >
-      <ProfileHubIconRow activeTab={activeTab} onTab={onTab} />
+      <ProfileHubTextTabRow activeTab={activeTab} onTab={onTab} />
     </div>
   );
 }

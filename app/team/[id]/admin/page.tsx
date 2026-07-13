@@ -25,6 +25,7 @@ import { BIO_CHAR_SUGGESTED_MAX, BIO_CHAR_SUGGESTED_RANGE, plainTextLength } fro
 import { GenderAvatarBadge } from "@/components/profile/GenderBadge";
 import { setTeamDetailBack } from "@/lib/team-listing-state";
 import { FormSelect } from "@/components/ui/form-select";
+import { X } from "lucide-react";
 
 type AdminTab = "roster" | "details" | "media" | "settings";
 
@@ -451,8 +452,14 @@ export default function TeamAdminDashboard() {
                         triggerClassName="h-auto min-h-0 w-auto border-slate-800 bg-slate-900 px-3 py-1.5 text-xs font-bold text-purple-400"
                       />
                       {m.user_id !== currentUserId && (
-                        <button onClick={() => handleRejectOrRemove(m.user_id, true)} className="text-zinc-600 hover:text-red-500 p-2 text-xs transition" title="剔除成員">
-                          🗑️ 踢除
+                        <button
+                          type="button"
+                          onClick={() => handleRejectOrRemove(m.user_id, true)}
+                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-800 bg-slate-900/80 text-zinc-500 hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-400 transition"
+                          title="移除成員"
+                          aria-label="移除成員"
+                        >
+                          <X className="h-4 w-4" strokeWidth={2.5} />
                         </button>
                       )}
                     </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { User, Users, GraduationCap, Activity, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -16,6 +16,8 @@ export interface ProfileNavData {
   adminTeams: AdminTeamLink[];
 }
 
+const MY_TEAMS_HREF = "/profile?tab=teams";
+
 export function ProfileNavMenu({
   pathname,
   profileNav,
@@ -27,12 +29,13 @@ export function ProfileNavMenu({
   onNavigate?: () => void;
   variant: "desktop" | "mobile-menu";
 }) {
+  const searchParams = useSearchParams();
   const onProfilePage = pathname === "/profile";
   const isProfileIconActive = onProfilePage;
   const isCoachActive = pathname.startsWith("/dashboard/coach");
   const isPhysioActive = pathname.startsWith("/dashboard/physio");
   const friendsHref = "/profile?tab=friends";
-  const teamsTabHref = "/profile?tab=teams";
+  const isTeamsTabActive = pathname === "/profile" && searchParams.get("tab") === "teams";
 
   const menuItemActive = (active: boolean) => !onProfilePage && active;
 
@@ -45,7 +48,7 @@ export function ProfileNavMenu({
 
   const menuItemClass = (active: boolean) =>
     cn(
-      "flex items-center gap-2.5 w-full px-3 py-2.5 text-sm font-bold rounded-xl transition-colors text-left",
+      "flex items-center gap-2.5 w-full px-3 py-2.5 text-sm font-bold rounded-xl transition-colors text-left whitespace-nowrap",
       menuItemActive(active) ? "bg-blue-600/15 text-blue-400" : "text-zinc-300 hover:bg-slate-800 hover:text-white"
     );
 
@@ -56,12 +59,12 @@ export function ProfileNavMenu({
           <Link
             href="/profile"
             className={cn(
-              "flex items-center gap-3 rounded-md px-3 py-3 text-sm font-bold transition-colors",
+              "flex items-center gap-3 rounded-md px-3 py-3 text-sm font-bold transition-colors whitespace-nowrap",
               menuItemActive(false) ? "text-blue-400" : "text-slate-400 hover:bg-slate-800 hover:text-white"
             )}
             onClick={onNavigate}
           >
-            <User className="size-4" /> 個人檔案管理
+            <User className="size-4 shrink-0" /> 個人檔案管理
           </Link>
         </li>
         {profileNav.is_coach && (
@@ -69,12 +72,12 @@ export function ProfileNavMenu({
             <Link
               href="/dashboard/coach"
               className={cn(
-                "flex items-center gap-3 rounded-md px-3 py-3 text-sm font-bold transition-colors",
+                "flex items-center gap-3 rounded-md px-3 py-3 text-sm font-bold transition-colors whitespace-nowrap",
                 isCoachActive ? "text-orange-400" : "text-slate-400 hover:bg-slate-800 hover:text-white"
               )}
               onClick={onNavigate}
             >
-              <GraduationCap className="size-4" /> 教練後台管理
+              <GraduationCap className="size-4 shrink-0" /> 教練後台管理
             </Link>
           </li>
         )}
@@ -83,12 +86,12 @@ export function ProfileNavMenu({
             <Link
               href="/dashboard/physio"
               className={cn(
-                "flex items-center gap-3 rounded-md px-3 py-3 text-sm font-bold transition-colors",
+                "flex items-center gap-3 rounded-md px-3 py-3 text-sm font-bold transition-colors whitespace-nowrap",
                 isPhysioActive ? "text-green-400" : "text-slate-400 hover:bg-slate-800 hover:text-white"
               )}
               onClick={onNavigate}
             >
-              <Activity className="size-4" /> 復健後台管理
+              <Activity className="size-4 shrink-0" /> 復健後台管理
             </Link>
           </li>
         )}
@@ -96,59 +99,29 @@ export function ProfileNavMenu({
           <Link
             href={friendsHref}
             className={cn(
-              "flex items-center gap-3 rounded-md px-3 py-3 text-sm font-bold transition-colors",
+              "flex items-center gap-3 rounded-md px-3 py-3 text-sm font-bold transition-colors whitespace-nowrap",
               menuItemActive(false) ? "text-blue-400" : "text-slate-400 hover:bg-slate-800 hover:text-white"
             )}
             onClick={onNavigate}
           >
-            <Users className="size-4" /> 好友列表
+            <Users className="size-4 shrink-0" /> 好友列表
           </Link>
         </li>
-        {profileNav.adminTeams.length === 1 ? (
-          <li>
-            <Link
-              href={`/team/${profileNav.adminTeams[0].id}/admin`}
-              className={cn(
-                "flex items-center gap-3 rounded-md px-3 py-3 text-sm font-bold transition-colors",
-                pathname.startsWith(`/team/${profileNav.adminTeams[0].id}`)
-                  ? "text-purple-400"
-                  : "text-slate-400 hover:bg-slate-800 hover:text-white"
-              )}
-              onClick={onNavigate}
-            >
-              <Shield className="size-4" /> 我的團隊
-            </Link>
-          </li>
-        ) : profileNav.adminTeams.length > 1 ? (
-          <li>
-            <Link
-              href={teamsTabHref}
-              className={cn(
-                "flex items-center gap-3 rounded-md px-3 py-3 text-sm font-bold transition-colors",
-                menuItemActive(false) ? "text-purple-400" : "text-slate-400 hover:bg-slate-800 hover:text-white"
-              )}
-              onClick={onNavigate}
-            >
-              <Shield className="size-4" /> 我的團隊
-            </Link>
-          </li>
-        ) : null}
+        <li>
+          <Link
+            href={MY_TEAMS_HREF}
+            className={cn(
+              "flex items-center gap-3 rounded-md px-3 py-3 text-sm font-bold transition-colors whitespace-nowrap",
+              isTeamsTabActive ? "text-purple-400" : "text-slate-400 hover:bg-slate-800 hover:text-white"
+            )}
+            onClick={onNavigate}
+          >
+            <Shield className="size-4 shrink-0" /> 我的團體
+          </Link>
+        </li>
       </>
     );
   }
-
-  const teamMenuItems =
-    profileNav.adminTeams.length === 1
-      ? [
-          {
-            href: `/team/${profileNav.adminTeams[0].id}/admin`,
-            label: "我的團隊",
-            active: pathname.startsWith(`/team/${profileNav.adminTeams[0].id}`),
-          },
-        ]
-      : profileNav.adminTeams.length > 1
-        ? [{ href: teamsTabHref, label: "我的團隊", active: false }]
-        : [];
 
   return (
     <div className="relative group">
@@ -165,12 +138,10 @@ export function ProfileNavMenu({
             <Users className="size-4 shrink-0" />
             好友列表
           </Link>
-          {teamMenuItems.map((item) => (
-            <Link key={item.href} href={item.href} className={menuItemClass(item.active)}>
-              <Shield className="size-4 shrink-0" />
-              {item.label}
-            </Link>
-          ))}
+          <Link href={MY_TEAMS_HREF} className={menuItemClass(isTeamsTabActive)}>
+            <Shield className="size-4 shrink-0" />
+            我的團體
+          </Link>
           {profileNav.is_coach && (
             <Link href="/dashboard/coach" className={menuItemClass(isCoachActive)}>
               <GraduationCap className="size-4 shrink-0" />

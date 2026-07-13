@@ -369,9 +369,38 @@ select,
     display: none;
   }
 
+  /* Slightly larger body text on mobile (homepage six boxes keep their own scale). */
+  main {
+    font-size: 17px;
+  }
+
   /* Scale homepage blocks only — navbar / bottom nav stay at layout viewport scale. */
   .homepage-mobile-content {
+    font-size: 16px;
     zoom: 0.8;
+  }
+
+  /* Bottom nav must always anchor to the viewport on iOS PWA. */
+  .mobile-bottom-nav-root {
+    position: fixed !important;
+    top: auto !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 100 !important;
+    transform: none !important;
+    margin: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Prevent compact action buttons from wrapping on mobile. */
+  #mobile-bottom-nav a,
+  #mobile-bottom-nav button,
+  button.whitespace-nowrap,
+  a.whitespace-nowrap,
+  [data-single-line-action="true"] {
+    white-space: nowrap;
   }
 }
 

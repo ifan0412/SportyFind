@@ -164,7 +164,7 @@ export function MyEventsTab({ embedded = false, userId }: MyEventsTabProps) {
       {embedded && (
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-lg md:text-xl font-black text-white">我的賽事/活動</h2>
+            <h2 className="text-lg md:text-xl font-black text-white">我的活動</h2>
             <p className="text-xs text-zinc-500 mt-1">管理你參加與主辦的所有活動。</p>
           </div>
           <Link

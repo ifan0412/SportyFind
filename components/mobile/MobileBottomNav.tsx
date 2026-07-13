@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, Calendar, Menu, MessageSquare, User, X, LogIn } from "lucide-react";
@@ -38,7 +39,7 @@ function NavButton({
   accent?: "default" | "login";
 }) {
   const className = cn(
-    "relative flex min-w-0 flex-1 flex-col items-center justify-center gap-0 py-0.5 text-[10px] leading-none font-bold transition-colors",
+    "relative flex min-w-0 flex-1 flex-col items-center justify-center gap-0 py-0.5 text-[11px] leading-none font-bold transition-colors whitespace-nowrap",
     accent === "login"
       ? active
         ? LOGIN_MOBILE_NAV_ACTIVE_CLASS
@@ -89,9 +90,48 @@ export function MobileBottomNav() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [menuOpen, setMenuOpen] = useState(false);
   const [dmUnread, setDmUnread] = useState(0);
+  const [mounted, setMounted] = useState(false);
+  const navRef = useRef<HTMLElement>(null);
 
   const hidden =
     HIDDEN_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+
+  const pinToViewportBottom = useCallback(() => {
+    const nav = navRef.current;
+    if (!nav) return;
+    nav.style.position = "fixed";
+    nav.style.top = "auto";
+    nav.style.bottom = "0";
+    nav.style.left = "0";
+    nav.style.right = "0";
+    nav.style.transform = "none";
+    nav.style.margin = "0";
+  }, []);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted || hidden) return;
+
+    pinToViewportBottom();
+
+    const vv = window.visualViewport;
+    const onViewportChange = () => pinToViewportBottom();
+
+    vv?.addEventListener("resize", onViewportChange);
+    vv?.addEventListener("scroll", onViewportChange);
+    window.addEventListener("orientationchange", onViewportChange);
+    window.addEventListener("resize", onViewportChange);
+
+    return () => {
+      vv?.removeEventListener("resize", onViewportChange);
+      vv?.removeEventListener("scroll", onViewportChange);
+      window.removeEventListener("orientationchange", onViewportChange);
+      window.removeEventListener("resize", onViewportChange);
+    };
+  }, [mounted, hidden, pinToViewportBottom]);
 
   const refreshDmUnread = useCallback(async () => {
     if (!user?.id) {
@@ -128,7 +168,7 @@ export function MobileBottomNav() {
     setMenuOpen(false);
   }, [pathname]);
 
-  if (hidden) return null;
+  if (!mounted || hidden) return null;
 
   const isAuthenticated = Boolean(user);
   const isHome = pathname === "/";
@@ -139,11 +179,13 @@ export function MobileBottomNav() {
   const isProfile = pathname === "/profile" || pathname.startsWith("/profile/");
   const isAuth = pathname === "/auth" || pathname.startsWith("/auth/");
 
-  return (
+  const chrome = (
     <>
       <nav
+        ref={navRef}
+        id="mobile-bottom-nav"
         aria-label="主要導覽"
-        className="fixed bottom-0 left-0 right-0 z-[100] md:hidden border-t border-slate-800 bg-slate-950/95 backdrop-blur-md pb-[env(safe-area-inset-bottom)] [transform:translateZ(0)]"
+        className="mobile-bottom-nav-root md:hidden border-t border-slate-800 bg-slate-950/95 backdrop-blur-md pb-[env(safe-area-inset-bottom)]"
       >
         <div className="flex h-14 items-center px-0.5">
           <NavButton href="/" label="首頁" active={isHome}>
@@ -152,7 +194,7 @@ export function MobileBottomNav() {
 
           {isAuthenticated ? (
             <>
-              <NavButton href="/events/my" label="我的賽事" active={isEvents}>
+              <NavButton href="/events/my" label="我的活動" active={isEvents}>
                 <Calendar className="h-[18px] w-[18px]" />
               </NavButton>
               <NavButton
@@ -213,4 +255,6 @@ export function MobileBottomNav() {
       />
     </>
   );
+
+  return createPortal(chrome, document.body);
 }
