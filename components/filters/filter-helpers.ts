@@ -3,6 +3,7 @@ import { HK_AREAS } from "@/lib/hk-locations";
 import type { LocationFilterOption } from "@/components/LocationFilterModal";
 import type { MobileFilterCategory, MobileFilterValues } from "./types";
 import { PHYSIO_SERVICE_TYPES } from "@/lib/physio-service-types";
+import { COACH_SKILL_LEVELS } from "@/lib/coach-skill-levels";
 
 export function sportFilterCategory(id = "sports", label = "項目"): MobileFilterCategory {
   return {
@@ -34,6 +35,15 @@ export function locationFilterCategory(
           label: l.label.split(" ")[0],
         })),
     })).filter((g) => g.options.length > 0),
+  };
+}
+
+export function coachSkillLevelCategory(): MobileFilterCategory {
+  return {
+    id: "skillLevels",
+    label: "適合程度",
+    type: "multi",
+    options: COACH_SKILL_LEVELS.map((l) => ({ id: l.id, label: l.labelZh })),
   };
 }
 

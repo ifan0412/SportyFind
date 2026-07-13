@@ -25,6 +25,11 @@ import { RichBody } from "@/components/content/RichBody";
 import { BIO_CHAR_SUGGESTED_MAX, BIO_CHAR_SUGGESTED_RANGE } from "@/lib/content/body";
 import { SportCategoryBadge } from "@/components/sports/SportCategoryBadge";
 import { SportCategoryPicker } from "@/components/sports/SportCategoryPicker";
+import {
+  CoachSkillLevelBadges,
+  CoachSkillLevelPicker,
+} from "@/components/coach/CoachSkillLevelPicker";
+import { normalizeCoachSkillLevels } from "@/lib/coach-skill-levels";
 import type { SportCategoryId } from "@/lib/sports-categories";
 import { stripHtml } from "@/lib/content/body";
 import { ServicePublishBadge } from "@/components/services/ServicePublishBadge";
@@ -245,6 +250,7 @@ function CoachServicesManager({
       districts: normalizeDistrictIds(srv.districts, srv.location),
       subdistricts: normalizeSubdistrictIds(srv.subdistricts),
       teaching_experience_years: srv.teaching_experience_years ?? "",
+      skill_levels: normalizeCoachSkillLevels(srv.skill_levels),
     });
     setIsEditingInfo(false);
     setDetailTab("info");
@@ -345,13 +351,14 @@ function CoachServicesManager({
         sort_order: services.length + 1,
         is_active: false,
         teaching_experience_years: null,
+        skill_levels: [],
       };
       const { data, error } = await supabase.from("coach_services").insert(payload).select().single();
       if (error) { toast.error("新增失敗: " + error.message); return; }
       if (data) {
         setServices([data, ...services]);
         setSelectedService(data);
-        setEditForm({ ...data, districts: [], subdistricts: [], teaching_experience_years: "" });
+        setEditForm({ ...data, districts: [], subdistricts: [], teaching_experience_years: "", skill_levels: [] });
         setIsEditingInfo(true);
         setDetailTab("info");
       }
@@ -374,6 +381,11 @@ function CoachServicesManager({
         toast.error("發佈前請選擇專項類別");
         return;
       }
+      const skillLevels = normalizeCoachSkillLevels(editForm.skill_levels);
+      if (publish && !skillLevels.length) {
+        toast.error("發佈前請至少選擇一個適合程度");
+        return;
+      }
       const pricingMode = normalizeCoachPricingMode(editForm.pricing_mode);
       if (publish && pricingMode !== "dm" && !(Number(editForm.hourly_rate) > 0)) {
         toast.error("發佈前請填寫課程標價，或改選「私訊詢價」");
@@ -385,6 +397,7 @@ function CoachServicesManager({
       const payload = {
         title: (editForm.title ?? "").trim(),
         sport_category: editForm.sport_category,
+        skill_levels: skillLevels,
         pricing_mode: pricingMode,
         hourly_rate: pricingMode === "dm" ? 0 : Number(editForm.hourly_rate) || 0,
         districts,
@@ -571,6 +584,10 @@ function CoachServicesManager({
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <div className="flex items-center gap-2 flex-wrap">
                       <SportCategoryBadge category={srv.sport_category} variant="orange" size="xs" />
+                      <CoachSkillLevelBadges
+                        levels={normalizeCoachSkillLevels(srv.skill_levels)}
+                        size="xs"
+                      />
                       <ServicePublishBadge isActive={!!srv.is_active} />
                       <ServiceListingCheckbox
                         accent="orange"
@@ -679,6 +696,13 @@ function CoachServicesManager({
                   accent="orange"
                 />
               </div>
+              <div className="space-y-2">
+                <label className="text-[10px] text-zinc-500 font-bold uppercase block">適合程度</label>
+                <CoachSkillLevelPicker
+                  value={normalizeCoachSkillLevels(editForm.skill_levels)}
+                  onChange={(levels) => setEditForm({ ...editForm, skill_levels: levels })}
+                />
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="sm:col-span-2">
                   <CoachPricingFields
@@ -748,6 +772,17 @@ function CoachServicesManager({
             <div className="space-y-4 pt-2">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
                 <div><span className="text-xs text-zinc-500 block font-bold mb-1">專項類別</span><SportCategoryBadge category={selectedService.sport_category} variant="orange" /></div>
+                <div>
+                  <span className="text-xs text-zinc-500 block font-bold mb-1">適合程度</span>
+                  {normalizeCoachSkillLevels(selectedService.skill_levels).length > 0 ? (
+                    <CoachSkillLevelBadges
+                      levels={normalizeCoachSkillLevels(selectedService.skill_levels)}
+                      size="xs"
+                    />
+                  ) : (
+                    <span className="text-zinc-500 text-sm font-bold">—</span>
+                  )}
+                </div>
                 <div>
                   <span className="text-xs text-zinc-500 block font-bold">授課收費</span>
                   {(() => {

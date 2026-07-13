@@ -10,6 +10,7 @@ import { GlobalChat } from "@/components/GlobalChat";
 import { MobileBottomNav } from "@/components/mobile/MobileBottomNav";
 import { MobileLoadingProvider } from "@/components/mobile/MobileLoadingProvider";
 import { PushNotificationProvider } from "@/components/push/PushNotificationProvider";
+import { StagingBanner } from "@/components/dev/StagingBanner";
 import { mobileViewport } from "@/lib/viewport";
 
 // 2. 字體設定
@@ -42,6 +43,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="bg-slate-950 text-slate-100 min-h-screen font-sans flex flex-col antialiased">
         <SupabaseProvider>
           <MobileLoadingProvider>
+            <StagingBanner />
             <Navbar />
 
             <main className="flex-1 bg-slate-950 py-2 pb-[calc(4rem+env(safe-area-inset-bottom,0px))] md:py-6 md:pb-6">

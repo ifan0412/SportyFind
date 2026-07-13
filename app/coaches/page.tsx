@@ -15,10 +15,13 @@ import {
   serviceMatchesDistrictFilter,
 } from "@/lib/hk-locations";
 import { sportMatchesFilter } from "@/lib/sports-categories";
+import { coachSkillLevelsMatchFilter, normalizeCoachSkillLevels } from "@/lib/coach-skill-levels";
 import { stripHtml } from "@/lib/content/body";
 import { filterCoachQualificationTags } from "@/lib/qualifications";
 import { QualificationBadges } from "@/components/qualifications/QualificationBadges";
 import { SportCategoryBadge } from "@/components/sports/SportCategoryBadge";
+import { CoachSkillLevelBadges } from "@/components/coach/CoachSkillLevelPicker";
+import { CoachSkillLevelFilterModal } from "@/components/coach/CoachSkillLevelFilterModal";
 import { formatCoachServicePrice } from "@/lib/coach-pricing";
 import { MapPin, User as UserIcon } from "lucide-react";
 import { PhoneVerifiedAvatarBadge } from "@/components/profile/PhoneVerifiedBadge";
@@ -28,6 +31,7 @@ import { MobileFilterSheet } from "@/components/filters/MobileFilterSheet";
 import { useMobileFilterDraft } from "@/components/filters/useMobileFilterDraft";
 import {
   countActiveMobileFilters,
+  coachSkillLevelCategory,
   locationFilterCategory,
   sportFilterCategory,
 } from "@/components/filters/filter-helpers";
@@ -45,6 +49,7 @@ interface CoachServiceRow {
   teaching_experience_years: number | null;
   hourly_rate: number;
   pricing_mode?: string | null;
+  skill_levels?: string[] | null;
   profiles: {
     full_name: string | null;
     headline: string | null;
@@ -71,19 +76,23 @@ export default function CoachesPage() {
   const [selectedDistricts, setSelectedDistricts] = useState<string[]>([]);
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
 
+  const [selectedSkillLevels, setSelectedSkillLevels] = useState<string[]>([]);
+  const [isSkillLevelModalOpen, setIsSkillLevelModalOpen] = useState(false);
+
   const locationOptions = useMemo(() => districtsForFilterModal(), []);
 
   const mobileFilterCategories = useMemo(
     () => [
       sportFilterCategory("sports", "專項"),
+      coachSkillLevelCategory(),
       locationFilterCategory(locationOptions, "districts", "地區"),
     ],
     [locationOptions]
   );
 
   const appliedMobileFilters: MobileFilterValues = useMemo(
-    () => ({ sports: selectedSports, districts: selectedDistricts }),
-    [selectedSports, selectedDistricts]
+    () => ({ sports: selectedSports, skillLevels: selectedSkillLevels, districts: selectedDistricts }),
+    [selectedSports, selectedSkillLevels, selectedDistricts]
   );
 
   const mobileFilters = useMobileFilterDraft(appliedMobileFilters);
@@ -91,6 +100,7 @@ export default function CoachesPage() {
   const applyMobileFilters = () => {
     const d = mobileFilters.draft;
     setSelectedSports(Array.isArray(d.sports) ? d.sports : []);
+    setSelectedSkillLevels(Array.isArray(d.skillLevels) ? d.skillLevels : []);
     setSelectedDistricts(Array.isArray(d.districts) ? d.districts : []);
     mobileFilters.close();
   };
@@ -105,7 +115,7 @@ export default function CoachesPage() {
         .from("coach_services")
         .select(`
           id, coach_id, sport_category, title, description, location,
-          districts, subdistricts, teaching_experience_years, hourly_rate, pricing_mode,
+          districts, subdistricts, teaching_experience_years, hourly_rate, pricing_mode, skill_levels,
           profiles!coach_id (
             full_name, headline, avatar_url, coach_teaching_experience_years, coach_qualification_tags, phone_verified_at
           )
@@ -122,7 +132,8 @@ export default function CoachesPage() {
         setServices(data as unknown as CoachServiceRow[]);
       } else if (
         error?.message?.includes("coach_qualification_tags") ||
-        error?.message?.includes("show_on_listing")
+        error?.message?.includes("show_on_listing") ||
+        error?.message?.includes("skill_levels")
       ) {
         let fallbackQuery = supabase
           .from("coach_services")
@@ -154,11 +165,12 @@ export default function CoachesPage() {
         (srv.title || "").toLowerCase().includes(q) ||
         (srv.profiles?.full_name || "").toLowerCase().includes(q);
       const matchSport = sportMatchesFilter(srv.sport_category, selectedSports);
+      const matchSkillLevel = coachSkillLevelsMatchFilter(srv.skill_levels, selectedSkillLevels);
       const districts = normalizeDistrictIds(srv.districts, srv.location);
       const matchLocation = serviceMatchesDistrictFilter(districts, srv.location, selectedDistricts);
-      return matchSearch && matchSport && matchLocation;
+      return matchSearch && matchSport && matchSkillLevel && matchLocation;
     });
-  }, [services, searchTerm, selectedSports, selectedDistricts]);
+  }, [services, searchTerm, selectedSports, selectedSkillLevels, selectedDistricts]);
 
   return (
     <div className="bg-slate-950 min-h-screen text-zinc-200 font-sans selection:bg-orange-500/30 pb-24 relative">
@@ -199,6 +211,19 @@ export default function CoachesPage() {
               }`}
             >
               <span>專項 {selectedSports.length > 0 ? `(${selectedSports.length})` : "(全部)"}</span>
+              <span className="text-[10px]">▼</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsSkillLevelModalOpen(true)}
+              className={`w-full md:w-auto flex items-center justify-between gap-3 px-5 py-3 rounded-xl border text-sm font-bold transition flex-shrink-0 cursor-pointer ${
+                selectedSkillLevels.length > 0
+                  ? "bg-orange-600/10 border-orange-500 text-orange-400"
+                  : "bg-slate-950 border-slate-700 text-zinc-400 hover:border-slate-500"
+              }`}
+            >
+              <span>適合程度 {selectedSkillLevels.length > 0 ? `(${selectedSkillLevels.length})` : "(全部)"}</span>
               <span className="text-[10px]">▼</span>
             </button>
 
@@ -246,7 +271,13 @@ export default function CoachesPage() {
                   >
                     <div className="space-y-4">
                       <div className="flex items-center justify-between gap-2">
-                        <SportCategoryBadge category={srv.sport_category} variant="orange" size="md" />
+                        <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+                          <SportCategoryBadge category={srv.sport_category} variant="orange" size="md" />
+                          <CoachSkillLevelBadges
+                            levels={normalizeCoachSkillLevels(srv.skill_levels)}
+                            size="md"
+                          />
+                        </div>
                         {(() => {
                           const p = formatCoachServicePrice(srv);
                           return (
@@ -356,6 +387,13 @@ export default function CoachesPage() {
         onClose={() => setIsSportModalOpen(false)}
         selectedSports={selectedSports}
         onApply={setSelectedSports}
+      />
+
+      <CoachSkillLevelFilterModal
+        isOpen={isSkillLevelModalOpen}
+        onClose={() => setIsSkillLevelModalOpen(false)}
+        selectedLevels={selectedSkillLevels}
+        onApply={setSelectedSkillLevels}
       />
 
       <LocationFilterModal

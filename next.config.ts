@@ -1,8 +1,7 @@
 import type { NextConfig } from "next";
 
-const supabaseHost = process.env.NEXT_PUBLIC_SUPABASE_URL
-  ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).host
-  : "*.supabase.co";
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, "");
+const supabaseHost = supabaseUrl ? new URL(supabaseUrl).host : "*.supabase.co";
 
 const contentSecurityPolicy = [
   "default-src 'self'",
@@ -18,7 +17,6 @@ const contentSecurityPolicy = [
 
 const nextConfig: NextConfig = {
   async rewrites() {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, "");
     return [
       { source: "/manifest.json", destination: "/manifest.webmanifest" },
       ...(supabaseUrl
@@ -28,9 +26,18 @@ const nextConfig: NextConfig = {
   },
   images: {
     remotePatterns: [
+      ...(supabaseHost !== "*.supabase.co"
+        ? [
+            {
+              protocol: "https" as const,
+              hostname: supabaseHost,
+              pathname: "/storage/v1/object/public/**",
+            },
+          ]
+        : []),
       {
         protocol: "https",
-        hostname: "hpqgbscdyzpqtpgvizim.supabase.co",
+        hostname: "*.supabase.co",
         pathname: "/storage/v1/object/public/**",
       },
       {

@@ -5,9 +5,13 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:staging": "sh scripts/dev-staging.sh",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:combine-migrations": "node scripts/combine-migrations.mjs",
+    "db:setup-staging": "sh scripts/setup-staging.sh",
+    "db:dump-prod-schema": "sh scripts/dump-prod-schema.sh"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",

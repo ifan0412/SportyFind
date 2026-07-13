@@ -20,6 +20,8 @@ import {
 } from "@/lib/hk-locations";
 import { RichBody } from "@/components/content/RichBody";
 import { SportCategoryBadge } from "@/components/sports/SportCategoryBadge";
+import { CoachSkillLevelBadges } from "@/components/coach/CoachSkillLevelPicker";
+import { normalizeCoachSkillLevels } from "@/lib/coach-skill-levels";
 import { formatCoachServicePrice } from "@/lib/coach-pricing";
 import { ENQUIRY_MESSAGE_MAX, clampEnquiryMessage } from "@/lib/service-enquiry";
 import { ShareMenu } from "@/components/share/ShareMenu";
@@ -278,11 +280,15 @@ export default function CoachServiceDetailPage({ params }: { params: Promise<{ i
         {/* 課程詳細資訊主卡 */}
         <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl relative">
           <div className="flex flex-wrap items-center justify-between gap-4 mb-5">
-            {service.sport_category ? (
-              <SportCategoryBadge category={service.sport_category} variant="orange" size="lg" />
-            ) : (
-              <span />
-            )}
+            <div className="flex flex-wrap items-center gap-2">
+              {service.sport_category ? (
+                <SportCategoryBadge category={service.sport_category} variant="orange" size="lg" />
+              ) : null}
+              <CoachSkillLevelBadges
+                levels={normalizeCoachSkillLevels(service.skill_levels)}
+                size="lg"
+              />
+            </div>
             <span className="text-xs font-bold text-orange-400 bg-orange-950/50 border border-orange-500/30 px-3 py-1 rounded-full flex items-center gap-1.5">
               🔥 已有 {enquiryCount} 人發送諮詢單
             </span>

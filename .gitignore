@@ -32,9 +32,14 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
+!.env.staging.local.example
 
 # vercel
 .vercel
+
+# generated staging DB bootstrap (npm run db:combine-migrations)
+supabase/staging-bootstrap.sql
 
 # typescript
 *.tsbuildinfo
