@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { MapPin, Star, AlertCircle, Settings, Users, GraduationCap, Activity, Inbox } from "lucide-react";
+import { MapPin, Star, AlertCircle, Settings, Inbox } from "lucide-react";
 import {
   formatDistrictList,
   normalizeDistrictIds,
@@ -15,7 +15,7 @@ import { ServicePublishBadge } from "@/components/services/ServicePublishBadge";
 import { formatCoachServicePrice, formatPhysioServicePrice } from "@/lib/coach-pricing";
 import { CoachRoleLabel, PhysioRoleLabel } from "@/components/profile/RoleBadges";
 import { serviceHasUncontactedEnquiry } from "@/lib/service-enquiry";
-import { AppChromeSticky } from "@/components/layout/AppChromeSticky";
+import { ProfileRoleTabBar } from "@/components/profile/ProfileRoleTabBar";
 import { QualificationBadges } from "@/components/qualifications/QualificationBadges";
 import { filterCoachQualificationTags } from "@/lib/qualifications";
 
@@ -121,58 +121,15 @@ export function ProfileRolePreview({
       : "5.0";
 
   const roleTabBar = (
-    <AppChromeSticky className="mb-4 lg:static lg:z-auto" desktopTopClass="lg:top-auto">
-    <div className="bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 p-1 rounded-2xl flex w-full shadow-sm overflow-x-auto [&::-webkit-scrollbar]:hidden">
-        {showPlayer && (
-          <button
-            type="button"
-            onClick={() => onRoleChange("athlete")}
-            className={`flex-1 flex flex-col items-center justify-center py-2 px-3 rounded-xl transition-all duration-300 min-w-[100px] cursor-pointer ${
-              activeRole === "athlete"
-                ? "bg-blue-600 text-white shadow-lg scale-[1.02]"
-                : "text-zinc-500 hover:text-blue-400 hover:bg-slate-800/50"
-            }`}
-          >
-            <Users className="w-5 h-5 mb-0.5" strokeWidth={2.5} />
-            <span className="text-[10px] md:text-xs font-black leading-tight">運動員簡歷</span>
-          </button>
-        )}
-        {showCoach && (
-          <button
-            type="button"
-            onClick={() => onRoleChange("coach")}
-            className={`relative flex-1 flex flex-col items-center justify-center py-2 px-3 rounded-xl transition-all duration-300 min-w-[100px] cursor-pointer ${
-              activeRole === "coach"
-                ? "bg-orange-500 text-black shadow-lg scale-[1.02]"
-                : "text-zinc-500 hover:text-orange-400 hover:bg-slate-800/50"
-            }`}
-          >
-            {hasUncontactedCoachEnquiries && (
-              <span className="absolute top-1.5 right-2 w-2 h-2 rounded-full bg-red-500 ring-2 ring-slate-900 pointer-events-none" aria-hidden />
-            )}
-            <GraduationCap className="w-5 h-5 mb-0.5" strokeWidth={2.5} />
-            <span className="text-[10px] md:text-xs font-black leading-tight">教練簡介</span>
-          </button>
-        )}
-        {showPhysio && (
-          <button
-            type="button"
-            onClick={() => onRoleChange("physio")}
-            className={`relative flex-1 flex flex-col items-center justify-center py-2 px-3 rounded-xl transition-all duration-300 min-w-[100px] cursor-pointer ${
-              activeRole === "physio"
-                ? "bg-green-500 text-black shadow-lg scale-[1.02]"
-                : "text-zinc-500 hover:text-green-400 hover:bg-slate-800/50"
-            }`}
-          >
-            {hasUncontactedPhysioEnquiries && (
-              <span className="absolute top-1.5 right-2 w-2 h-2 rounded-full bg-red-500 ring-2 ring-slate-900 pointer-events-none" aria-hidden />
-            )}
-            <Activity className="w-5 h-5 mb-0.5" strokeWidth={2.5} />
-            <span className="text-[10px] md:text-xs font-black leading-tight">運動/物理治療</span>
-          </button>
-        )}
-    </div>
-    </AppChromeSticky>
+    <ProfileRoleTabBar
+      activeRole={activeRole}
+      onRoleChange={onRoleChange}
+      showPlayer={showPlayer}
+      showCoach={showCoach}
+      showPhysio={showPhysio}
+      hasUncontactedCoachEnquiries={hasUncontactedCoachEnquiries}
+      hasUncontactedPhysioEnquiries={hasUncontactedPhysioEnquiries}
+    />
   );
 
   const backendSection = (

@@ -57,7 +57,7 @@ export function ProfileHubTextTabRow({ activeTab, onTab }: Pick<ProfileHubBarPro
             title={label}
             aria-label={label}
             className={cn(
-              "flex-1 min-w-0 px-0.5 py-2.5 text-center font-bold leading-tight transition-colors border-b-2 -mb-px whitespace-nowrap text-[11px] sm:text-xs",
+              "flex-1 min-w-0 px-0.5 py-3 text-center font-bold leading-tight transition-colors border-b-2 -mb-px whitespace-nowrap text-xs sm:text-sm",
               active
                 ? "text-white border-blue-500"
                 : "text-zinc-500 border-transparent hover:text-zinc-300"

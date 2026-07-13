@@ -6,7 +6,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { BackButton } from "@/components/BackButton";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Mail, Phone, MapPin, X, EyeOff, MessageSquare, Zap, Star, AlertCircle, Users, GraduationCap, Activity } from "lucide-react";
+import { Mail, Phone, MapPin, X, EyeOff, MessageSquare, Zap, Star, AlertCircle } from "lucide-react";
 import {
   formatDistrictList,
   formatSubdistrictList,
@@ -30,7 +30,8 @@ import { QualificationBadges } from "@/components/qualifications/QualificationBa
 import { formatCoachServicePrice, formatPhysioServicePrice } from "@/lib/coach-pricing";
 import { GenderAvatarBadge } from "@/components/profile/GenderBadge";
 import { PhoneVerifiedAvatarBadge } from "@/components/profile/PhoneVerifiedBadge";
-import { AppChromeSticky } from "@/components/layout/AppChromeSticky";
+import { ProfileRoleTabBar } from "@/components/profile/ProfileRoleTabBar";
+import type { ProfileRole } from "@/components/profile/ProfileRolePreview";
 import { getSportCategory } from "@/lib/sports-categories";
 import { listSportMetadataEntries } from "@/lib/sport-positions";
 import { isProfileUuid, profileLink, profileSlug, profilePublicUrl } from "@/lib/profile-links";
@@ -521,19 +522,14 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
           </div>
 
           <div className="lg:col-span-8 xl:col-span-9 flex flex-col">
-            <AppChromeSticky className="mb-6">
-            <div className="bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 p-1 rounded-2xl flex w-full shadow-sm overflow-x-auto [&::-webkit-scrollbar]:hidden">
-              {hasPublicPlayer && (
-                <button onClick={() => handleTabChange("athlete")} className={`flex-1 flex flex-col items-center justify-center py-2 px-3 rounded-xl transition-all duration-300 min-w-[100px] cursor-pointer ${activeRole === "athlete" ? "bg-blue-600 text-white shadow-lg scale-[1.02]" : "text-zinc-500 hover:text-blue-400 hover:bg-slate-800/50"}`}><Users className="w-5 h-5 mb-0.5" strokeWidth={2.5} /><span className="text-[10px] md:text-xs font-black leading-tight">運動員簡歷</span></button>
-              )}
-              {hasPublicCoach && (
-                <button onClick={() => handleTabChange("coach")} className={`flex-1 flex flex-col items-center justify-center py-2 px-3 rounded-xl transition-all duration-300 min-w-[100px] cursor-pointer ${activeRole === "coach" ? "bg-orange-500 text-black shadow-lg scale-[1.02]" : "text-zinc-500 hover:text-orange-400 hover:bg-slate-800/50"}`}><GraduationCap className="w-5 h-5 mb-0.5" strokeWidth={2.5} /><span className="text-[10px] md:text-xs font-black leading-tight">教練簡介</span></button>
-              )}
-              {hasPublicPhysio && (
-                <button onClick={() => handleTabChange("physio")} className={`flex-1 flex flex-col items-center justify-center py-2 px-3 rounded-xl transition-all duration-300 min-w-[100px] cursor-pointer ${activeRole === "physio" ? "bg-green-500 text-black shadow-lg scale-[1.02]" : "text-zinc-500 hover:text-green-400 hover:bg-slate-800/50"}`}><Activity className="w-5 h-5 mb-0.5" strokeWidth={2.5} /><span className="text-[10px] md:text-xs font-black leading-tight">運動/物理治療</span></button>
-              )}
-            </div>
-            </AppChromeSticky>
+            <ProfileRoleTabBar
+              className="mb-6"
+              activeRole={activeRole as ProfileRole}
+              onRoleChange={handleTabChange}
+              showPlayer={!!hasPublicPlayer}
+              showCoach={!!hasPublicCoach}
+              showPhysio={!!hasPublicPhysio}
+            />
 
             <div className="flex-1 animate-fadeIn">
               {activeRole === "athlete" && hasPublicPlayer && (
