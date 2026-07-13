@@ -32,6 +32,7 @@ import { GenderAvatarBadge } from "@/components/profile/GenderBadge";
 import { PhoneVerifiedAvatarBadge } from "@/components/profile/PhoneVerifiedBadge";
 import { ProfileRoleTabBar } from "@/components/profile/ProfileRoleTabBar";
 import type { ProfileRole } from "@/components/profile/ProfileRolePreview";
+import { AthleteBioCard } from "@/components/profile/AthleteBioCard";
 import { getSportCategory } from "@/lib/sports-categories";
 import { listSportMetadataEntries } from "@/lib/sport-positions";
 import { isProfileUuid, profileLink, profileSlug, profilePublicUrl } from "@/lib/profile-links";
@@ -534,16 +535,7 @@ function PublicProfilePageContent({ params }: { params: Promise<{ id: string }> 
             <div className="flex-1 animate-fadeIn">
               {activeRole === "athlete" && hasPublicPlayer && (
                 <div className="space-y-6">
-                  <div className="space-y-3">
-                    <h3 className="text-sm font-black text-blue-400 uppercase tracking-wider flex items-center gap-2">
-                      <span>👤</span> 運動員 Bio
-                    </h3>
-                    <RichBody
-                      html={profile.athlete_bio}
-                      emptyText="目前尚未填寫運動員簡介。"
-                      className="text-sm leading-relaxed"
-                    />
-                  </div>
+                  <AthleteBioCard html={profile.athlete_bio} />
 
                   {(showPlayerEmail || showPlayerPhone || showPlayerWhatsapp) && (
                     <div className="bg-slate-900/40 p-4 rounded-2xl border border-slate-800/80">

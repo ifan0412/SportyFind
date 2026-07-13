@@ -12,7 +12,7 @@ export function Footer() {
 
   return (
     <>
-      <footer className="md:hidden border-t border-slate-800/60 bg-slate-950 mt-auto mb-[calc(3.5rem+env(safe-area-inset-bottom,0px))]">
+      <footer className="md:hidden border-t border-slate-800/60 bg-slate-950 mt-auto mb-[calc(4rem+env(safe-area-inset-bottom,0px))]">
         <div className="max-w-6xl mx-auto px-4 py-3">
           <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 text-[10px] font-bold text-zinc-500">
             {legalLinks.map((link) => (

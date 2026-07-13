@@ -185,7 +185,7 @@ export function MobileBottomNav() {
         ref={navRef}
         id="mobile-bottom-nav"
         aria-label="主要導覽"
-        className="mobile-bottom-nav-root md:hidden border-t border-slate-800 bg-slate-950/95 backdrop-blur-md pb-[env(safe-area-inset-bottom)]"
+        className="mobile-bottom-nav-root md:hidden border-t border-slate-800 bg-slate-950/95 backdrop-blur-md pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))]"
       >
         <div className="flex h-14 items-center px-0.5">
           <NavButton href="/" label="首頁" active={isHome}>

@@ -44,7 +44,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <MobileLoadingProvider>
             <Navbar />
 
-            <main className="flex-1 bg-slate-950 py-2 pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))] md:py-6 md:pb-6">
+            <main className="flex-1 bg-slate-950 py-2 pb-[calc(4rem+env(safe-area-inset-bottom,0px))] md:py-6 md:pb-6">
               <Providers>{children}</Providers>
             </main>
 

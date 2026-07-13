@@ -16,6 +16,7 @@ import { formatCoachServicePrice, formatPhysioServicePrice } from "@/lib/coach-p
 import { CoachRoleLabel, PhysioRoleLabel } from "@/components/profile/RoleBadges";
 import { serviceHasUncontactedEnquiry } from "@/lib/service-enquiry";
 import { ProfileRoleTabBar } from "@/components/profile/ProfileRoleTabBar";
+import { AthleteBioCard } from "@/components/profile/AthleteBioCard";
 import { QualificationBadges } from "@/components/qualifications/QualificationBadges";
 import { filterCoachQualificationTags } from "@/lib/qualifications";
 
@@ -182,16 +183,7 @@ export function ProfileRolePreview({
       <div className="flex-1 animate-fadeIn">
         {activeRole === "athlete" && showPlayer && (
           <div className="space-y-6">
-            <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 md:p-8 shadow-xl">
-              <h3 className="text-sm font-black text-blue-400 uppercase tracking-wider flex items-center gap-2 mb-2">
-                <span>👤</span> 運動員 Bio
-              </h3>
-              <RichBody
-                html={profile.athlete_bio}
-                emptyText="目前尚未填寫運動員簡介。"
-                className="text-sm leading-relaxed"
-              />
-            </div>
+            <AthleteBioCard html={profile.athlete_bio} />
 
             {(profile.contact_email || profile.contact_phone || profile.player_whatsapp) && (
               <div className="flex flex-wrap items-center gap-2 bg-slate-900/40 p-3.5 rounded-2xl border border-slate-800/80 text-xs">

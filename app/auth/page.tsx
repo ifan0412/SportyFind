@@ -263,7 +263,7 @@ export default function AuthPage() {
       ref={pageRef}
       className={`bg-pro-slate-950 flex justify-center min-h-screen md:items-center md:p-4 ${
         isSignUp
-          ? "max-md:fixed max-md:inset-x-0 max-md:top-14 max-md:bottom-0 max-md:z-40 max-md:overflow-y-auto max-md:overscroll-y-contain max-md:items-start max-md:px-4 max-md:pt-4 max-md:pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))]"
+          ? "max-md:fixed max-md:inset-x-0 max-md:top-14 max-md:bottom-0 max-md:z-40 max-md:overflow-y-auto max-md:overscroll-y-contain max-md:items-start max-md:px-4 max-md:pt-4 max-md:pb-[calc(4rem+env(safe-area-inset-bottom,0px))]"
           : "max-md:fixed max-md:inset-x-0 max-md:top-14 max-md:bottom-0 max-md:z-40 max-md:overflow-hidden max-md:items-center max-md:p-4"
       }`}
     >

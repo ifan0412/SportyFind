@@ -36,7 +36,7 @@ export function MobileSettingsSheet({ open, onClose, user }: MobileSettingsSheet
   if (!open) return null;
 
   return (
-    <div className="fixed inset-x-0 top-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] z-[95] md:hidden flex flex-col bg-slate-950">
+    <div className="fixed inset-x-0 top-0 bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] z-[95] md:hidden flex flex-col bg-slate-950">
       <div className="h-14 flex items-center justify-between px-4 border-b border-slate-800 shrink-0">
         {view === "list" ? (
           <h1 className="text-sm font-black text-white">設定</h1>
