@@ -10,6 +10,7 @@ import {
 import Link from "next/link";
 import { SPORT_CATEGORIES, normalizeSportCategory } from "@/lib/sports-categories";
 import { HKDistrictPicker } from "@/components/location/HKDistrictPicker";
+import { GooglePlacesAddressInput } from "@/components/location/GooglePlacesAddressInput";
 import { normalizeDistrictIds, normalizeSubdistrictIds } from "@/lib/hk-locations";
 import { type GenderRequirement, GENDER_REQUIREMENT_OPTIONS } from "@/lib/gender";
 import { RichTextEditor } from "@/components/admin/RichTextEditor";
@@ -650,11 +651,14 @@ export default function CreateEventPage() {
 
               <div>
                 <label className="block text-xs font-black text-zinc-300 mb-2">詳細地址 / 補充地標</label>
-                <input
-                  type="text"
-                  placeholder="例：天后興發街 1 號 (天后站 A2 出口)"
+                <GooglePlacesAddressInput
                   value={locationAddress}
-                  onChange={(e) => setLocationAddress(e.target.value)}
+                  onChange={setLocationAddress}
+                  onPlaceSelect={(place) => {
+                    setLocationAddress(place.formattedAddress);
+                    setLocationName((prev) => (prev.trim() ? prev : place.name || prev));
+                  }}
+                  placeholder="輸入地址並選建議，或自行填寫（例：天后興發街 1 號）"
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500 transition"
                 />
               </div>

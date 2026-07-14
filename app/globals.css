@@ -485,3 +485,35 @@ select,
     background-size: 16px;
   }
 }
+
+/* Google Places Autocomplete dropdown above form cards */
+.pac-container {
+  z-index: 10050 !important;
+  border-radius: 12px;
+  border: 1px solid #1e293b;
+  background: #0f172a;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  margin-top: 4px;
+  font-family: inherit;
+}
+
+.pac-item {
+  border-top: 1px solid #1e293b;
+  color: #e2e8f0;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.pac-item:hover,
+.pac-item-selected {
+  background: #1e293b;
+}
+
+.pac-item-query {
+  color: #fff;
+  font-weight: 700;
+}
+
+.pac-matched {
+  color: #60a5fa;
+}

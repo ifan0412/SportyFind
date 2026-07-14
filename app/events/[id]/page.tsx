@@ -7,7 +7,7 @@ import { safeSupabaseQuery } from "@/lib/supabase/safe-query";
 import { useAuth } from "@/components/SupabaseProvider";
 import { 
   Calendar, MapPin, Users, Shield, Trophy, AlertTriangle, 
-  UserCheck, ArrowLeft, Loader2, User as UserIcon, Trash2, Pencil
+  UserCheck, ArrowLeft, Loader2, User as UserIcon, Trash2, Pencil, ExternalLink
 } from "lucide-react";
 import Link from "next/link";
 import EventLobbyBoard from "@/components/EventLobbyBoard";
@@ -34,6 +34,7 @@ import {
 import { callUpsertIndividualRsvp, getJoinBlockReason } from "@/lib/event-rsvp";
 import { RichTextEditor } from "@/components/admin/RichTextEditor";
 import { RichBody } from "@/components/content/RichBody";
+import { eventMapQuery, googleMapsSearchUrl } from "@/lib/google-maps";
 import {
   genderMeetsRequirement,
   genderRequirementRejectMessage,
@@ -63,9 +64,10 @@ export default function EventDetailPage() {
   
   const [isLoading, setIsLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
-  const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [isEditingDetails, setIsEditingDetails] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
-  const [isSavingDescription, setIsSavingDescription] = useState(false);
+  const [isSavingDetails, setIsSavingDetails] = useState(false);
 
   // 報名互動表單狀態
   const [companionCount, setCompanionCount] = useState(0);
@@ -493,22 +495,34 @@ export default function EventDetailPage() {
     }
   };
 
-  const handleSaveDescription = async () => {
+  const handleSaveDetails = async () => {
     if (!isCreator) return;
-    setIsSavingDescription(true);
+    const nextTitle = editTitle.trim();
+    if (!nextTitle) {
+      toast.error("活動名稱不可空白");
+      return;
+    }
+    setIsSavingDetails(true);
     try {
       const { error } = await supabase
         .from("events")
-        .update({ description: editDescription.trim() || null })
+        .update({
+          title: nextTitle,
+          description: editDescription.trim() || null,
+        })
         .eq("id", eventId);
       if (error) throw error;
-      setEvent((prev: any) => ({ ...prev, description: editDescription.trim() || null }));
-      setIsEditingDescription(false);
-      toast.success("活動介紹已更新！");
+      setEvent((prev: any) => ({
+        ...prev,
+        title: nextTitle,
+        description: editDescription.trim() || null,
+      }));
+      setIsEditingDetails(false);
+      toast.success("活動名稱與介紹已更新！");
     } catch (err: any) {
       toast.error("儲存失敗: " + (err.message || "未知錯誤"));
     } finally {
-      setIsSavingDescription(false);
+      setIsSavingDetails(false);
     }
   };
 
@@ -859,7 +873,21 @@ export default function EventDetailPage() {
             )}
           </div>
 
-          <h1 className="text-2xl sm:text-4xl font-black tracking-tight mb-2">{event.title}</h1>
+          {isEditingDetails ? (
+            <div className="mb-5 space-y-2">
+              <label className="block text-xs font-bold text-zinc-500">活動名稱</label>
+              <input
+                type="text"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                maxLength={120}
+                placeholder="活動名稱"
+                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-lg sm:text-2xl font-black text-white focus:outline-none focus:border-blue-500 transition"
+              />
+            </div>
+          ) : (
+            <h1 className="text-2xl sm:text-4xl font-black tracking-tight mb-2">{event.title}</h1>
+          )}
 
           {organizerHref ? (
             <Link href={organizerHref} className="inline-flex items-center gap-2.5 mb-5 group cursor-pointer">
@@ -880,7 +908,31 @@ export default function EventDetailPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-zinc-300 bg-slate-950/60 p-4 rounded-2xl border border-slate-800/80 mb-6">
             <div className="flex items-center gap-3"><Calendar className="w-5 h-5 text-blue-400 shrink-0" /><div><div className="text-xs text-zinc-500 font-bold">活動時間</div><div className="font-extrabold text-white">{formatEventPeriod(event.start_time, event.end_time)}</div></div></div>
-            <div className="flex items-center gap-3"><MapPin className="w-5 h-5 text-red-400 shrink-0" /><div><div className="text-xs text-zinc-500 font-bold">舉辦場地</div><div className="font-extrabold text-white">{event.location_name}</div>{event.location_address && <div className="text-xs text-zinc-400">{event.location_address}</div>}</div></div>
+            <div className="flex items-start gap-3">
+              <MapPin className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+              <div className="min-w-0 flex-1">
+                <div className="text-xs text-zinc-500 font-bold">舉辦場地</div>
+                <div className="font-extrabold text-white">{event.location_name}</div>
+                {event.location_address && (
+                  <div className="text-xs text-zinc-400">{event.location_address}</div>
+                )}
+                {(() => {
+                  const mapQ = eventMapQuery(event.location_name, event.location_address);
+                  if (!mapQ) return null;
+                  return (
+                    <a
+                      href={googleMapsSearchUrl(mapQ)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[11px] font-black text-blue-300 hover:text-blue-200 transition"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      地圖
+                    </a>
+                  );
+                })()}
+              </div>
+            </div>
             
             <div className="flex items-center gap-3">
               <Users className="w-5 h-5 text-emerald-400 shrink-0" />
@@ -907,8 +959,9 @@ export default function EventDetailPage() {
           </div>
 
           <div className="space-y-3">
-            {isEditingDescription ? (
+            {isEditingDetails ? (
               <div className="bg-slate-950/30 p-4 rounded-2xl border border-slate-800/40 space-y-3">
+                <label className="block text-xs font-bold text-zinc-500">活動介紹</label>
                 <RichTextEditor
                   value={editDescription}
                   onChange={setEditDescription}
@@ -916,12 +969,14 @@ export default function EventDetailPage() {
                   variant="compact"
                   minHeight="180px"
                 />
+                <p className="text-[10px] text-zinc-600">日期、時間與地點建立後不可在此修改。</p>
                 <div className="flex justify-end gap-2">
                   <button
                     type="button"
-                    disabled={isSavingDescription}
+                    disabled={isSavingDetails}
                     onClick={() => {
-                      setIsEditingDescription(false);
+                      setIsEditingDetails(false);
+                      setEditTitle(event.title || "");
                       setEditDescription(event.description || "");
                     }}
                     className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-zinc-300 text-xs font-bold transition cursor-pointer"
@@ -930,12 +985,12 @@ export default function EventDetailPage() {
                   </button>
                   <button
                     type="button"
-                    disabled={isSavingDescription}
-                    onClick={handleSaveDescription}
+                    disabled={isSavingDetails}
+                    onClick={handleSaveDetails}
                     className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 text-white text-xs font-black transition flex items-center gap-1.5 cursor-pointer"
                   >
-                    {isSavingDescription ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-                    儲存介紹
+                    {isSavingDetails ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                    儲存名稱與介紹
                   </button>
                 </div>
               </div>
@@ -954,13 +1009,14 @@ export default function EventDetailPage() {
                   <button
                     type="button"
                     onClick={() => {
+                      setEditTitle(event.title || "");
                       setEditDescription(event.description || "");
-                      setIsEditingDescription(true);
+                      setIsEditingDetails(true);
                     }}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold text-zinc-300 hover:text-white transition cursor-pointer"
                   >
                     <Pencil className="w-3.5 h-3.5" />
-                    編輯活動介紹
+                    編輯名稱與介紹
                   </button>
                 )}
               </>

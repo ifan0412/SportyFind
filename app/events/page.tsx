@@ -30,6 +30,9 @@ import {
   sportFilterCategory,
 } from "@/components/filters/filter-helpers";
 import type { MobileFilterValues } from "@/components/filters/types";
+import { ShareMenu } from "@/components/share/ShareMenu";
+import type { SharePayload } from "@/lib/share-payload";
+import { formatEventPeriod } from "@/lib/event-datetime";
 
 const REG_TYPE_OPTIONS = [
   { id: "all", label: "全部" },
@@ -323,27 +326,61 @@ export default function EventsLobbyPage() {
               const organizerAvatarUrl = ev.organizer_team?.logo_url || ev.creator_profile?.avatar_url || null;
               const isTeamOrganizer = Boolean(ev.organizer_team);
 
+              const districtLabel = formatDistrictList(normalizeDistrictIds(ev.districts, null), 2);
+              const venueName = (ev.location_name || "").trim();
+              const locationLine = [districtLabel, venueName].filter(Boolean).join(" · ") || "地點待定";
+
+              const sharePayload: SharePayload = {
+                type: "event",
+                id: ev.id,
+                url:
+                  typeof window !== "undefined"
+                    ? `${window.location.origin}/events/${ev.id}`
+                    : `/events/${ev.id}`,
+                title: ev.title,
+                subtitle: `${formatEventPeriod(ev.start_time, ev.end_time)} · ${venueName || locationLine}`,
+                imageUrl: ev.cover_image_url || undefined,
+              };
+
               return (
-                <Link
+                <div
                   key={ev.id}
-                  href={`/events/${ev.id}`}
-                  className="bg-slate-900/60 border border-slate-800 hover:border-blue-500/40 rounded-3xl p-6 transition duration-300 group hover:-translate-y-1 shadow-md hover:shadow-xl flex flex-col justify-between cursor-pointer"
+                  className="relative bg-slate-900/60 border border-slate-800 hover:border-blue-500/40 rounded-3xl p-6 transition duration-300 group hover:-translate-y-1 shadow-md hover:shadow-xl flex flex-col justify-between"
                 >
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-black px-3 py-1 rounded-full">
-                        {(() => {
-                          const sport = getSportCategory(ev.sport_category);
-                          return sport ? `${sport.emoji} ${sport.labelZh}` : "⚡ 運動";
-                        })()}
-                      </span>
-                      <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black border ${
-                        ev.registration_type === "individual"
-                          ? "bg-purple-950/40 text-purple-300 border-purple-500/30"
-                          : "bg-red-950/40 text-red-300 border-red-500/30"
-                      }`}>
-                        {ev.registration_type === "individual" ? "👤 個人" : "🛡️ 團隊"}
-                      </span>
+                  <Link
+                    href={`/events/${ev.id}`}
+                    className="absolute inset-0 z-0 rounded-3xl"
+                    aria-label={`查看活動：${ev.title}`}
+                  />
+
+                  <div className="relative z-10 space-y-4 pointer-events-none">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+                        <span className="bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-black px-3 py-1 rounded-full">
+                          {(() => {
+                            const sport = getSportCategory(ev.sport_category);
+                            return sport ? `${sport.emoji} ${sport.labelZh}` : "⚡ 運動";
+                          })()}
+                        </span>
+                        <span
+                          className={`px-2.5 py-1 rounded-full text-[10px] font-black border ${
+                            ev.registration_type === "individual"
+                              ? "bg-purple-950/40 text-purple-300 border-purple-500/30"
+                              : "bg-red-950/40 text-red-300 border-red-500/30"
+                          }`}
+                        >
+                          {ev.registration_type === "individual" ? "👤 個人" : "🛡️ 團隊"}
+                        </span>
+                      </div>
+                      <div
+                        className="pointer-events-auto shrink-0 -mt-0.5"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }}
+                      >
+                        <ShareMenu payload={sharePayload} label="分享" />
+                      </div>
                     </div>
 
                     <h3 className="text-lg font-black text-white group-hover:text-blue-400 transition line-clamp-2">
@@ -355,16 +392,14 @@ export default function EventsLobbyPage() {
                         <Calendar className="w-4 h-4 text-blue-400 shrink-0" />
                         <span className="font-bold text-zinc-200 truncate">{formatDateTime(ev.start_time)}</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <MapPin className="w-4 h-4 text-red-400 shrink-0" />
-                        <span className="truncate">
-                          {formatDistrictList(normalizeDistrictIds(ev.districts, null), 2) || ev.location_name}
-                        </span>
+                      <div className="flex items-start gap-2">
+                        <MapPin className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                        <span className="line-clamp-2 leading-snug">{locationLine}</span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="pt-4 mt-5 border-t border-slate-800/80 flex items-center justify-between gap-3">
+                  <div className="relative z-10 pointer-events-none pt-4 mt-5 border-t border-slate-800/80 flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2 min-w-0">
                       <div
                         className="w-6 h-6 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center shrink-0 overflow-hidden bg-cover bg-center"
@@ -392,7 +427,7 @@ export default function EventsLobbyPage() {
                       )}
                     </div>
                   </div>
-                </Link>
+                </div>
               );
             })}
           </div>
