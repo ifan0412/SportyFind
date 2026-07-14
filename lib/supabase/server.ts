@@ -7,12 +7,15 @@ export async function createClient() {
   const { url, anonKey } = getSupabaseEnv();
   return createServerClient(url, anonKey, {
       cookieOptions: getSupabaseAuthCookieOptions(),
-      cookies: {
-        getAll() { return cookieStore.getAll(); },
-        setAll(cookiesToSet) {
+    cookies: {
+      getAll() { return cookieStore.getAll(); },
+      setAll(cookiesToSet) {
+        try {
           cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options));
-        },
+        } catch {
+          // Called from Server Components / generateMetadata where cookies are read-only.
+        }
       },
-    }
-  );
+    },
+  });
 }

@@ -1,31 +1,36 @@
 import type { Metadata } from "next";
-import { createClient } from "@/lib/supabase/server";
 import { SITE } from "@/lib/site";
 import {
   formatEventShareDescription,
   getSiteOrigin,
 } from "@/lib/event-datetime";
+import { fetchEventForShareMetadata } from "@/lib/supabase/public";
 import EventDetailClient from "./EventDetailClient";
 
 interface PageProps {
   params: Promise<{ id: string }>;
 }
 
+export const dynamic = "force-dynamic";
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { id } = await params;
   const origin = getSiteOrigin();
-  const supabase = await createClient();
-
-  const { data } = await supabase
-    .from("events")
-    .select("id, title, start_time, end_time, location_name, location_address, cover_image_url, status")
-    .eq("id", id)
-    .maybeSingle();
+  const data = await fetchEventForShareMetadata(id);
 
   if (!data) {
     return {
-      title: `活動未找到 | ${SITE.name}`,
-      description: "此賽事／活動不存在或已下架。",
+      title: `賽事／活動 | ${SITE.name}`,
+      description: `${SITE.name} — 一站式運動約戰與社群網絡`,
+      openGraph: {
+        title: SITE.name,
+        description: `${SITE.name} — 一站式運動約戰與社群網絡`,
+        url: `${origin}/events/${id}`,
+        siteName: SITE.name,
+        type: "website",
+        locale: "zh_HK",
+        images: [{ url: `${origin}/icon-512.png`, alt: SITE.name }],
+      },
     };
   }
 

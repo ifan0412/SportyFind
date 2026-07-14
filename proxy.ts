@@ -19,6 +19,14 @@ function isGateExemptPath(pathname: string): boolean {
   );
 }
 
+/** Let WhatsApp / Facebook / etc. scrape OG tags without the site gate. */
+function isSocialCrawler(userAgent: string | null): boolean {
+  if (!userAgent) return false;
+  return /whatsapp|facebookexternalhit|facebot|twitterbot|linkedinbot|slackbot|discordbot|telegrambot|bingpreview|googlebot/i.test(
+    userAgent
+  );
+}
+
 export async function proxy(req: NextRequest) {
   let response = NextResponse.next({
     request: {
