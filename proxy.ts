@@ -37,7 +37,12 @@ export async function proxy(req: NextRequest) {
   const pathname = req.nextUrl.pathname;
 
   const gatePassword = getSiteGatePassword();
-  if (isSiteGateEnabled() && gatePassword && !isGateExemptPath(pathname)) {
+  if (
+    isSiteGateEnabled() &&
+    gatePassword &&
+    !isGateExemptPath(pathname) &&
+    !isSocialCrawler(req.headers.get("user-agent"))
+  ) {
     const gateCookie = req.cookies.get(GATE_COOKIE_NAME)?.value;
     if (!verifyGateCookie(gateCookie, gatePassword)) {
       const gateUrl = new URL("/gate", req.url);
