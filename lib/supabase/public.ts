@@ -48,7 +48,7 @@ async function fetchEventWithKey(
   eventId: string
 ): Promise<{ row: EventShareRow | null; status: number; errorText: string }> {
   const select =
-    "id,title,start_time,end_time,location_name,location_address,cover_image_url,status";
+    "id,title,start_time,end_time,location_name,location_address,status";
   const endpoint = `${baseUrl}/rest/v1/events?id=eq.${encodeURIComponent(eventId)}&select=${select}`;
 
   const res = await fetch(endpoint, {
@@ -65,9 +65,13 @@ async function fetchEventWithKey(
     return { row: null, status: res.status, errorText: body.slice(0, 400) };
   }
 
-  const rows = (await res.json()) as EventShareRow[];
+  const rows = (await res.json()) as Omit<EventShareRow, "cover_image_url">[];
   const row = Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
-  return { row, status: res.status, errorText: "" };
+  return {
+    row: row ? { ...row, cover_image_url: null } : null,
+    status: res.status,
+    errorText: "",
+  };
 }
 
 /**
