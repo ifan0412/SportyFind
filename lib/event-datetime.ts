@@ -50,6 +50,9 @@ export function getSiteOrigin(): string {
   const site = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "");
   if (site) return site;
   const vercel = process.env.VERCEL_URL?.replace(/\/$/, "");
-  if (vercel) return vercel.startsWith("http") ? vercel : `https://${vercel}`;
-  return "https://sporty-find.vercel.app";
+  // Avoid ephemeral deploy aliases (SSO / noindex) for public links when possible.
+  if (vercel && !vercel.includes(".vercel.app")) {
+    return vercel.startsWith("http") ? vercel : `https://${vercel}`;
+  }
+  return "https://sporty-find.com";
 }
